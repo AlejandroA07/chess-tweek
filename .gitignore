@@ -1,0 +1,24 @@
+# macOS metadata
+.DS_Store
+
+# Local project documentation and design references
+/docs/
+
+# Dependencies and package-manager state
+/node_modules/
+/.pnpm-store/
+
+# Application output
+/.next/
+/out/
+/coverage/
+/playwright-report/
+/test-results/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+/var/

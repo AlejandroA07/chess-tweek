@@ -1,60 +1,210 @@
-.workspace {
+.shell {
   min-height: 100vh;
   display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  background: var(--color-canvas);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-3);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface-warm);
+}
+
+.brand {
+  min-height: 4.5rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.brandMark {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  flex: 0 0 auto;
   place-items: center;
-  padding: var(--space-6);
-  background-color: var(--color-workspace);
-  background-image:
-    linear-gradient(45deg, var(--color-checker) 25%, transparent 25%),
-    linear-gradient(-45deg, var(--color-checker) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, var(--color-checker) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--color-checker) 75%);
-  background-position: 0 0, 0 16px, 16px -16px, -16px 0;
-  background-size: 32px 32px;
-}
-
-.card {
-  width: min(100%, 38rem);
-  padding: var(--space-8);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-panel);
-}
-
-.eyebrow {
-  margin: 0 0 var(--space-2);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
   color: var(--color-primary);
+  background-color: var(--color-surface);
+  background-image:
+    linear-gradient(45deg, rgb(245 211 189 / 45%) 25%, transparent 25%),
+    linear-gradient(-45deg, rgb(245 211 189 / 45%) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgb(245 211 189 / 45%) 75%),
+    linear-gradient(-45deg, transparent 75%, rgb(245 211 189 / 45%) 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+  font-family: var(--font-technical);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.04em;
+}
+
+.brand strong,
+.brand small,
+.account strong,
+.account small {
+  display: block;
+}
+
+.brand strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.35;
+}
+
+.brand small {
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.card h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2.25rem, 8vw, 4rem);
-  line-height: 1;
+.navigation {
+  margin-top: var(--space-5);
 }
 
-.summary {
-  margin: var(--space-4) 0 var(--space-6);
+.navigation ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navLink {
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid transparent;
+  border-radius: var(--radius-control);
   color: var(--color-text-muted);
-  font-size: 1.0625rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.navLink:hover {
+  color: var(--color-text);
+  background: rgb(255 255 255 / 55%);
+}
+
+.navLink[aria-current='page'] {
+  border-left-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-surface-subtle);
+  font-weight: 700;
+}
+
+.navIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+.account {
+  min-height: 4.5rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.accountIndicator {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  border: 2px solid var(--color-surface-warm);
+  border-radius: 999px;
+  outline: 1px solid var(--color-border-strong);
+  background: var(--color-text-muted);
+}
+
+.account strong {
+  font-size: 0.875rem;
+}
+
+.account small {
+  margin-top: 0.125rem;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.mainFrame {
+  min-width: 0;
+}
+
+.topBar {
+  min-height: 5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) clamp(var(--space-4), 4vw, var(--space-8));
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.topBar p {
+  margin: 0;
+}
+
+.topBar > div > p {
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.topBar h1 {
+  margin: 0.125rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3vw, 2rem);
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .status {
+  min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-muted);
+  background: var(--color-surface-subtle);
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
 .status span {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 0.625rem;
+  height: 0.625rem;
   border-radius: 999px;
   background: var(--color-warning);
 }
@@ -65,4 +215,132 @@
 
 .status[data-state='offline'] span {
   background: var(--color-error);
+}
+
+.workspace {
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 5rem);
+  padding: clamp(var(--space-4), 5vw, var(--space-8));
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.workspace::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: '';
+  background-image:
+    linear-gradient(45deg, var(--color-pattern-square) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-pattern-square) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-pattern-square) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-pattern-square) 75%);
+  background-position: 0 0, 0 32px, 32px -32px, -32px 0;
+  background-size: 64px 64px;
+  opacity: 0.1;
+}
+
+.placeholder {
+  width: min(100%, 48rem);
+  padding: clamp(var(--space-5), 5vw, var(--space-8));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-2);
+  color: var(--color-primary);
+  font-family: var(--font-technical);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.placeholder h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 5vw, 2rem);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.placeholder > p:last-child {
+  max-width: 38rem;
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 767px) {
+  .shell {
+    display: block;
+  }
+
+  .sidebar {
+    position: relative;
+    min-height: 0;
+    padding-bottom: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .brand {
+    min-height: 4rem;
+  }
+
+  .navigation {
+    margin-top: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .navigation ul {
+    display: flex;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .navLink {
+    border-bottom: 4px solid transparent;
+    border-left: 0;
+    white-space: nowrap;
+  }
+
+  .navLink[aria-current='page'] {
+    border-bottom-color: var(--color-primary);
+  }
+
+  .account {
+    display: none;
+  }
+
+  .topBar {
+    min-height: 4.5rem;
+    padding-inline: var(--space-4);
+  }
+
+  .status {
+    width: 2.75rem;
+    padding: 0;
+    justify-content: center;
+    overflow: hidden;
+    color: transparent;
+    white-space: nowrap;
+  }
+
+  .status span {
+    flex: 0 0 auto;
+  }
+
+  .workspace {
+    min-height: calc(100vh - 12rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navLink {
+    transition: none;
+  }
 }

@@ -1,8 +1,8 @@
 # Development documentation
 
-**Current state:** The Stage 0 planning and design-selection baseline is ready for owner review. Chess Tweek targets macOS only. No application has been scaffolded and no implementation commands exist.
+**Current state:** Stage 0 is complete. Stage 1 checkpoint 1 establishes an executable Spring Boot and React foundation for macOS, served as one loopback-only application with an automated verification gate.
 
-This folder will hold current implementation truth once development begins. It is intentionally empty beyond this index; topic documents and dated branch reports will be added only when real implementation exists.
+The current foundation includes Java 25, Spring Boot 4.1, Maven, React 19, strict TypeScript, Vite 8, and Node 24. Run `node scripts/verify.mjs` for the complete gate. Persistence and architecture-boundary enforcement belong to the next checkpoint.
 
 | File | What it contains | Kind |
 |---|---|---|

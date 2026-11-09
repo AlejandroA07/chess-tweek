@@ -1,6 +1,6 @@
 # Chess Tweek — Agent Guide
 
-Chess Tweek has completed its planning and design-selection gate. It will become a local-first chess training web app for macOS. The next implementation slice is the application foundation, but it must begin on its own reviewed feature branch.
+Chess Tweek is a local-first chess training web app for macOS. Stage 0 planning is complete and Stage 1 application-foundation work is in progress on its reviewed feature branch.
 
 This file is the source of truth for coding agents. Keep it aligned with the repository's current, verified state.
 
@@ -12,18 +12,27 @@ This file is the source of truth for coding agents. Keep it aligned with the rep
 | `docs/app-material/DESIGN.md` | Canonical visual system and Stage 1 design acceptance contract. |
 | `docs/app-material/` | Local prompts, owner-approved references, and supporting design exports. |
 | `docs/dev/` | Implementation truth after application work begins. |
+| `src/` | Spring Boot application and backend tests. |
+| `frontend/` | React interface and frontend tests. |
+| `scripts/verify.mjs` | Complete repository verification gate. |
 
-There is no application architecture yet. The approved future architecture is documented in `docs/planning/02-architecture.md`; Stage 1 will encode it in code and architecture tests. Every user-facing view must use `docs/app-material/DESIGN.md` as its only visual source of truth.
+The application foundation is a Spring Boot process that serves the built React interface and a local API on `127.0.0.1`. The approved architecture is documented in `docs/planning/02-architecture.md`; later Stage 1 checkpoints will add persistence, module boundaries, and architecture tests. Every user-facing view must use `docs/app-material/DESIGN.md` as its only visual source of truth.
 
 The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Flyway, and a React 19/TypeScript/Vite 8 interface. Spring Boot serves the built interface as one local macOS application bound to `127.0.0.1`.
 
 ## Commands
 
-No build, test, format, or application commands exist in Stage 0. Do not invent them. Stage 1 must scaffold the application, run every command, and only then add verified commands here and create `scripts/verify.mjs`.
+- Full verification gate: `node scripts/verify.mjs`
+- Frontend development server: `pnpm frontend:dev`
+- Frontend tests: `pnpm frontend:test`
+- Frontend production build: `pnpm frontend:build`
+- Backend tests and package: `./mvnw clean verify`
+
+Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runtime versions and is the only definition of done.
 
 ## Secrets and security
 
-- There are no project secrets in Stage 0.
+- There are no project secrets.
 - Never read, print, or commit future runtime secrets or OAuth tokens.
 - Local harness paths and future `var/` runtime data are excluded through `.git/info/exclude`.
 - All future endpoints require explicit authorization, boundary validation, safe errors, and parameterized data access.
@@ -38,6 +47,6 @@ No build, test, format, or application commands exist in Stage 0. Do not invent 
 - Never weaken or remove a test to make a gate pass.
 - Do not claim application verification before Stage 1 creates and proves `node scripts/verify.mjs`.
 
-## Stage 0 completion
+## Current stage
 
-Stage 0 is complete when the planning indexes, product specification, architecture decisions, all view prompts, and this project guide are versioned; machine-local harness implementation remains invisible to Git; and the repository has no application code or dependencies.
+Stage 0 is complete. Stage 1 checkpoint 1 provides an executable Spring Boot and React foundation, a loopback-only health endpoint, tests, a production package, and the verification gate. The next checkpoint adds the database foundation and architecture boundaries.

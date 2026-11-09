@@ -293,7 +293,7 @@ Admin exposes every project operation that exists in v1:
 ### Stage 0
 
 - `git branch --show-current` prints `feature/project-planning`.
-- `git status --short` shows only the intended repository baseline files; local harness and raw design-export files are excluded.
+- `git status --short` shows only the intended repository baseline files; the root `AGENTS.md` guide is versioned while machine-local harness implementation and raw design exports are excluded.
 - No `package.json`, application source, dependency lockfile, database, or runtime data exists.
 - Every planning folder has a `00-README.md` index.
 - The product specification contains a decision log, out-of-scope list, observable acceptance checks, and ordered checkbox slices.

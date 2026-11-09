@@ -23,7 +23,7 @@ The generated visual references are supporting material only. Product scope and 
 
 - Core text, primary, success, warning, and error color pairings were measured against WCAG contrast thresholds.
 - The exact approved checkerboard construction was recovered from the hero export and documented with safe layering instructions.
-- Local design and harness files were confirmed ignored by Git.
+- Raw local design exports and machine-local harness implementation were confirmed ignored by Git.
 
 ## Follow-ups
 

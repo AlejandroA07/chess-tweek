@@ -27,14 +27,14 @@ Deliver only:
 - Explicit non-goals and acceptance checks.
 - This ordered development backlog.
 - Fifteen standalone Google Stitch view prompts and instructions for returning selected designs.
-- A local-only, Git-excluded harness skeleton.
+- A versioned root `AGENTS.md` contract plus a local-only, Git-excluded harness implementation.
 
 Do not create an application scaffold, dependencies, lockfile, database, runtime data, or feature code.
 
 Acceptance:
 
 - The repository is `/Users/manuelalmeida/dev/chess-tweek` on `feature/project-planning`.
-- Git sees only the intended repository baseline files; local harness and raw design-export files remain excluded.
+- Git sees only the intended repository baseline files; root `AGENTS.md` is versioned while machine-local harness implementation and raw design exports remain excluded.
 - Every documentation area has a `00-README.md` index.
 - The prompt file contains all 15 planned desktop views with visible controls, interactions, and states.
 - `docs/app-material/DESIGN.md` records the approved canonical direction and implementation contract.
@@ -63,7 +63,7 @@ Acceptance:
 - Every empty route renders correctly and has an intentional state.
 - Architecture tests enforce the approved module boundaries.
 - `node scripts/verify.mjs` succeeds from a clean locked install.
-- Git contains no secrets, runtime data, or local harness files.
+- Git contains no secrets, runtime data, or machine-local harness implementation files.
 
 ## Stage 2 — Lichess connection
 

@@ -1,8 +1,10 @@
 # macOS metadata
 .DS_Store
 
-# Local project documentation and design references
-/docs/
+# Local raw design sources
+/docs/app-material/IMG_*.jpeg
+/docs/app-material/Screenshot 2026-07-22 at 01.35.49.png
+/docs/app-material/stitch-figma format/
 
 # Dependencies and package-manager state
 /node_modules/

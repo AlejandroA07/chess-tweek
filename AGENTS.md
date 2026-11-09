@@ -49,4 +49,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stage 0 is complete. Stage 1 checkpoints 1 and 2 provide the executable application, loopback-only API, lightweight SQLite/Flyway persistence, module-boundary tests, production package, and verification gate. The next checkpoint builds the shared desktop shell and intentional empty routes.
+Stage 0 is complete. Stage 1 checkpoints 1 and 2 provide the executable application, loopback-only API, lightweight SQLite/Flyway persistence, module-boundary tests, production package, and verification gate. Stage 1 checkpoint 3A adds the responsive shared shell, approved five-destination navigation, route allowlist, and canonical design tokens. The next checkpoint adds intentional empty content for each destination.

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { App } from './App'
 
 describe('App', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', '/')
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -15,10 +16,49 @@ describe('App', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows the application and backend readiness', async () => {
+  it('shows the approved shell with Dashboard selected', async () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: 'Chess Tweek' })).toBeInTheDocument()
+    const navigation = screen.getByRole('navigation', { name: 'Primary' })
+    expect(within(navigation).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Dashboard',
+      'Games',
+      'Reports',
+      'Puzzles',
+      'Admin',
+    ])
+    expect(within(navigation).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
     expect(await screen.findByText('Backend ready')).toBeInTheDocument()
+  })
+
+  it('updates the route and selected navigation item', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+
+    await waitFor(() => expect(window.location.hash).toBe('#/games'))
+    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('heading', { name: 'Games' })).toBeInTheDocument()
+  })
+
+  it('falls back to Dashboard for an unrecognized route', () => {
+    window.history.replaceState(null, '', '/#/not-an-approved-route')
+
+    render(<App />)
+
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+    expect(screen.queryByText('not-an-approved-route')).not.toBeInTheDocument()
   })
 })

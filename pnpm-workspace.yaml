@@ -1,0 +1,7 @@
+packages:
+  - frontend
+minimumReleaseAgeExclude:
+  - '@rolldown/binding-*'
+  - '@vitejs/plugin-react'
+  - rolldown
+  - vite

@@ -7,15 +7,16 @@
 /docs/app-material/stitch-figma format/
 
 # Dependencies and package-manager state
-/node_modules/
-/.pnpm-store/
+node_modules/
+.pnpm-store/
+/.mvn/repository/
 
 # Application output
-/.next/
-/out/
-/coverage/
-/playwright-report/
-/test-results/
+target/
+dist/
+coverage/
+playwright-report/
+test-results/
 
 # Local configuration and secrets
 .env

@@ -1,0 +1,1 @@
+-- Establish the versioned migration pipeline. Feature-owned tables arrive with their feature.

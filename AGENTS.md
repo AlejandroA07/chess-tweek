@@ -16,7 +16,7 @@ This file is the source of truth for coding agents. Keep it aligned with the rep
 | `frontend/` | React interface and frontend tests. |
 | `scripts/verify.mjs` | Complete repository verification gate. |
 
-The application foundation is a Spring Boot process that serves the built React interface and a local API on `127.0.0.1`. The approved architecture is documented in `docs/planning/02-architecture.md`; later Stage 1 checkpoints will add persistence, module boundaries, and architecture tests. Every user-facing view must use `docs/app-material/DESIGN.md` as its only visual source of truth.
+The application foundation is a Spring Boot process that serves the built React interface and a local API on `127.0.0.1`. SQLite persistence, Flyway migrations, and executable module boundaries are implemented under `shared.database` and `ArchitectureTest`. Every user-facing view must use `docs/app-material/DESIGN.md` as its only visual source of truth.
 
 The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Flyway, and a React 19/TypeScript/Vite 8 interface. Spring Boot serves the built interface as one local macOS application bound to `127.0.0.1`.
 
@@ -49,4 +49,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stage 0 is complete. Stage 1 checkpoint 1 provides an executable Spring Boot and React foundation, a loopback-only health endpoint, tests, a production package, and the verification gate. The next checkpoint adds the database foundation and architecture boundaries.
+Stage 0 is complete. Stage 1 checkpoints 1 and 2 provide the executable application, loopback-only API, lightweight SQLite/Flyway persistence, module-boundary tests, production package, and verification gate. The next checkpoint builds the shared desktop shell and intentional empty routes.

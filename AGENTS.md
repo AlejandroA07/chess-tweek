@@ -49,4 +49,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stages 0 and 1 are complete. The repository now has the executable loopback-only application, lightweight SQLite/Flyway persistence, enforced module boundaries, production package, canonical responsive interface, five intentional empty routes, and proven verification gate. The next slice is Stage 2: Lichess connection.
+Stages 0 and 1 are complete. Stage 2 is in progress in small, independently reviewed slices. Its first slice establishes the loopback-only Lichess authorization-start boundary with PKCE S256, an exact read-only scope, fresh state with recorded expiry, and same-origin denial tests. Callback exchange, sealed token storage, account UI, and logout belong to later slices.

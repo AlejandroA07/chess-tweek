@@ -1,10 +1,10 @@
 # Development documentation
 
-**Current state:** Stage 0 is complete. Stage 1 checkpoints 1 and 2 establish an executable Spring Boot and React foundation with lightweight SQLite persistence and enforced module boundaries. Checkpoint 3A adds the responsive shared shell and allowlisted navigation for Dashboard, Games, Reports, Puzzles, and Admin.
+**Current state:** Stage 0 is complete. Stage 1 checkpoints 1 and 2 establish an executable Spring Boot and React foundation with lightweight SQLite persistence and enforced module boundaries. Checkpoints 3A and 3B add the responsive shared shell, allowlisted navigation, and intentional empty screens for Dashboard, Games, Reports, Puzzles, and Admin.
 
 The database is a local `var/chess-tweek.db` file with Flyway migrations, WAL journaling, foreign keys, normal synchronization, a five-second busy timeout, and at most two pooled connections. Run `node scripts/verify.mjs` for the complete gate.
 
-The interface now uses the canonical design tokens and shared shell at desktop and compact widths. Each destination intentionally shares foundation content until checkpoint 3B adds its empty-screen content.
+The interface now uses the canonical design tokens and shared shell at desktop and compact widths. Each destination has its own empty first-use explanation without exposing actions that are not implemented yet.
 
 | File | What it contains | Kind |
 |---|---|---|

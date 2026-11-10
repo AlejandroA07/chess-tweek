@@ -3,13 +3,65 @@ import styles from './App.module.css'
 
 type HealthState = 'checking' | 'ready' | 'offline'
 type IconName = 'dashboard' | 'games' | 'reports' | 'puzzles' | 'admin'
+type EmptyState = { eyebrow: string; title: string; description: string }
+type Route = { href: string; icon: IconName; label: string; emptyState: EmptyState }
 
-const navigation: Array<{ href: string; icon: IconName; label: string }> = [
-  { href: '#/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { href: '#/games', icon: 'games', label: 'Games' },
-  { href: '#/reports', icon: 'reports', label: 'Reports' },
-  { href: '#/puzzles', icon: 'puzzles', label: 'Puzzles' },
-  { href: '#/admin', icon: 'admin', label: 'Admin' },
+const navigation: Route[] = [
+  {
+    href: '#/dashboard',
+    icon: 'dashboard',
+    label: 'Dashboard',
+    emptyState: {
+      eyebrow: 'Your private chess workspace',
+      title: 'No chess activity yet',
+      description:
+        'Ratings, recent games, reports, and training will appear here after you connect Lichess. Everything stays local on this Mac.',
+    },
+  },
+  {
+    href: '#/games',
+    icon: 'games',
+    label: 'Games',
+    emptyState: {
+      eyebrow: 'Local game library',
+      title: 'No games stored on this Mac',
+      description:
+        'Completed Lichess games will appear here after you connect an account and choose Get Lichess Games.',
+    },
+  },
+  {
+    href: '#/reports',
+    icon: 'reports',
+    label: 'Reports',
+    emptyState: {
+      eyebrow: 'Overall Games Analysis',
+      title: 'No saved reports yet',
+      description:
+        'Reports will appear here after exactly 10 eligible games have completed My Moves analysis.',
+    },
+  },
+  {
+    href: '#/puzzles',
+    icon: 'puzzles',
+    label: 'Puzzles',
+    emptyState: {
+      eyebrow: 'Private chess training',
+      title: 'No puzzle training yet',
+      description:
+        'Daily, mixed, and report-owned puzzle training will appear here as its source material becomes available.',
+    },
+  },
+  {
+    href: '#/admin',
+    icon: 'admin',
+    label: 'Admin',
+    emptyState: {
+      eyebrow: 'Local operations',
+      title: 'No local controls available yet',
+      description:
+        'Lichess, Stockfish, retrieval, storage, and database controls will appear here as those capabilities are implemented.',
+    },
+  },
 ]
 
 export function App() {
@@ -97,13 +149,13 @@ export function App() {
         </header>
 
         <main className={styles.workspace}>
-          <section className={styles.placeholder} aria-labelledby="workspace-title">
-            <p className={styles.eyebrow}>Your private chess workspace</p>
-            <h2 id="workspace-title">The studio foundation is ready.</h2>
-            <p>
-              Chess Tweek runs locally on this Mac. The workspace views will be added in the
-              next focused checkpoint.
-            </p>
+          <section className={styles.emptyState} aria-labelledby="workspace-title">
+            <span className={styles.emptyStateIcon}>
+              <NavIcon name={route.icon} />
+            </span>
+            <p className={styles.eyebrow}>{route.emptyState.eyebrow}</p>
+            <h2 id="workspace-title">{route.emptyState.title}</h2>
+            <p>{route.emptyState.description}</p>
           </section>
         </main>
       </div>

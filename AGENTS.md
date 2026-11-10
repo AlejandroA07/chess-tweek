@@ -49,4 +49,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stages 0 and 1 are complete. Stage 2 is in progress in small, independently reviewed slices. Authorization start and callback exchange now enforce PKCE S256, one-time expiring state, fixed Lichess endpoints, bounded inputs, and safe failure responses. Access tokens are sealed into a Secure, HttpOnly, SameSite cookie using an owner-only local key and never enter SQLite. Session status, account identity, logout, and account UI belong to later slices.
+Stages 0 and 1 are complete. Stage 2 is in progress in small, independently reviewed slices. Authorization start, callback exchange, sealed-session validation, current account status, and logout are implemented behind fixed Lichess endpoints and safe failure responses. Access tokens remain inside a Secure, HttpOnly, SameSite cookie sealed with an owner-only local key and never enter SQLite or API response bodies. The next slice is the account connection UI and real owner OAuth acceptance check.

@@ -1,11 +1,8 @@
 package com.chesstweek.identity;
 
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.time.Duration;
 
 import org.springframework.http.MediaType;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -20,21 +17,11 @@ final class HttpLichessTokenClient implements LichessTokenClient {
     private final RestClient restClient;
 
     HttpLichessTokenClient() {
-        this(defaultRestClient());
+        this(LichessHttpClientFactory.create());
     }
 
     HttpLichessTokenClient(RestClient restClient) {
         this.restClient = restClient;
-    }
-
-    private static RestClient defaultRestClient() {
-        var httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
-        var requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(Duration.ofSeconds(10));
-        return RestClient.builder().requestFactory(requestFactory).build();
     }
 
     @Override

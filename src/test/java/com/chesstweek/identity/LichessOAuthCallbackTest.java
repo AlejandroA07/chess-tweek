@@ -29,7 +29,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -93,9 +92,10 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "valid_code_123")
                         .queryParam("state", wrongState))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=invalid#/dashboard"))
                 .andExpect(header().doesNotExist("Set-Cookie"))
-                .andExpect(jsonPath("$.error").value("invalid_oauth_callback"));
+                .andExpect(header().string("Referrer-Policy", "no-referrer"));
 
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "valid_code_123")
@@ -117,7 +117,8 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "valid_code_123")
                         .queryParam("state", state))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=invalid#/dashboard"))
                 .andExpect(header().doesNotExist("Set-Cookie"));
 
         assertThat(tokenClient.exchangeCount).isEqualTo(1);
@@ -134,7 +135,8 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "valid_code_123")
                         .queryParam("state", state))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=invalid#/dashboard"))
                 .andExpect(header().doesNotExist("Set-Cookie"));
 
         assertThat(tokenClient.exchangeCount).isZero();
@@ -151,10 +153,10 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "valid_code_123")
                         .queryParam("state", state))
-                .andExpect(status().isBadGateway())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=unavailable#/dashboard"))
                 .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(header().doesNotExist("Set-Cookie"))
-                .andExpect(jsonPath("$.error").value("lichess_unavailable"));
+                .andExpect(header().doesNotExist("Set-Cookie"));
     }
 
     @Test
@@ -167,10 +169,10 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("error", "access_denied")
                         .queryParam("state", state))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=cancelled#/dashboard"))
                 .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(header().doesNotExist("Set-Cookie"))
-                .andExpect(jsonPath("$.error").value("authorization_cancelled"));
+                .andExpect(header().doesNotExist("Set-Cookie"));
 
         assertThat(tokenClient.exchangeCount).isZero();
     }
@@ -217,7 +219,8 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "a".repeat(513))
                         .queryParam("state", state))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=invalid#/dashboard"))
                 .andExpect(header().doesNotExist("Set-Cookie"));
 
         assertThat(tokenClient.exchangeCount).isZero();
@@ -238,9 +241,10 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "expired_code_123")
                         .queryParam("state", state))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=invalid#/dashboard"))
                 .andExpect(header().doesNotExist("Set-Cookie"))
-                .andExpect(jsonPath("$.error").value("invalid_oauth_callback"));
+                .andExpect(header().string("Cache-Control", "no-store"));
 
         upstream.verify();
     }
@@ -261,7 +265,8 @@ class LichessOAuthCallbackTest {
         mockMvc.perform(get("/api/lichess/callback")
                         .queryParam("code", "valid_code_123")
                         .queryParam("state", state))
-                .andExpect(status().isBadGateway())
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "/?lichess=unavailable#/dashboard"))
                 .andExpect(header().doesNotExist("Set-Cookie"));
 
         assertThat(Files.readString(externalKey)).isEqualTo("unchanged");

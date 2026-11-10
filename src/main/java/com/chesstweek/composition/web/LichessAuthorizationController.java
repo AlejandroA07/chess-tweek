@@ -19,8 +19,6 @@ import com.chesstweek.identity.LichessAuthorizationService;
 @RestController
 public final class LichessAuthorizationController {
 
-    private static final String LOCAL_ORIGIN = "http://127.0.0.1:8080";
-
     private final LichessAuthorizationService authorizationService;
 
     public LichessAuthorizationController(LichessAuthorizationService authorizationService) {
@@ -29,7 +27,7 @@ public final class LichessAuthorizationController {
 
     @PostMapping("/api/lichess/authorize")
     public ResponseEntity<Void> authorize(HttpServletRequest request) {
-        if (!isTrustedInitiation(request)) {
+        if (!LoopbackRequestPolicy.isSameOrigin(request)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -79,16 +77,6 @@ public final class LichessAuthorizationController {
                 .header(HttpHeaders.LOCATION, "/#/dashboard")
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .build();
-    }
-
-    private static boolean isTrustedInitiation(HttpServletRequest request) {
-        String fetchSite = request.getHeader("Sec-Fetch-Site");
-        if (fetchSite != null && fetchSite.equalsIgnoreCase("cross-site")) {
-            return false;
-        }
-
-        String origin = request.getHeader(HttpHeaders.ORIGIN);
-        return LOCAL_ORIGIN.equals(origin);
     }
 
     public record CallbackError(String error) {}

@@ -16,4 +16,4 @@ The callback is anonymous because it completes authentication. Its one-time stat
 
 ## Deferred
 
-The next backend slice opens and validates the sealed session, exposes minimal connection status, retrieves the current Lichess account, and implements logout/revocation. Account UI follows that contract.
+The next backend slice opens and validates the sealed session, exposes minimal connection status, retrieves the current Lichess account, and implements logout/revocation. It is recorded in the next dated report; account UI follows that contract.

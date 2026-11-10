@@ -61,4 +61,24 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
     expect(screen.queryByText('not-an-approved-route')).not.toBeInTheDocument()
   })
+
+  it('shows an intentional empty state for every approved destination', async () => {
+    render(<App />)
+
+    const destinations = [
+      ['Dashboard', 'No chess activity yet'],
+      ['Games', 'No games stored on this Mac'],
+      ['Reports', 'No saved reports yet'],
+      ['Puzzles', 'No puzzle training yet'],
+      ['Admin', 'No local controls available yet'],
+    ] as const
+
+    for (const [destination, emptyStateHeading] of destinations) {
+      fireEvent.click(screen.getByRole('link', { name: destination }))
+
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { name: emptyStateHeading })).toBeInTheDocument(),
+      )
+    }
+  })
 })

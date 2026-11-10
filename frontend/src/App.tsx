@@ -67,9 +67,13 @@ const navigation: Route[] = [
 export function App() {
   const [health, setHealth] = useState<HealthState>('checking')
   const [route, setRoute] = useState(currentRoute)
+  const [navigationOpen, setNavigationOpen] = useState(false)
 
   useEffect(() => {
-    const updateRoute = () => setRoute(currentRoute())
+    const updateRoute = () => {
+      setRoute(currentRoute())
+      setNavigationOpen(false)
+    }
     window.addEventListener('hashchange', updateRoute)
     return () => window.removeEventListener('hashchange', updateRoute)
   }, [])
@@ -100,17 +104,42 @@ export function App() {
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
-        <a className={styles.brand} href="#/dashboard" aria-label="Chess Tweek Dashboard">
-          <span className={styles.brandMark} aria-hidden="true">
-            CT
-          </span>
-          <span>
-            <strong>Chess Tweek</strong>
-            <small>Analysis Studio</small>
-          </span>
-        </a>
+        <div className={styles.sidebarHeader}>
+          <a
+            className={styles.brand}
+            href="#/dashboard"
+            aria-label="Chess Tweek Dashboard"
+            onClick={() => setNavigationOpen(false)}
+          >
+            <span className={styles.brandMark} aria-hidden="true">
+              CT
+            </span>
+            <span>
+              <strong>Chess Tweek</strong>
+              <small>Analysis Studio</small>
+            </span>
+          </a>
 
-        <nav className={styles.navigation} aria-label="Primary">
+          <button
+            className={styles.navigationToggle}
+            type="button"
+            aria-label={navigationOpen ? 'Close navigation' : 'Open navigation'}
+            aria-controls="primary-navigation"
+            aria-expanded={navigationOpen}
+            onClick={() => setNavigationOpen((open) => !open)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d={navigationOpen ? 'M5 5l14 14M19 5 5 19' : 'M4 7h16M4 12h16M4 17h16'} />
+            </svg>
+          </button>
+        </div>
+
+        <nav
+          id="primary-navigation"
+          className={styles.navigation}
+          aria-label="Primary"
+          data-open={navigationOpen}
+        >
           <ul>
             {navigation.map((item) => (
               <li key={item.href}>
@@ -118,6 +147,7 @@ export function App() {
                   className={styles.navLink}
                   href={item.href}
                   aria-current={item.href === route.href ? 'page' : undefined}
+                  onClick={() => setNavigationOpen(false)}
                 >
                   <NavIcon name={item.icon} />
                   <span>{item.label}</span>

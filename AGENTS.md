@@ -1,6 +1,6 @@
 # Chess Tweek — Agent Guide
 
-Chess Tweek is a local-first chess training web app for macOS. Stage 0 planning is complete and Stage 1 application-foundation work is in progress on its reviewed feature branch.
+Chess Tweek is a local-first chess training web app for macOS. Stage 0 planning and the Stage 1 application foundation are complete; Stage 2 Lichess connection work is next.
 
 This file is the source of truth for coding agents. Keep it aligned with the repository's current, verified state.
 
@@ -18,7 +18,7 @@ This file is the source of truth for coding agents. Keep it aligned with the rep
 
 The application foundation is a Spring Boot process that serves the built React interface and a local API on `127.0.0.1`. SQLite persistence, Flyway migrations, and executable module boundaries are implemented under `shared.database` and `ArchitectureTest`. Every user-facing view must use `docs/app-material/DESIGN.md` as its only visual source of truth.
 
-The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Flyway, and a React 19/TypeScript/Vite 8 interface. Spring Boot serves the built interface as one local macOS application bound to `127.0.0.1`.
+The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Flyway, and a React 19/TypeScript/Vite 8 interface. Spring Boot serves the built interface as one local macOS application bound to `127.0.0.1`. The responsive shell uses self-hosted project fonts, a keyboard-operable compact navigation disclosure, and the five allowlisted routes.
 
 ## Commands
 
@@ -49,4 +49,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stage 0 is complete. Stage 1 checkpoints 1 and 2 provide the executable application, loopback-only API, lightweight SQLite/Flyway persistence, module-boundary tests, production package, and verification gate. Stage 1 checkpoints 3A and 3B add the responsive shared shell, approved five-destination navigation, route allowlist, canonical design tokens, and intentional empty content for every destination. The next checkpoint completes browser, accessibility, and visual-polish verification.
+Stages 0 and 1 are complete. The repository now has the executable loopback-only application, lightweight SQLite/Flyway persistence, enforced module boundaries, production package, canonical responsive interface, five intentional empty routes, and proven verification gate. The next slice is Stage 2: Lichess connection.

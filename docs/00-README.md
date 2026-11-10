@@ -8,4 +8,4 @@ This documentation separates product decisions from implementation truth and des
 | [`app-material/`](app-material/00-README.md) | Google Stitch prompts and owner-approved design references. |
 | [`dev/`](dev/00-README.md) | Current implementation truth and completed-branch reports after development begins. |
 
-The Stage 0 planning and design-selection baseline is ready for owner review. No application scaffold exists yet.
+Stage 0 planning and Stage 1 application-foundation work are complete. Stage 2 begins the Lichess connection.

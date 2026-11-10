@@ -292,4 +292,4 @@ Acceptance:
 
 ## Current stopping point
 
-The Stage 0 planning baseline and approved canonical design direction are ready for owner review. After that review, Stage 1 begins on `feature/app-foundation`. No product interface or application scaffold begins before the review.
+Stages 0 and 1 are complete. The verified local application foundation, SQLite persistence, shared responsive shell, and five intentional empty routes are ready. After owner review, Stage 2 begins the Lichess connection.

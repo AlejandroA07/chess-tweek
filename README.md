@@ -4,7 +4,7 @@ Chess Tweek is a local-first chess analysis and training application for macOS. 
 
 ## Status
 
-The project is currently preparing its macOS application foundation. It is not deployed and does not provide live-game assistance or in-app play.
+The verified macOS application foundation is complete. The next slice is the Lichess connection; the app is not deployed and does not provide live-game assistance or in-app play.
 
 ## Product principles
 

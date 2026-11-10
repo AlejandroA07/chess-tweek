@@ -81,4 +81,20 @@ describe('App', () => {
       )
     }
   })
+
+  it('toggles compact navigation and closes it after choosing a destination', async () => {
+    render(<App />)
+
+    const navigationToggle = screen.getByRole('button', { name: 'Open navigation' })
+    expect(navigationToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(navigationToggle).toHaveAttribute('aria-controls', 'primary-navigation')
+
+    fireEvent.click(navigationToggle)
+    expect(navigationToggle).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+
+    await waitFor(() => expect(navigationToggle).toHaveAttribute('aria-expanded', 'false'))
+    expect(screen.getByRole('heading', { name: 'Games' })).toBeInTheDocument()
+  })
 })

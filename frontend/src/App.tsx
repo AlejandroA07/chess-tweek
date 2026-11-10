@@ -1,10 +1,22 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import styles from './App.module.css'
 
 type HealthState = 'checking' | 'ready' | 'offline'
 type IconName = 'dashboard' | 'games' | 'reports' | 'puzzles' | 'admin'
 type EmptyState = { eyebrow: string; title: string; description: string }
 type Route = { href: string; icon: IconName; label: string; emptyState: EmptyState }
+type RatingSpeed = 'bullet' | 'blitz' | 'rapid' | 'classical' | 'correspondence'
+type LichessAccount = {
+  id: string
+  username: string
+  ratings: Record<RatingSpeed, number | null>
+}
+type SessionState =
+  | { kind: 'checking' }
+  | { kind: 'disconnected' }
+  | { kind: 'connected'; account: LichessAccount }
+  | { kind: 'unavailable' }
+type CallbackNotice = 'cancelled' | 'invalid' | 'unavailable'
 
 const navigation: Route[] = [
   {
@@ -68,6 +80,34 @@ export function App() {
   const [health, setHealth] = useState<HealthState>('checking')
   const [route, setRoute] = useState(currentRoute)
   const [navigationOpen, setNavigationOpen] = useState(false)
+  const [session, setSession] = useState<SessionState>({ kind: 'checking' })
+  const [accountAction, setAccountAction] = useState<'idle' | 'connecting' | 'logging-out'>('idle')
+  const [accountError, setAccountError] = useState<string | null>(null)
+  const [callbackNotice, setCallbackNotice] = useState<CallbackNotice | null>(readCallbackNotice)
+
+  const refreshSession = useCallback(async (signal?: AbortSignal) => {
+    setSession({ kind: 'checking' })
+    setAccountError(null)
+
+    try {
+      const response = await fetch('/api/lichess/session', {
+        credentials: 'same-origin',
+        signal,
+      })
+
+      if (response.status === 503) {
+        setSession({ kind: 'unavailable' })
+        return
+      }
+      if (!response.ok) throw new Error('Session request failed')
+
+      const body: unknown = await response.json()
+      setSession(parseSession(body))
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setSession({ kind: 'unavailable' })
+    }
+  }, [])
 
   useEffect(() => {
     const updateRoute = () => {
@@ -77,6 +117,36 @@ export function App() {
     window.addEventListener('hashchange', updateRoute)
     return () => window.removeEventListener('hashchange', updateRoute)
   }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void refreshSession(controller.signal)
+    return () => controller.abort()
+  }, [refreshSession])
+
+  useEffect(() => {
+    if (!callbackNotice) return
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash}`)
+  }, [callbackNotice])
+
+  const logout = async () => {
+    setAccountAction('logging-out')
+    setAccountError(null)
+
+    try {
+      const response = await fetch('/api/lichess/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+      if (!response.ok) throw new Error('Logout request failed')
+      setSession({ kind: 'disconnected' })
+    } catch {
+      setAccountError('Logout did not complete. Check the local backend and try again.')
+    } finally {
+      setAccountAction('idle')
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -157,11 +227,11 @@ export function App() {
           </ul>
         </nav>
 
-        <section className={styles.account} aria-label="Lichess account">
+        <section className={styles.account} aria-label="Lichess account" data-state={session.kind}>
           <span className={styles.accountIndicator} aria-hidden="true" />
           <span>
             <strong>Lichess</strong>
-            <small>Not connected</small>
+            <small>{accountStatus(session)}</small>
           </span>
         </section>
       </aside>
@@ -179,18 +249,210 @@ export function App() {
         </header>
 
         <main className={styles.workspace}>
-          <section className={styles.emptyState} aria-labelledby="workspace-title">
-            <span className={styles.emptyStateIcon}>
-              <NavIcon name={route.icon} />
-            </span>
-            <p className={styles.eyebrow}>{route.emptyState.eyebrow}</p>
-            <h2 id="workspace-title">{route.emptyState.title}</h2>
-            <p>{route.emptyState.description}</p>
-          </section>
+          <div className={styles.workspaceStack}>
+            {route.href === '#/dashboard' && callbackNotice && (
+              <CallbackBanner notice={callbackNotice} onDismiss={() => setCallbackNotice(null)} />
+            )}
+            {route.href === '#/dashboard' && (
+              <ConnectionPanel
+                session={session}
+                action={accountAction}
+                error={accountError}
+                onConnect={() => setAccountAction('connecting')}
+                onLogout={logout}
+                onRetry={() => void refreshSession()}
+              />
+            )}
+            <section className={styles.emptyState} aria-labelledby="workspace-title">
+              <span className={styles.emptyStateIcon}>
+                <NavIcon name={route.icon} />
+              </span>
+              <p className={styles.eyebrow}>{route.emptyState.eyebrow}</p>
+              <h2 id="workspace-title">{route.emptyState.title}</h2>
+              <p>{route.emptyState.description}</p>
+            </section>
+          </div>
         </main>
       </div>
     </div>
   )
+}
+
+function CallbackBanner({ notice, onDismiss }: { notice: CallbackNotice; onDismiss: () => void }) {
+  const messages: Record<CallbackNotice, string> = {
+    cancelled: 'Lichess connection was cancelled. Nothing changed.',
+    invalid: 'The Lichess connection could not be completed. Start again to get a fresh authorization.',
+    unavailable: 'Lichess was unavailable during connection. Please try again.',
+  }
+
+  return (
+    <div
+      className={styles.callbackBanner}
+      data-state={notice === 'cancelled' ? 'neutral' : 'error'}
+      role={notice === 'cancelled' ? 'status' : 'alert'}
+    >
+      <p>{messages[notice]}</p>
+      <button type="button" onClick={onDismiss}>Dismiss</button>
+    </div>
+  )
+}
+
+function ConnectionPanel({
+  session,
+  action,
+  error,
+  onConnect,
+  onLogout,
+  onRetry,
+}: {
+  session: SessionState
+  action: 'idle' | 'connecting' | 'logging-out'
+  error: string | null
+  onConnect: () => void
+  onLogout: () => Promise<void>
+  onRetry: () => void
+}) {
+  if (session.kind === 'checking') {
+    return (
+      <section className={styles.connectionPanel} aria-live="polite">
+        <p className={styles.eyebrow}>Lichess account</p>
+        <h2>Checking Lichess connection…</h2>
+      </section>
+    )
+  }
+
+  if (session.kind === 'unavailable') {
+    return (
+      <section className={styles.connectionPanel} aria-live="polite">
+        <p className={styles.eyebrow}>Lichess account</p>
+        <h2>Lichess is temporarily unavailable</h2>
+        <p>Your local data is safe. Check your connection and try again.</p>
+        <button className={styles.secondaryButton} type="button" onClick={onRetry}>
+          Retry
+        </button>
+      </section>
+    )
+  }
+
+  if (session.kind === 'disconnected') {
+    return (
+      <section className={styles.connectionPanel}>
+        <p className={styles.eyebrow}>Lichess account</p>
+        <h2>Connect your Lichess account</h2>
+        <p>Authorize read-only access to your account and puzzles. Chess Tweek keeps the credential out of browser code and local data.</p>
+        <form method="post" action="/api/lichess/authorize" onSubmit={onConnect}>
+          <button className={styles.primaryButton} type="submit" disabled={action === 'connecting'}>
+            {action === 'connecting' ? 'Opening Lichess…' : 'Connect Lichess'}
+          </button>
+        </form>
+        {error && <p className={styles.actionError} role="alert">{error}</p>}
+      </section>
+    )
+  }
+
+  return (
+    <section className={styles.connectionPanel}>
+      <p className={styles.eyebrow}>Lichess connected</p>
+      <div className={styles.accountHeading}>
+        <div>
+          <h2>{session.account.username}</h2>
+          <p>Current ratings from Lichess</p>
+        </div>
+        <button
+          className={styles.secondaryButton}
+          type="button"
+          disabled={action === 'logging-out'}
+          onClick={() => void onLogout()}
+        >
+          {action === 'logging-out' ? 'Logging out…' : 'Log out'}
+        </button>
+      </div>
+      <dl className={styles.ratings}>
+        {ratingSpeeds.map((speed) => (
+          <div key={speed}>
+            <dt>{ratingLabels[speed]}</dt>
+            <dd>{formatRating(session.account.ratings[speed])}</dd>
+          </div>
+        ))}
+      </dl>
+      {error && <p className={styles.actionError} role="alert">{error}</p>}
+    </section>
+  )
+}
+
+const ratingSpeeds: RatingSpeed[] = ['bullet', 'blitz', 'rapid', 'classical', 'correspondence']
+const ratingLabels: Record<RatingSpeed, string> = {
+  bullet: 'Bullet',
+  blitz: 'Blitz',
+  rapid: 'Rapid',
+  classical: 'Classical',
+  correspondence: 'Correspondence',
+}
+
+function formatRating(rating: number | null) {
+  return rating === null ? 'Not rated' : rating.toLocaleString('en-US')
+}
+
+function accountStatus(session: SessionState) {
+  if (session.kind === 'checking') return 'Checking connection…'
+  if (session.kind === 'connected') return session.account.username
+  if (session.kind === 'unavailable') return 'Temporarily unavailable'
+  return 'Not connected'
+}
+
+function parseSession(value: unknown): SessionState {
+  if (!isRecord(value) || typeof value.connected !== 'boolean') {
+    throw new Error('Invalid session response')
+  }
+  if (!value.connected && value.account === null) return { kind: 'disconnected' }
+  if (!value.connected || !isRecord(value.account)) throw new Error('Invalid session response')
+
+  const { account } = value
+  if (
+    !isBoundedText(account.id) ||
+    !isBoundedText(account.username) ||
+    !isRecord(account.ratings)
+  ) {
+    throw new Error('Invalid account response')
+  }
+
+  const ratings = account.ratings
+  if (
+    !ratingSpeeds.every(
+      (speed) =>
+        ratings[speed] === null ||
+        (typeof ratings[speed] === 'number' &&
+          Number.isSafeInteger(ratings[speed]) &&
+          ratings[speed] >= 0),
+    )
+  ) {
+    throw new Error('Invalid ratings response')
+  }
+
+  return {
+    kind: 'connected',
+    account: {
+      id: account.id,
+      username: account.username,
+      ratings: Object.fromEntries(ratingSpeeds.map((speed) => [speed, ratings[speed]])) as Record<
+        RatingSpeed,
+        number | null
+      >,
+    },
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isBoundedText(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 64
+}
+
+function readCallbackNotice(): CallbackNotice | null {
+  const result = new URLSearchParams(window.location.search).get('lichess')
+  return result === 'cancelled' || result === 'invalid' || result === 'unavailable' ? result : null
 }
 
 function currentRoute() {

@@ -7,9 +7,18 @@ describe('App', () => {
     window.history.replaceState(null, '', '/')
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ status: 'ok' }),
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = input.toString()
+
+        if (url === '/api/health') {
+          return { ok: true, json: async () => ({ status: 'ok' }) }
+        }
+
+        if (url === '/api/lichess/session') {
+          return { ok: true, json: async () => ({ connected: false, account: null }) }
+        }
+
+        throw new Error(`Unexpected request: ${url}`)
       }),
     )
   })
@@ -96,5 +105,172 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: 'Games' })).toBeInTheDocument()
     expect(navigationToggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('offers a fixed same-origin authorization form when Lichess is disconnected', async () => {
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Connect your Lichess account' })).toBeInTheDocument()
+    expect(screen.getByText('Not connected')).toBeInTheDocument()
+
+    const connectButton = screen.getByRole('button', { name: 'Connect Lichess' })
+    const form = connectButton.closest('form')
+
+    expect(form).toHaveAttribute('method', 'post')
+    expect(form).toHaveAttribute('action', '/api/lichess/authorize')
+  })
+
+  it('shows the connected Lichess account and ratings without exposing a token', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+
+      if (url === '/api/lichess/session') {
+        return {
+          ok: true,
+          json: async () => ({
+            connected: true,
+            account: {
+              id: 'owner-id',
+              username: 'ChessOwner',
+              ratings: {
+                bullet: 1801,
+                blitz: 1765,
+                rapid: 1902,
+                classical: null,
+                correspondence: 2020,
+              },
+            },
+          }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'ChessOwner' })).toBeInTheDocument()
+    expect(screen.getByText('1,801')).toBeInTheDocument()
+    expect(screen.getByText('1,765')).toBeInTheDocument()
+    expect(screen.getByText('1,902')).toBeInTheDocument()
+    expect(screen.getByText('Not rated')).toBeInTheDocument()
+    expect(screen.getByText('2,020')).toBeInTheDocument()
+    expect(screen.queryByText(/token/i)).not.toBeInTheDocument()
+  })
+
+  it('logs out through the protected endpoint and returns to the disconnected state', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return {
+          ok: true,
+          json: async () => ({
+            connected: true,
+            account: {
+              id: 'owner-id',
+              username: 'ChessOwner',
+              ratings: {
+                bullet: 1801,
+                blitz: 1765,
+                rapid: 1902,
+                classical: null,
+                correspondence: 2020,
+              },
+            },
+          }),
+        } as Response
+      }
+      if (url === '/api/lichess/logout') return { ok: true } as Response
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Log out' }))
+
+    expect(await screen.findByRole('heading', { name: 'Connect your Lichess account' })).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/lichess/logout',
+      expect.objectContaining({ method: 'POST', credentials: 'same-origin' }),
+    )
+  })
+
+  it('shows an actionable upstream failure and can retry the session check', async () => {
+    let sessionRequests = 0
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        sessionRequests += 1
+        if (sessionRequests === 1) return { ok: false, status: 503 } as Response
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ connected: false, account: null }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Lichess is temporarily unavailable' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(await screen.findByRole('heading', { name: 'Connect your Lichess account' })).toBeInTheDocument()
+    expect(sessionRequests).toBe(2)
+  })
+
+  it('turns a safe OAuth callback result into a visible message and cleans the URL', async () => {
+    window.history.replaceState(null, '', '/?lichess=cancelled#/dashboard')
+
+    render(<App />)
+
+    expect(await screen.findByText('Lichess connection was cancelled. Nothing changed.')).toBeInTheDocument()
+    await waitFor(() => expect(window.location.search).toBe(''))
+    expect(window.location.hash).toBe('#/dashboard')
+  })
+
+  it('rejects malformed account data instead of rendering it', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            connected: true,
+            account: {
+              id: 'owner-id',
+              username: 'ChessOwner',
+              ratings: { bullet: Number.NaN, blitz: 1, rapid: 1, classical: 1, correspondence: 1 },
+            },
+          }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Lichess is temporarily unavailable' })).toBeInTheDocument()
+    expect(screen.queryByText('ChessOwner')).not.toBeInTheDocument()
   })
 })

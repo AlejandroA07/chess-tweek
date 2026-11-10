@@ -38,31 +38,30 @@ public final class LichessAuthorizationController {
     }
 
     @GetMapping("/api/lichess/callback")
-    public ResponseEntity<CallbackError> callback(
+    public ResponseEntity<Void> callback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error) {
         if ("access_denied".equals(error) && authorizationService.cancelAuthorization(state)) {
-            return ResponseEntity.badRequest()
-                    .cacheControl(CacheControl.noStore())
-                    .header("Referrer-Policy", "no-referrer")
-                    .body(new CallbackError("authorization_cancelled"));
+            return failedCallback(CallbackOutcome.CANCELLED);
         }
         var completion = authorizationService.completeAuthorization(code, state);
         return switch (completion.status()) {
             case SUCCESS -> successfulCallback(completion.sealedSession(), completion.maxAgeSeconds());
-            case INVALID_CALLBACK -> ResponseEntity.badRequest()
-                    .cacheControl(CacheControl.noStore())
-                    .header("Referrer-Policy", "no-referrer")
-                    .body(new CallbackError("invalid_oauth_callback"));
-            case UPSTREAM_UNAVAILABLE -> ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .cacheControl(CacheControl.noStore())
-                    .header("Referrer-Policy", "no-referrer")
-                    .body(new CallbackError("lichess_unavailable"));
+            case INVALID_CALLBACK -> failedCallback(CallbackOutcome.INVALID);
+            case UPSTREAM_UNAVAILABLE -> failedCallback(CallbackOutcome.UNAVAILABLE);
         };
     }
 
-    private static ResponseEntity<CallbackError> successfulCallback(
+    private static ResponseEntity<Void> failedCallback(CallbackOutcome outcome) {
+        return ResponseEntity.status(HttpStatus.SEE_OTHER)
+                .cacheControl(CacheControl.noStore())
+                .header("Referrer-Policy", "no-referrer")
+                .header(HttpHeaders.LOCATION, "/?lichess=" + outcome.value + "#/dashboard")
+                .build();
+    }
+
+    private static ResponseEntity<Void> successfulCallback(
             String sealedSession, long maxAgeSeconds) {
         ResponseCookie cookie = ResponseCookie.from("__Host-chess_tweek_session", sealedSession)
                 .path("/")
@@ -79,5 +78,15 @@ public final class LichessAuthorizationController {
                 .build();
     }
 
-    public record CallbackError(String error) {}
+    private enum CallbackOutcome {
+        CANCELLED("cancelled"),
+        INVALID("invalid"),
+        UNAVAILABLE("unavailable");
+
+        private final String value;
+
+        CallbackOutcome(String value) {
+            this.value = value;
+        }
+    }
 }

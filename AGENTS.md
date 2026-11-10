@@ -49,4 +49,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stages 0 and 1 are complete. Stage 2 is in progress in small, independently reviewed slices. Its first slice establishes the loopback-only Lichess authorization-start boundary with PKCE S256, an exact read-only scope, fresh state with recorded expiry, and same-origin denial tests. Callback exchange, sealed token storage, account UI, and logout belong to later slices.
+Stages 0 and 1 are complete. Stage 2 is in progress in small, independently reviewed slices. Authorization start and callback exchange now enforce PKCE S256, one-time expiring state, fixed Lichess endpoints, bounded inputs, and safe failure responses. Access tokens are sealed into a Secure, HttpOnly, SameSite cookie using an owner-only local key and never enter SQLite. Session status, account identity, logout, and account UI belong to later slices.

@@ -15,4 +15,4 @@ The endpoint is intentionally anonymous because it begins authentication. Its ex
 
 ## Deferred
 
-The next slice owns callback validation, one-time attempt consumption, code exchange, sealed token storage, account status, and logout. The UI connection control follows only after the backend flow is complete.
+Callback validation, one-time attempt consumption, code exchange, and sealed token storage are implemented in the next dated report. Account status and logout remain backend work; the UI connection control follows only after the backend flow is complete.

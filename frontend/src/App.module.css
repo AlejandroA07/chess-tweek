@@ -17,6 +17,10 @@
   background: var(--color-surface-warm);
 }
 
+.sidebarHeader {
+  display: block;
+}
+
 .brand {
   min-height: 4.5rem;
   display: flex;
@@ -69,6 +73,10 @@
   font-size: 0.6875rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.navigationToggle {
+  display: none;
 }
 
 .navigation {
@@ -303,30 +311,61 @@
     border-bottom: 1px solid var(--color-border);
   }
 
+  .sidebarHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
   .brand {
+    min-width: 0;
+    flex: 1;
     min-height: 4rem;
   }
 
+  .navigationToggle {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-control);
+    color: var(--color-primary);
+    background: var(--color-surface);
+    cursor: pointer;
+  }
+
+  .navigationToggle svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.75;
+  }
+
   .navigation {
+    display: none;
     margin-top: var(--space-2);
-    overflow-x: auto;
-    scrollbar-width: thin;
+  }
+
+  .navigation[data-open='true'] {
+    display: block;
   }
 
   .navigation ul {
-    display: flex;
-    width: max-content;
-    min-width: 100%;
+    display: grid;
+    width: auto;
   }
 
   .navLink {
-    border-bottom: 4px solid transparent;
-    border-left: 0;
-    white-space: nowrap;
+    border-left: 4px solid transparent;
   }
 
   .navLink[aria-current='page'] {
-    border-bottom-color: var(--color-primary);
+    border-left-color: var(--color-primary);
   }
 
   .account {
@@ -335,20 +374,15 @@
 
   .topBar {
     min-height: 4.5rem;
+    gap: var(--space-2);
     padding-inline: var(--space-4);
   }
 
   .status {
-    width: 2.75rem;
-    padding: 0;
-    justify-content: center;
-    overflow: hidden;
-    color: transparent;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    font-size: 0.6875rem;
     white-space: nowrap;
-  }
-
-  .status span {
-    flex: 0 0 auto;
   }
 
   .workspace {

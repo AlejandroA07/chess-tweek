@@ -13,9 +13,11 @@
   --color-success: #3e4c31;
   --color-warning: #765b18;
   --color-error: #ba1a1a;
-  --font-display: Georgia, 'Times New Roman', serif;
-  --font-interface: 'Avenir Next', Avenir, ui-sans-serif, system-ui, sans-serif;
-  --font-technical: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --font-display: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
+  --font-interface: 'Manrope Variable', 'Avenir Next', Avenir, ui-sans-serif, system-ui,
+    sans-serif;
+  --font-technical: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    monospace;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 1rem;

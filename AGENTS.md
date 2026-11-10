@@ -22,6 +22,7 @@ The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Fl
 
 ## Commands
 
+- Start the packaged macOS application: `./scripts/start.sh`
 - Full verification gate: `node scripts/verify.mjs`
 - Frontend development server: `pnpm frontend:dev`
 - Frontend tests: `pnpm frontend:test`

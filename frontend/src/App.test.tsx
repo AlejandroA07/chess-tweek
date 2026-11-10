@@ -94,7 +94,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'Games' }))
 
-    await waitFor(() => expect(navigationToggle).toHaveAttribute('aria-expanded', 'false'))
-    expect(screen.getByRole('heading', { name: 'Games' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Games' })).toBeInTheDocument()
+    expect(navigationToggle).toHaveAttribute('aria-expanded', 'false')
   })
 })

@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogPage;
+import com.chesstweek.gamereview.GameCatalogQuery;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 
@@ -33,7 +34,7 @@ class GameCatalogControllerTest {
                 LichessSessionAuthorization.connected(
                         "owner-id", "ChessOwner", "liu_private_token_123");
         var accountSeen = new AtomicReference<String>();
-        GameCatalog catalog = (accountId, offset, limit) -> {
+        GameCatalog catalog = (accountId, query) -> {
             accountSeen.set(accountId);
             return new GameCatalogPage(List.of(game()), 1);
         };
@@ -70,7 +71,7 @@ class GameCatalogControllerTest {
         LichessSessionAuthorizer authorizer = sealedSession ->
                 LichessSessionAuthorization.connected(
                         "owner-id", "ChessOwner", "liu_private_token_123");
-        GameCatalog catalog = (accountId, offset, limit) -> {
+        GameCatalog catalog = (accountId, query) -> {
             throw new DataAccessResourceFailureException("private database detail");
         };
         MockMvc mockMvc = MockMvcBuilders
@@ -90,7 +91,7 @@ class GameCatalogControllerTest {
         LichessSessionAuthorizer authorizer = sealedSession ->
                 LichessSessionAuthorization.disconnected(false);
         var catalogCalls = new AtomicInteger();
-        GameCatalog catalog = (accountId, offset, limit) -> {
+        GameCatalog catalog = (accountId, query) -> {
             catalogCalls.incrementAndGet();
             return new GameCatalogPage(List.of(game()), 1);
         };
@@ -112,8 +113,8 @@ class GameCatalogControllerTest {
                 LichessSessionAuthorization.connected(
                         "owner-id", "ChessOwner", "liu_private_token_123");
         var pageSeen = new AtomicReference<String>();
-        GameCatalog catalog = (accountId, offset, limit) -> {
-            pageSeen.set(accountId + ":" + offset + ":" + limit);
+        GameCatalog catalog = (accountId, query) -> {
+            pageSeen.set(accountId + ":" + query.offset() + ":" + query.limit());
             return new GameCatalogPage(List.of(game()), 120);
         };
         MockMvc mockMvc = MockMvcBuilders
@@ -130,13 +131,43 @@ class GameCatalogControllerTest {
     }
 
     @Test
+    void passesValidatedFiltersToTheAccountCatalog() throws Exception {
+        LichessSessionAuthorizer authorizer = sealedSession ->
+                LichessSessionAuthorization.connected(
+                        "owner-id", "ChessOwner", "liu_private_token_123");
+        var querySeen = new AtomicReference<GameCatalogQuery>();
+        GameCatalog catalog = (accountId, query) -> {
+            querySeen.set(query);
+            return new GameCatalogPage(List.of(game()), 1);
+        };
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .build();
+
+        mockMvc.perform(get("/api/games")
+                        .queryParam("offset", "25")
+                        .queryParam("limit", "10")
+                        .queryParam("result", "win")
+                        .queryParam("color", "white")
+                        .queryParam("sort", "oldest"))
+                .andExpect(status().isOk());
+
+        assertThat(querySeen).hasValue(new GameCatalogQuery(
+                25,
+                10,
+                CatalogGame.Result.WIN,
+                CatalogGame.Color.WHITE,
+                GameCatalogQuery.Sort.OLDEST));
+    }
+
+    @Test
     void rejectsInvalidPaginationBeforeOpeningTheSession() throws Exception {
         var authorizationCalls = new AtomicInteger();
         LichessSessionAuthorizer authorizer = sealedSession -> {
             authorizationCalls.incrementAndGet();
             throw new AssertionError("Invalid input must not open the session");
         };
-        GameCatalog catalog = (accountId, offset, limit) -> {
+        GameCatalog catalog = (accountId, query) -> {
             throw new AssertionError("Invalid input must not read the catalog");
         };
         MockMvc mockMvc = MockMvcBuilders
@@ -146,6 +177,30 @@ class GameCatalogControllerTest {
         mockMvc.perform(get("/api/games").queryParam("offset", "-1").queryParam("limit", "51"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid_catalog_page"));
+
+        assertThat(authorizationCalls).hasValue(0);
+    }
+
+    @Test
+    void rejectsUnknownFiltersBeforeOpeningTheSession() throws Exception {
+        var authorizationCalls = new AtomicInteger();
+        LichessSessionAuthorizer authorizer = sealedSession -> {
+            authorizationCalls.incrementAndGet();
+            throw new AssertionError("Invalid filters must not open the session");
+        };
+        GameCatalog catalog = (accountId, query) -> {
+            throw new AssertionError("Invalid filters must not read the catalog");
+        };
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .build();
+
+        mockMvc.perform(get("/api/games")
+                        .queryParam("result", "winning")
+                        .queryParam("color", "green")
+                        .queryParam("sort", "random"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_catalog_filter"));
 
         assertThat(authorizationCalls).hasValue(0);
     }

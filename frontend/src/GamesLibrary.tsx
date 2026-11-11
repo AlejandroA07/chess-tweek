@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import styles from './GamesLibrary.module.css'
+import { GameCatalogFilters } from './GameCatalogFilters'
 import { GameRetrievalPanel } from './GameRetrievalPanel'
-import { CatalogRequestError, requestCatalog, type CatalogGame } from './gameCatalog'
+import {
+  CatalogRequestError,
+  EMPTY_CATALOG_FILTERS,
+  requestCatalog,
+  type CatalogFilters,
+  type CatalogGame,
+} from './gameCatalog'
 
 type CatalogState =
   | { kind: 'idle' }
@@ -29,6 +36,7 @@ export function GamesLibrary({
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [olderError, setOlderError] = useState(false)
   const [retrievalOpen, setRetrievalOpen] = useState(false)
+  const [filters, setFilters] = useState<CatalogFilters>(EMPTY_CATALOG_FILTERS)
   const olderRequest = useRef<AbortController | null>(null)
   const libraryRef = useRef<HTMLElement | null>(null)
   const countRef = useRef<HTMLParagraphElement | null>(null)
@@ -66,7 +74,7 @@ export function GamesLibrary({
     setLoadingOlder(false)
     setOlderError(false)
 
-    void requestCatalog(0, controller.signal)
+    void requestCatalog(0, controller.signal, filters)
       .then((response) => {
         if (!ignore) {
           setCatalog({
@@ -94,7 +102,7 @@ export function GamesLibrary({
       ignore = true
       controller.abort()
     }
-  }, [accountId, onSessionFailure, refreshKey])
+  }, [accountId, filters, onSessionFailure, refreshKey])
 
   useEffect(() => () => olderRequest.current?.abort(), [])
 
@@ -119,7 +127,7 @@ export function GamesLibrary({
     setOlderError(false)
 
     try {
-      const page = await requestCatalog(expectedOffset, controller.signal)
+      const page = await requestCatalog(expectedOffset, controller.signal, filters)
       if (page.offset !== expectedOffset) throw new Error('Unexpected catalog page')
       focusTarget.current = 'count'
       setCatalog((current) => {
@@ -181,6 +189,11 @@ export function GamesLibrary({
     return connectedView(
       <section ref={libraryRef} className={styles.library} aria-live="polite" tabIndex={-1}>
         <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+        <GameCatalogFilters
+          filters={filters}
+          onChange={setFilters}
+          onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+        />
         <div className={styles.loadingGrid} aria-label="Loading stored games">
           {[0, 1, 2].map((card) => (
             <article className={styles.loadingCard} key={card} aria-hidden="true">
@@ -201,6 +214,11 @@ export function GamesLibrary({
     return connectedView(
       <section ref={libraryRef} className={styles.library} aria-live="polite" tabIndex={-1}>
         <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+        <GameCatalogFilters
+          filters={filters}
+          onChange={setFilters}
+          onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+        />
         <div className={styles.message} role="alert">
           <h3>Stored games could not be loaded</h3>
           <p>Your local data was not changed.</p>
@@ -219,6 +237,25 @@ export function GamesLibrary({
   }
 
   if (catalog.games.length === 0) {
+    if (hasNarrowingFilters(filters)) {
+      return connectedView(
+        <section ref={libraryRef} className={styles.library} tabIndex={-1}>
+          <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+          <GameCatalogFilters
+            filters={filters}
+            onChange={setFilters}
+            onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+          />
+          <div className={styles.message}>
+            <h3>No games match these filters</h3>
+            <p>Clear filters to return to your complete stored library.</p>
+            <button type="button" onClick={() => setFilters(EMPTY_CATALOG_FILTERS)}>
+              Clear filters
+            </button>
+          </div>
+        </section>,
+      )
+    }
     return connectedView(
       <EmptyCatalog
         libraryRef={libraryRef}
@@ -231,10 +268,13 @@ export function GamesLibrary({
   return connectedView(
     <section ref={libraryRef} className={styles.library} tabIndex={-1}>
       <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+      <GameCatalogFilters
+        filters={filters}
+        onChange={setFilters}
+        onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+      />
       <p ref={countRef} className={styles.count} tabIndex={-1}>
-        {catalog.games.length === catalog.total
-          ? `${catalog.total} stored games`
-          : `${catalog.games.length} of ${catalog.total} stored games loaded`}
+        {catalogCount(catalog.games.length, catalog.total, filters)}
       </p>
       <div className={styles.gameGrid}>
         {catalog.games.map((game) => <GameCard key={game.id} game={game} />)}
@@ -408,4 +448,18 @@ function opponentType(game: CatalogGame) {
 
 function titleCase(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+function hasNarrowingFilters(filters: CatalogFilters) {
+  return filters.result !== '' || filters.color !== ''
+}
+
+function catalogCount(loaded: number, total: number, filters: CatalogFilters) {
+  if (hasNarrowingFilters(filters)) {
+    if (loaded !== total) return `${loaded} of ${total} matching games loaded`
+    return `${total} matching ${total === 1 ? 'game' : 'games'}`
+  }
+  return loaded === total
+    ? `${total} stored games`
+    : `${loaded} of ${total} stored games loaded`
 }

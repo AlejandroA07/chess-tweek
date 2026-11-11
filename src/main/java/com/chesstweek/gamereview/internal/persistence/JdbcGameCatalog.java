@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogPage;
+import com.chesstweek.gamereview.GameCatalogQuery;
 
 @Repository
 public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
@@ -74,22 +75,22 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
     private static final String FIND_BY_ACCOUNT = """
             SELECT *
             FROM game_review_game
-            WHERE account_id = ?
-            ORDER BY played_at_ms DESC, lichess_game_id
-            LIMIT ? OFFSET ?
+            WHERE account_id = :accountId
             """;
     private static final String COUNT_BY_ACCOUNT = """
             SELECT COUNT(*)
             FROM game_review_game
-            WHERE account_id = ?
+            WHERE account_id = :accountId
             """;
+    private static final String NEWEST_FIRST =
+            " ORDER BY played_at_ms DESC, lichess_game_id LIMIT :limit OFFSET :offset";
+    private static final String OLDEST_FIRST =
+            " ORDER BY played_at_ms ASC, lichess_game_id LIMIT :limit OFFSET :offset";
 
     private final NamedParameterJdbcTemplate namedJdbc;
-    private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
 
     public JdbcGameCatalog(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
         this.namedJdbc = new NamedParameterJdbcTemplate(jdbc);
         this.objectMapper = JsonMapper.builder().build();
     }
@@ -104,18 +105,32 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
     }
 
     @Override
-    public GameCatalogPage games(String accountId, int offset, int limit) {
+    public GameCatalogPage games(String accountId, GameCatalogQuery query) {
         requireAccountId(accountId);
-        if (offset < 0 || offset > 100_000 || limit < 1 || limit > 50) {
-            throw new IllegalArgumentException("Invalid catalog page");
+        var parameters = new MapSqlParameterSource()
+                .addValue("accountId", accountId)
+                .addValue("limit", query.limit())
+                .addValue("offset", query.offset());
+        var filters = new StringBuilder();
+        if (query.result() != null) {
+            filters.append(" AND owner_result = :result");
+            parameters.addValue("result", query.result().value());
         }
-        List<CatalogGame> games = jdbc.query(
-                FIND_BY_ACCOUNT,
-                this::mapGame,
-                accountId,
-                limit,
-                offset);
-        int total = jdbc.queryForObject(COUNT_BY_ACCOUNT, Integer.class, accountId);
+        if (query.color() != null) {
+            filters.append(" AND owner_color = :color");
+            parameters.addValue("color", query.color().value());
+        }
+        String order = query.sort() == GameCatalogQuery.Sort.OLDEST
+                ? OLDEST_FIRST
+                : NEWEST_FIRST;
+        List<CatalogGame> games = namedJdbc.query(
+                FIND_BY_ACCOUNT + filters + order,
+                parameters,
+                this::mapGame);
+        int total = namedJdbc.queryForObject(
+                COUNT_BY_ACCOUNT + filters,
+                parameters,
+                Integer.class);
         return new GameCatalogPage(games, total);
     }
 

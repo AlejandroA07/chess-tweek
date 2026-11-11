@@ -1,6 +1,6 @@
 # Development documentation
 
-**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 4 add protected manual retrieval, an account-scoped SQLite catalog, the first Games library interface, and the manual Get Lichess Games panel. Imports remain idempotent and restart-safe; users can request 1–50 games with an optional before-date, see safe progress/outcomes, and refresh the local catalog without starting analysis. Filters, selection, exact write-result counts, rating-change ingestion, and Dashboard context remain later Stage 3 parts.
+**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 5a add protected manual retrieval, an account-scoped SQLite catalog, the first Games library interface, the manual Get Lichess Games panel, and full-catalog result/color/sort controls. Filter values are allowlisted before authorization and translated into parameterized account-scoped SQL. Opening, opponent, speed, date, variant, analysis filters, selection, exact write-result counts, rating-change ingestion, and Dashboard context remain later Stage 3 parts.
 
 The database is a local `var/chess-tweek.db` file with Flyway migrations, WAL journaling, foreign keys, normal synchronization, a five-second busy timeout, and at most two pooled connections. Run `node scripts/verify.mjs` for the complete gate.
 
@@ -21,3 +21,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-11-game-catalog-storage.md` | Records the durable, validated Stage 3 Part 2 game catalog. | dated report |
 | `2026-11-11-game-catalog-interface.md` | Records the authorized Stage 3 Part 3 catalog API and card interface. | dated report |
 | `2026-11-11-game-retrieval-controls.md` | Records the manual Stage 3 Part 4 retrieval panel and catalog refresh. | dated report |
+| `2026-11-11-game-catalog-filter-foundation.md` | Records the server-backed result, color, and sort filter foundation. | dated report |

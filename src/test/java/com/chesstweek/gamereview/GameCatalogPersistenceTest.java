@@ -36,15 +36,37 @@ class GameCatalogPersistenceTest {
             assertThat(first.received()).isEqualTo(2);
             assertThat(first.rejected()).isEqualTo(1);
             assertThat(repeated.received()).isEqualTo(2);
-            assertThat(catalog.games("ownerid", 0, 50).games())
+            assertThat(catalog.games("ownerid", GameCatalogQuery.unfiltered(0, 50)).games())
                     .extracting(CatalogGame::id)
                     .containsExactly("game0003", "game0001");
-            assertThat(catalog.games("another-account", 0, 50).games()).isEmpty();
+            assertThat(catalog.games(
+                    "another-account", GameCatalogQuery.unfiltered(0, 50)).games()).isEmpty();
+
+            GameCatalogPage filtered = catalog.games(
+                    "ownerid",
+                    new GameCatalogQuery(
+                            0,
+                            50,
+                            CatalogGame.Result.LOSS,
+                            CatalogGame.Color.BLACK,
+                            GameCatalogQuery.Sort.OLDEST));
+            assertThat(filtered.total()).isEqualTo(1);
+            assertThat(filtered.games())
+                    .extracting(CatalogGame::id)
+                    .containsExactly("game0003");
+
+            assertThat(catalog.games(
+                            "ownerid",
+                            new GameCatalogQuery(
+                                    0, 50, null, null, GameCatalogQuery.Sort.OLDEST))
+                    .games())
+                    .extracting(CatalogGame::id)
+                    .containsExactly("game0001", "game0003");
         }
 
         try (var restarted = start(databasePath)) {
             List<CatalogGame> games = restarted.getBean(GameCatalog.class)
-                    .games("ownerid", 0, 50)
+                    .games("ownerid", GameCatalogQuery.unfiltered(0, 50))
                     .games();
 
             assertThat(games).hasSize(2);
@@ -125,7 +147,7 @@ class GameCatalogPersistenceTest {
                       "createdAt":1794441600000,
                       "lastMoveAt":1794441900000,
                       "status":"mate",
-                      "winner":"black",
+                      "winner":"white",
                       "players":{
                         "white":{"user":{"id":"opponent2","name":"VariantPlayer"},"rating":1600},
                         "black":{"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800}

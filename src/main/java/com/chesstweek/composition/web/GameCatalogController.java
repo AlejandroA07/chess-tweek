@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameCatalog;
+import com.chesstweek.gamereview.GameCatalogQuery;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 import com.chesstweek.identity.LichessSessionService;
 
@@ -35,7 +36,10 @@ public final class GameCatalogController {
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession,
             @RequestParam(name = "offset", defaultValue = "0") String offsetText,
-            @RequestParam(name = "limit", defaultValue = "50") String limitText) {
+            @RequestParam(name = "limit", defaultValue = "50") String limitText,
+            @RequestParam(name = "result", defaultValue = "") String result,
+            @RequestParam(name = "color", defaultValue = "") String color,
+            @RequestParam(name = "sort", defaultValue = "newest") String sort) {
         Integer offset = boundedInteger(offsetText, 0, 100_000);
         Integer limit = boundedInteger(limitText, 1, 50);
         if (offset == null || limit == null) {
@@ -43,9 +47,24 @@ public final class GameCatalogController {
                     .cacheControl(CacheControl.noStore())
                     .body(new CatalogError("invalid_catalog_page"));
         }
+        if (!allowed(result, "", "win", "loss", "draw")
+                || !allowed(color, "", "white", "black")
+                || !allowed(sort, "newest", "oldest")) {
+            return ResponseEntity.badRequest()
+                    .cacheControl(CacheControl.noStore())
+                    .body(new CatalogError("invalid_catalog_filter"));
+        }
+        var query = new GameCatalogQuery(
+                offset,
+                limit,
+                result.isEmpty() ? null : CatalogGame.Result.fromValue(result),
+                color.isEmpty() ? null : CatalogGame.Color.fromValue(color),
+                "oldest".equals(sort)
+                        ? GameCatalogQuery.Sort.OLDEST
+                        : GameCatalogQuery.Sort.NEWEST);
         var authorization = sessionAuthorizer.authorize(sealedSession);
         return switch (authorization.type()) {
-            case CONNECTED -> connected(authorization.accountId(), offset, limit);
+            case CONNECTED -> connected(authorization.accountId(), query);
             case DISCONNECTED -> disconnected(authorization.clearCookie());
             case RATE_LIMITED, UPSTREAM_UNAVAILABLE -> ResponseEntity
                     .status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -54,15 +73,20 @@ public final class GameCatalogController {
         };
     }
 
-    private ResponseEntity<?> connected(String accountId, int offset, int limit) {
+    private static boolean allowed(String value, String... allowed) {
+        return List.of(allowed).contains(value);
+    }
+
+    private ResponseEntity<?> connected(String accountId, GameCatalogQuery query) {
         try {
-            var page = gameCatalog.games(accountId, offset, limit);
+            var page = gameCatalog.games(accountId, query);
             List<GameCardResponse> games = page.games().stream()
                     .map(GameCatalogController::toCard)
                     .toList();
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
-                    .body(new CatalogResponse(page.total(), offset, limit, games));
+                    .body(new CatalogResponse(
+                            page.total(), query.offset(), query.limit(), games));
         } catch (DataAccessException | IllegalArgumentException exception) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .cacheControl(CacheControl.noStore())

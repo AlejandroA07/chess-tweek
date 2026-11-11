@@ -167,6 +167,70 @@ describe('App', () => {
     expect(screen.getByText('Catalog only — analysis unavailable')).toBeInTheDocument()
   })
 
+  it('filters the full catalog by result and color and changes its sort order', async () => {
+    const catalogUrls: string[] = []
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => connectedSession() } as Response
+      }
+      if (url.startsWith('/api/games?')) {
+        catalogUrls.push(url)
+        const filtered = url.includes('result=loss')
+          && url.includes('color=black')
+          && url.includes('sort=oldest')
+        const loss = {
+          ...catalogCard('game0002', 'FilteredPlayer', '2026-11-10T00:00:00Z'),
+          result: 'loss' as const,
+          ownerColor: 'black' as const,
+        }
+        return {
+          ok: true,
+          json: async () => filtered
+            ? { total: 1, offset: 0, limit: 50, games: [loss] }
+            : {
+                total: 2,
+                offset: 0,
+                limit: 50,
+                games: [
+                  catalogCard('game0001', 'RecentPlayer', '2026-11-11T00:00:00Z'),
+                  loss,
+                ],
+              },
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+    expect(await screen.findByText('2 stored games')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Result' }), {
+      target: { value: 'loss' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Color' }), {
+      target: { value: 'black' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Sort games' }), {
+      target: { value: 'oldest' },
+    })
+
+    expect(await screen.findByText('1 matching game')).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: 'Loss against FilteredPlayer' })).toBeInTheDocument()
+    expect(catalogUrls).toContain(
+      '/api/games?offset=0&limit=50&result=loss&color=black&sort=oldest',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(await screen.findByText('2 stored games')).toBeInTheDocument()
+  })
+
   it('gets an older Lichess batch manually and refreshes the stored catalog', async () => {
     let catalogRequests = 0
     let retrievalRequest: RequestInit | undefined

@@ -34,6 +34,18 @@ export type CatalogPage = {
   games: CatalogGame[]
 }
 
+export type CatalogFilters = {
+  result: '' | 'win' | 'loss' | 'draw'
+  color: '' | 'white' | 'black'
+  sort: 'newest' | 'oldest'
+}
+
+export const EMPTY_CATALOG_FILTERS: CatalogFilters = {
+  result: '',
+  color: '',
+  sort: 'newest',
+}
+
 export type CatalogFailure = 'not_connected' | 'session_unavailable' | 'catalog_unavailable'
 
 export class CatalogRequestError extends Error {
@@ -44,8 +56,16 @@ export class CatalogRequestError extends Error {
 
 const PAGE_SIZE = 50
 
-export async function requestCatalog(offset: number, signal: AbortSignal): Promise<CatalogPage> {
-  const response = await fetch(`/api/games?offset=${offset}&limit=${PAGE_SIZE}`, {
+export async function requestCatalog(
+  offset: number,
+  signal: AbortSignal,
+  filters: CatalogFilters = EMPTY_CATALOG_FILTERS,
+): Promise<CatalogPage> {
+  const parameters = new URLSearchParams({ offset: offset.toString(), limit: PAGE_SIZE.toString() })
+  if (filters.result) parameters.set('result', filters.result)
+  if (filters.color) parameters.set('color', filters.color)
+  if (filters.sort === 'oldest') parameters.set('sort', filters.sort)
+  const response = await fetch(`/api/games?${parameters}`, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
     signal,

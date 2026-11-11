@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import styles from './GamesLibrary.module.css'
+import { GameRetrievalPanel } from './GameRetrievalPanel'
 import { CatalogRequestError, requestCatalog, type CatalogGame } from './gameCatalog'
 
 type CatalogState =
@@ -14,10 +15,12 @@ type ConnectionState = 'checking' | 'disconnected' | 'connected' | 'unavailable'
 
 export function GamesLibrary({
   accountId,
+  accountUsername,
   connectionState,
   onSessionFailure,
 }: {
   accountId: string | null
+  accountUsername: string | null
   connectionState: ConnectionState
   onSessionFailure: (failure: 'not_connected' | 'session_unavailable') => void
 }) {
@@ -25,10 +28,30 @@ export function GamesLibrary({
   const [refreshKey, setRefreshKey] = useState(0)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [olderError, setOlderError] = useState(false)
+  const [retrievalOpen, setRetrievalOpen] = useState(false)
   const olderRequest = useRef<AbortController | null>(null)
   const libraryRef = useRef<HTMLElement | null>(null)
   const countRef = useRef<HTMLParagraphElement | null>(null)
   const focusTarget = useRef<'library' | 'count' | null>(null)
+  const retrievalTriggerRef = useRef<HTMLButtonElement | null>(null)
+
+  const closeRetrieval = () => {
+    setRetrievalOpen(false)
+    retrievalTriggerRef.current?.focus()
+  }
+
+  const retrievalPanel = retrievalOpen && accountUsername !== null
+    ? (
+        <GameRetrievalPanel
+          username={accountUsername}
+          onClose={closeRetrieval}
+          onComplete={() => setRefreshKey((key) => key + 1)}
+          onSessionFailure={onSessionFailure}
+        />
+      )
+    : null
+
+  const connectedView = (content: ReactNode) => <>{content}{retrievalPanel}</>
 
   useEffect(() => {
     if (accountId === null) {
@@ -155,9 +178,9 @@ export function GamesLibrary({
   }
 
   if (catalog.kind === 'loading') {
-    return (
+    return connectedView(
       <section ref={libraryRef} className={styles.library} aria-live="polite" tabIndex={-1}>
-        <LibraryHeading />
+        <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
         <div className={styles.loadingGrid} aria-label="Loading stored games">
           {[0, 1, 2].map((card) => (
             <article className={styles.loadingCard} key={card} aria-hidden="true">
@@ -175,9 +198,9 @@ export function GamesLibrary({
   }
 
   if (catalog.kind === 'error') {
-    return (
+    return connectedView(
       <section ref={libraryRef} className={styles.library} aria-live="polite" tabIndex={-1}>
-        <LibraryHeading />
+        <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
         <div className={styles.message} role="alert">
           <h3>Stored games could not be loaded</h3>
           <p>Your local data was not changed.</p>
@@ -196,12 +219,18 @@ export function GamesLibrary({
   }
 
   if (catalog.games.length === 0) {
-    return <EmptyCatalog libraryRef={libraryRef} />
+    return connectedView(
+      <EmptyCatalog
+        libraryRef={libraryRef}
+        onGetGames={() => setRetrievalOpen(true)}
+        triggerRef={retrievalTriggerRef}
+      />,
+    )
   }
 
-  return (
+  return connectedView(
     <section ref={libraryRef} className={styles.library} tabIndex={-1}>
-      <LibraryHeading />
+      <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
       <p ref={countRef} className={styles.count} tabIndex={-1}>
         {catalog.games.length === catalog.total
           ? `${catalog.total} stored games`
@@ -222,20 +251,39 @@ export function GamesLibrary({
   )
 }
 
-function LibraryHeading() {
+function LibraryHeading({
+  onGetGames,
+  triggerRef,
+}: {
+  onGetGames?: () => void
+  triggerRef?: RefObject<HTMLButtonElement | null>
+}) {
   return (
     <header className={styles.heading}>
-      <p className={styles.eyebrow}>Local game library</p>
-      <h2>Lichess games</h2>
-      <p>Completed games are stored locally on this Mac.</p>
+      <div>
+        <p className={styles.eyebrow}>Local game library</p>
+        <h2>Lichess games</h2>
+        <p>Completed games are stored locally on this Mac.</p>
+      </div>
+      {onGetGames && (
+        <button ref={triggerRef} type="button" onClick={onGetGames}>Get Lichess Games</button>
+      )}
     </header>
   )
 }
 
-function EmptyCatalog({ libraryRef }: { libraryRef: RefObject<HTMLElement | null> }) {
+function EmptyCatalog({
+  libraryRef,
+  onGetGames,
+  triggerRef,
+}: {
+  libraryRef: RefObject<HTMLElement | null>
+  onGetGames: () => void
+  triggerRef: RefObject<HTMLButtonElement | null>
+}) {
   return (
     <section ref={libraryRef} className={styles.library} tabIndex={-1}>
-      <LibraryHeading />
+      <LibraryHeading onGetGames={onGetGames} triggerRef={triggerRef} />
       <div className={styles.message}>
         <h3>No games stored on this Mac</h3>
         <p>Connect Lichess, then choose Get Lichess Games to build your local library.</p>

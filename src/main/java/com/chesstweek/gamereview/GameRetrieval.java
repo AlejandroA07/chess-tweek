@@ -6,5 +6,9 @@ import java.time.Instant;
 public interface GameRetrieval {
 
     GameRetrievalResult retrieve(
-            String accessToken, String username, int count, Instant before);
+            String accessToken,
+            String accountId,
+            String username,
+            int count,
+            Instant before);
 }

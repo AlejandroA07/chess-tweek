@@ -1,6 +1,6 @@
 # Development documentation
 
-**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Part 1 adds a protected manual backend retrieval boundary for 1–50 finished games with an optional before-date. It validates bounded NDJSON and returns only a retrieval summary; persistence, catalog UI, and analysis remain later parts of Stage 3. The verified Spring Boot and React foundation includes lightweight SQLite persistence, enforced module boundaries, a responsive shared shell, allowlisted navigation, and intentional empty screens for Dashboard, Games, Reports, Puzzles, and Admin.
+**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 and 2 add protected manual retrieval and an account-scoped SQLite game catalog. Imports are idempotent, survive restart, validate standard-game SAN, keep non-standard variants analysis-ineligible, and reject bad games individually. Catalog UI, filtering, and Dashboard context remain later parts of Stage 3. The verified Spring Boot and React foundation includes lightweight SQLite persistence, enforced module boundaries, a responsive shared shell, allowlisted navigation, and intentional empty screens for Dashboard, Games, Reports, Puzzles, and Admin.
 
 The database is a local `var/chess-tweek.db` file with Flyway migrations, WAL journaling, foreign keys, normal synchronization, a five-second busy timeout, and at most two pooled connections. Run `node scripts/verify.mjs` for the complete gate.
 
@@ -18,3 +18,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-10-lichess-session.md` | Records sealed-session validation, account status, and logout. | dated report |
 | `2026-11-10-lichess-connection-ui.md` | Records account UI, safe callback messages, and manual OAuth-start evidence. | dated report |
 | `2026-11-11-lichess-game-retrieval.md` | Records the protected, bounded Stage 3 Part 1 retrieval boundary. | dated report |
+| `2026-11-11-game-catalog-storage.md` | Records the durable, validated Stage 3 Part 2 game catalog. | dated report |

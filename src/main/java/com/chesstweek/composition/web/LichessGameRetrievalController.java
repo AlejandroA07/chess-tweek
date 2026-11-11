@@ -47,12 +47,17 @@ public final class LichessGameRetrievalController {
             case SUCCESS -> ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
                     .body(new RetrievalResponse(
-                            validated.count(), outcome.received(), validated.beforeText()));
+                            validated.count(),
+                            outcome.received(),
+                            outcome.rejected(),
+                            validated.beforeText()));
             case NOT_CONNECTED -> notConnected(outcome.clearCookie());
             case RATE_LIMITED -> rateLimited(outcome.retryAfterSeconds());
             case INVALID_RESPONSE -> error(HttpStatus.BAD_GATEWAY, "invalid_lichess_response");
             case UPSTREAM_UNAVAILABLE -> error(
                     HttpStatus.SERVICE_UNAVAILABLE, "lichess_unavailable");
+            case STORAGE_UNAVAILABLE -> error(
+                    HttpStatus.SERVICE_UNAVAILABLE, "catalog_unavailable");
             case BUSY -> error(HttpStatus.CONFLICT, "retrieval_already_running");
         };
     }
@@ -101,7 +106,7 @@ public final class LichessGameRetrievalController {
 
     public record RetrievalRequest(Integer count, String before) {}
 
-    public record RetrievalResponse(int requested, int received, String before) {}
+    public record RetrievalResponse(int requested, int received, int rejected, String before) {}
 
     public record ErrorResponse(String error) {}
 

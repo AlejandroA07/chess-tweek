@@ -61,7 +61,11 @@ final class LichessGameRetrievalFacade {
                 case UPSTREAM_UNAVAILABLE -> Outcome.failed(Status.UPSTREAM_UNAVAILABLE, null);
                 case CONNECTED -> authorization.useAccessToken(accessToken -> mapResult(
                         gameRetrieval.retrieve(
-                                accessToken, authorization.username(), count, before)));
+                                accessToken,
+                                authorization.accountId(),
+                                authorization.username(),
+                                count,
+                                before)));
             };
         } finally {
             retrievalRunning.set(false);
@@ -70,11 +74,12 @@ final class LichessGameRetrievalFacade {
 
     private Outcome mapResult(GameRetrievalResult result) {
         return switch (result.status()) {
-            case SUCCESS -> Outcome.success(result.received());
+            case SUCCESS -> Outcome.success(result.received(), result.rejected());
             case UNAUTHORIZED -> Outcome.notConnected(true);
             case RATE_LIMITED -> rateLimited(result.retryAfterSeconds());
             case INVALID_RESPONSE -> Outcome.failed(Status.INVALID_RESPONSE, null);
             case UPSTREAM_UNAVAILABLE -> Outcome.failed(Status.UPSTREAM_UNAVAILABLE, null);
+            case STORAGE_UNAVAILABLE -> Outcome.failed(Status.STORAGE_UNAVAILABLE, null);
             case BUSY -> Outcome.failed(Status.BUSY, null);
         };
     }
@@ -108,21 +113,27 @@ final class LichessGameRetrievalFacade {
         RATE_LIMITED,
         INVALID_RESPONSE,
         UPSTREAM_UNAVAILABLE,
+        STORAGE_UNAVAILABLE,
         BUSY
     }
 
-    record Outcome(Status status, int received, Long retryAfterSeconds, boolean clearCookie) {
+    record Outcome(
+            Status status,
+            int received,
+            int rejected,
+            Long retryAfterSeconds,
+            boolean clearCookie) {
 
-        private static Outcome success(int received) {
-            return new Outcome(Status.SUCCESS, received, null, false);
+        private static Outcome success(int received, int rejected) {
+            return new Outcome(Status.SUCCESS, received, rejected, null, false);
         }
 
         private static Outcome notConnected(boolean clearCookie) {
-            return new Outcome(Status.NOT_CONNECTED, 0, null, clearCookie);
+            return new Outcome(Status.NOT_CONNECTED, 0, 0, null, clearCookie);
         }
 
         private static Outcome failed(Status status, Long retryAfterSeconds) {
-            return new Outcome(status, 0, retryAfterSeconds, false);
+            return new Outcome(status, 0, 0, retryAfterSeconds, false);
         }
     }
 }

@@ -50,4 +50,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Part 1 implements authenticated, bounded manual retrieval of 1–50 finished games with an optional before-date. It validates Lichess NDJSON and exposes only a safe retrieval summary; it does not persist games or start analysis. The next part adds the account-scoped, idempotent SQLite game catalog.
+Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 and 2 implement authenticated, bounded manual retrieval plus an account-scoped, idempotent SQLite game catalog. Standard-game SAN is legally validated, non-standard variants remain cataloged but analysis-ineligible, and individual bad exports are rejected without losing valid games. No retrieval starts analysis. The next part adds the Games catalog API and interface.

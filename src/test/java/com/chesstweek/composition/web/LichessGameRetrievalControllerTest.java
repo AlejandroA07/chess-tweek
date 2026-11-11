@@ -38,9 +38,10 @@ class LichessGameRetrievalControllerTest {
                 LichessSessionAuthorization.connected(
                         "owner-id", "ChessOwner", "liu_private_token_123");
         var requestSeen = new AtomicReference<RecordedRetrieval>();
-        GameRetrieval retrieval = (accessToken, username, count, before) -> {
-            requestSeen.set(new RecordedRetrieval(accessToken, username, count, before));
-            return GameRetrievalResult.success(2);
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) -> {
+            requestSeen.set(new RecordedRetrieval(
+                    accessToken, accountId, username, count, before));
+            return GameRetrievalResult.success(2, 0);
         };
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new LichessGameRetrievalController(
                         new LichessGameRetrievalFacade(authorizer, retrieval)))
@@ -55,12 +56,14 @@ class LichessGameRetrievalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requested").value(2))
                 .andExpect(jsonPath("$.received").value(2))
+                .andExpect(jsonPath("$.rejected").value(0))
                 .andExpect(jsonPath("$.before").value("2026-11-01"))
                 .andExpect(content().string(not(containsString("liu_private_token_123"))))
                 .andExpect(content().string(not(containsString("game"))));
 
         assertThat(requestSeen.get()).isEqualTo(new RecordedRetrieval(
                 "liu_private_token_123",
+                "owner-id",
                 "ChessOwner",
                 2,
                 Instant.parse("2026-11-01T00:00:00Z")));
@@ -71,7 +74,7 @@ class LichessGameRetrievalControllerTest {
         var retrievalCalls = new AtomicInteger();
         LichessSessionAuthorizer authorizer = sealedSession ->
                 LichessSessionAuthorization.disconnected(false);
-        GameRetrieval retrieval = (accessToken, username, count, before) -> {
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) -> {
             retrievalCalls.incrementAndGet();
             throw new AssertionError("Logged-out requests must not reach Lichess");
         };
@@ -92,7 +95,7 @@ class LichessGameRetrievalControllerTest {
             authorizationCalls.incrementAndGet();
             throw new AssertionError("Foreign origins must not open the session");
         };
-        GameRetrieval retrieval = (accessToken, username, count, before) -> {
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) -> {
             throw new AssertionError("Foreign origins must not reach Lichess");
         };
         MockMvc mockMvc = mockMvc(authorizer, retrieval);
@@ -115,7 +118,7 @@ class LichessGameRetrievalControllerTest {
             authorizationCalls.incrementAndGet();
             throw new AssertionError("Invalid input must not open the session");
         };
-        GameRetrieval retrieval = (accessToken, username, count, before) -> {
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) -> {
             throw new AssertionError("Invalid input must not reach Lichess");
         };
         MockMvc mockMvc = mockMvc(authorizer, retrieval);
@@ -142,7 +145,7 @@ class LichessGameRetrievalControllerTest {
         LichessSessionAuthorizer authorizer = sealedSession ->
                 LichessSessionAuthorization.connected(
                         "owner-id", "ChessOwner", "liu_private_token_123");
-        GameRetrieval retrieval = (accessToken, username, count, before) ->
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) ->
                 GameRetrievalResult.failed(GameRetrievalResult.Status.UNAUTHORIZED, null);
         MockMvc mockMvc = mockMvc(authorizer, retrieval);
 
@@ -158,7 +161,7 @@ class LichessGameRetrievalControllerTest {
         LichessSessionAuthorizer authorizer = sealedSession ->
                 LichessSessionAuthorization.connected(
                         "owner-id", "ChessOwner", "liu_private_token_123");
-        GameRetrieval retrieval = (accessToken, username, count, before) ->
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) ->
                 GameRetrievalResult.failed(GameRetrievalResult.Status.RATE_LIMITED, 73L);
         MockMvc mockMvc = mockMvc(authorizer, retrieval);
 
@@ -183,8 +186,12 @@ class LichessGameRetrievalControllerTest {
                 new ExpectedFailure(
                         GameRetrievalResult.Status.UPSTREAM_UNAVAILABLE,
                         503,
-                        "lichess_unavailable"))) {
-            GameRetrieval retrieval = (accessToken, username, count, before) ->
+                        "lichess_unavailable"),
+                new ExpectedFailure(
+                        GameRetrievalResult.Status.STORAGE_UNAVAILABLE,
+                        503,
+                        "catalog_unavailable"))) {
+            GameRetrieval retrieval = (accessToken, accountId, username, count, before) ->
                     GameRetrievalResult.failed(failure.status(), null);
 
             mockMvc(authorizer, retrieval)
@@ -214,8 +221,8 @@ class LichessGameRetrievalControllerTest {
             return LichessSessionAuthorization.connected(
                     "owner-id", "ChessOwner", "liu_private_token_123");
         };
-        GameRetrieval retrieval = (accessToken, username, count, before) ->
-                GameRetrievalResult.success(1);
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) ->
+                GameRetrievalResult.success(1, 0);
         var facade = new LichessGameRetrievalFacade(
                 authorizer, retrieval, Clock.systemUTC());
         var executor = Executors.newSingleThreadExecutor();
@@ -246,7 +253,7 @@ class LichessGameRetrievalControllerTest {
                     "owner-id", "ChessOwner", "liu_private_token_123");
         };
         var retrievalCalls = new AtomicInteger();
-        GameRetrieval retrieval = (accessToken, username, count, before) -> {
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) -> {
             retrievalCalls.incrementAndGet();
             return GameRetrievalResult.failed(GameRetrievalResult.Status.RATE_LIMITED, 73L);
         };
@@ -271,7 +278,7 @@ class LichessGameRetrievalControllerTest {
             return LichessSessionAuthorization.rateLimited(73L);
         };
         var retrievalCalls = new AtomicInteger();
-        GameRetrieval retrieval = (accessToken, username, count, before) -> {
+        GameRetrieval retrieval = (accessToken, accountId, username, count, before) -> {
             retrievalCalls.incrementAndGet();
             throw new AssertionError("A rate-limited account check must not export games");
         };
@@ -307,6 +314,7 @@ class LichessGameRetrievalControllerTest {
 
     private record RecordedRetrieval(
             String accessToken,
+            String accountId,
             String username,
             int count,
             Instant before) {}

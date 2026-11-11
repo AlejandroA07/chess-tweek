@@ -1,11 +1,14 @@
 package com.chesstweek.gamereview;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+
+import com.chesstweek.gamereview.internal.persistence.GameCatalogStore;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,12 +37,32 @@ class GameRetrievalServiceTest {
                 throw new LichessGameClientException(mapping.reason(), null, null);
             };
 
-            GameRetrievalResult result = new GameRetrievalService(client)
-                    .retrieve("liu_private_token_123", "ChessOwner", 1, null);
+            GameRetrievalResult result = service(client)
+                    .retrieve(
+                            "liu_private_token_123",
+                            "ownerid",
+                            "ChessOwner",
+                            1,
+                            null);
 
             assertThat(result.status()).isEqualTo(mapping.status());
             assertThat(result.retryAfterSeconds()).isEqualTo(mapping.retryAfterSeconds());
         }
+    }
+
+    @Test
+    void includesTransportAndPayloadRejectionsInTheSafeSummary() {
+        LichessGameClient client = (accessToken, username, count, before) ->
+                new GameExportBatch(
+                        List.of(new ExportedGame("game0001", "mate", "{}")),
+                        2);
+
+        GameRetrievalResult result = service(client).retrieve(
+                "liu_private_token_123", "ownerid", "ChessOwner", 3, null);
+
+        assertThat(result.status()).isEqualTo(GameRetrievalResult.Status.SUCCESS);
+        assertThat(result.received()).isZero();
+        assertThat(result.rejected()).isEqualTo(3);
     }
 
     @Test
@@ -59,16 +82,20 @@ class GameRetrievalServiceTest {
             return new GameExportBatch(List.of(
                     new ExportedGame("game0001", "mate", "{}")));
         };
-        var service = new GameRetrievalService(client);
+        var service = service(client);
         var executor = Executors.newSingleThreadExecutor();
 
         try {
             var first = executor.submit(() -> service.retrieve(
-                    "liu_private_token_123", "ChessOwner", 1, null));
+                    "liu_private_token_123", "ownerid", "ChessOwner", 1, null));
             assertThat(enteredClient.await(1, TimeUnit.SECONDS)).isTrue();
 
             assertThat(service.retrieve(
-                            "liu_private_token_123", "ChessOwner", 1, null).status())
+                            "liu_private_token_123",
+                            "ownerid",
+                            "ChessOwner",
+                            1,
+                            null).status())
                     .isEqualTo(GameRetrievalResult.Status.BUSY);
 
             releaseClient.countDown();
@@ -78,6 +105,12 @@ class GameRetrievalServiceTest {
             releaseClient.countDown();
             executor.shutdownNow();
         }
+    }
+
+    private static GameRetrievalService service(LichessGameClient client) {
+        GameCatalogStore catalog = (accountId, games, retrievedAt) -> {};
+        return new GameRetrievalService(
+                client, new GamePayloadParser(), catalog, Clock.systemUTC());
     }
 
     private record FailureMapping(

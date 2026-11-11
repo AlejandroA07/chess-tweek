@@ -22,12 +22,14 @@ import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.chesstweek.shared.http.RetryAfter;
 
+@Component
 final class HttpLichessGameClient implements LichessGameClient {
 
     private static final URI GAMES_ENDPOINT = URI.create("https://lichess.org/api/games/user");
@@ -132,8 +134,11 @@ final class HttpLichessGameClient implements LichessGameClient {
         var games = new ArrayList<ExportedGame>();
         var line = new ByteArrayOutputStream();
         int responseBytes = 0;
+        int processedGames = 0;
+        int rejectedGames = 0;
         int next;
         boolean pendingCarriageReturn = false;
+        boolean oversizedLine = false;
 
         while ((next = input.read()) != -1) {
             responseBytes += 1;
@@ -145,66 +150,80 @@ final class HttpLichessGameClient implements LichessGameClient {
                 if (next != '\n') {
                     throw new InvalidGameExportException("Lichess returned invalid NDJSON");
                 }
-                addGame(games, line, requestedCount);
+                if (line.size() > 0 || oversizedLine) {
+                    if (processedGames >= requestedCount) {
+                        throw new InvalidGameExportException("Lichess returned too many games");
+                    }
+                    processedGames += 1;
+                    rejectedGames += addGame(games, line, oversizedLine);
+                }
                 line.reset();
+                oversizedLine = false;
             } else if (next == '\r') {
                 pendingCarriageReturn = true;
             } else if (next == '\n') {
-                addGame(games, line, requestedCount);
-                line.reset();
-            } else {
-                if (line.size() >= MAX_LINE_BYTES) {
-                    throw new InvalidGameExportException("Lichess game is too large");
+                if (line.size() > 0 || oversizedLine) {
+                    if (processedGames >= requestedCount) {
+                        throw new InvalidGameExportException("Lichess returned too many games");
+                    }
+                    processedGames += 1;
+                    rejectedGames += addGame(games, line, oversizedLine);
                 }
-                line.write(next);
+                line.reset();
+                oversizedLine = false;
+            } else {
+                if (!oversizedLine && line.size() >= MAX_LINE_BYTES) {
+                    oversizedLine = true;
+                    line.reset();
+                }
+                if (!oversizedLine) {
+                    line.write(next);
+                }
             }
         }
         if (pendingCarriageReturn) {
             throw new InvalidGameExportException("Lichess returned invalid NDJSON");
         }
-        addGame(games, line, requestedCount);
-        return new GameExportBatch(games);
+        if (line.size() > 0 || oversizedLine) {
+            if (processedGames >= requestedCount) {
+                throw new InvalidGameExportException("Lichess returned too many games");
+            }
+            rejectedGames += addGame(games, line, oversizedLine);
+        }
+        return new GameExportBatch(games, rejectedGames);
     }
 
-    private void addGame(
+    private int addGame(
             ArrayList<ExportedGame> games,
             ByteArrayOutputStream line,
-            int requestedCount) {
-        if (line.size() == 0) {
-            return;
-        }
-        if (games.size() >= requestedCount) {
-            throw new InvalidGameExportException("Lichess returned too many games");
+            boolean oversizedLine) {
+        if (oversizedLine) {
+            return 1;
         }
 
-        String payload;
         try {
-            payload = StandardCharsets.UTF_8
+            String payload = StandardCharsets.UTF_8
                     .newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
                     .decode(ByteBuffer.wrap(line.toByteArray()))
                     .toString();
-        } catch (CharacterCodingException exception) {
-            throw new InvalidGameExportException("Lichess returned invalid UTF-8", exception);
+            JsonNode game = objectMapper.readTree(payload);
+            JsonNode id = game.get("id");
+            JsonNode status = game.get("status");
+            if (id == null
+                    || !id.isString()
+                    || !GAME_ID_PATTERN.matcher(id.stringValue()).matches()
+                    || status == null
+                    || !status.isString()
+                    || !FINISHED_STATUSES.contains(status.stringValue())) {
+                return 1;
+            }
+            games.add(new ExportedGame(id.stringValue(), status.stringValue(), payload));
+            return 0;
+        } catch (CharacterCodingException | RuntimeException exception) {
+            return 1;
         }
-        JsonNode game;
-        try {
-            game = objectMapper.readTree(payload);
-        } catch (RuntimeException exception) {
-            throw new InvalidGameExportException("Lichess returned invalid JSON", exception);
-        }
-        JsonNode id = game.get("id");
-        JsonNode status = game.get("status");
-        if (id == null
-                || !id.isString()
-                || !GAME_ID_PATTERN.matcher(id.stringValue()).matches()
-                || status == null
-                || !status.isString()
-                || !FINISHED_STATUSES.contains(status.stringValue())) {
-            throw new InvalidGameExportException("Lichess returned an invalid game");
-        }
-        games.add(new ExportedGame(id.stringValue(), status.stringValue(), payload));
     }
 
     private static URI requestUri(String username, int count, Instant before) {

@@ -65,27 +65,27 @@ class HttpLichessGameClientTest {
     }
 
     @Test
-    void rejectsMalformedOrUnfinishedGameData() {
+    void rejectsAnInvalidGameWithoutDiscardingValidGames() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer upstream = MockRestServiceServer.bindTo(restClientBuilder).build();
         upstream.expect(requestTo(org.hamcrest.Matchers.startsWith(
                         "https://lichess.org/api/games/user/ChessOwner?")))
                 .andRespond(withSuccess(
-                        "{\"id\":\"game0001\",\"status\":\"started\"}\n",
+                        "{\"id\":\"game0001\",\"status\":\"mate\"}\n"
+                                + "{\"id\":\"game0002\",\"status\":\"started\"}\n",
                         MediaType.parseMediaType("application/x-ndjson")));
         var client = new HttpLichessGameClient(restClientBuilder.build());
 
-        assertThatThrownBy(() -> client.fetch(
-                        "liu_private_token_123", "ChessOwner", 1, null))
-                .isInstanceOfSatisfying(
-                        LichessGameClientException.class,
-                        exception -> assertThat(exception.reason())
-                                .isEqualTo(LichessGameClientException.Reason.INVALID_RESPONSE));
+        GameExportBatch batch = client.fetch(
+                "liu_private_token_123", "ChessOwner", 2, null);
+
+        assertThat(batch.games()).extracting(ExportedGame::id).containsExactly("game0001");
+        assertThat(batch.rejected()).isEqualTo(1);
         upstream.verify();
     }
 
     @Test
-    void rejectsMalformedNdjsonAndUnexpectedContentTypes() {
+    void rejectsMalformedGameJsonPerGameAndUnexpectedContentTypesGlobally() {
         RestClient.Builder malformedBuilder = RestClient.builder();
         MockRestServiceServer malformed = MockRestServiceServer.bindTo(malformedBuilder).build();
         malformed.expect(requestTo(org.hamcrest.Matchers.startsWith(
@@ -94,12 +94,11 @@ class HttpLichessGameClientTest {
                         "{not-json}\n",
                         MediaType.parseMediaType("application/x-ndjson")));
 
-        assertThatThrownBy(() -> new HttpLichessGameClient(malformedBuilder.build()).fetch(
-                        "liu_private_token_123", "ChessOwner", 1, null))
-                .isInstanceOfSatisfying(
-                        LichessGameClientException.class,
-                        exception -> assertThat(exception.reason())
-                                .isEqualTo(LichessGameClientException.Reason.INVALID_RESPONSE));
+        GameExportBatch malformedBatch = new HttpLichessGameClient(malformedBuilder.build()).fetch(
+                "liu_private_token_123", "ChessOwner", 1, null);
+
+        assertThat(malformedBatch.games()).isEmpty();
+        assertThat(malformedBatch.rejected()).isEqualTo(1);
         malformed.verify();
 
         RestClient.Builder wrongTypeBuilder = RestClient.builder();
@@ -137,12 +136,11 @@ class HttpLichessGameClientTest {
                         malformedUtf8,
                         MediaType.parseMediaType("application/x-ndjson")));
 
-        assertThatThrownBy(() -> new HttpLichessGameClient(utf8Builder.build()).fetch(
-                        "liu_private_token_123", "ChessOwner", 1, null))
-                .isInstanceOfSatisfying(
-                        LichessGameClientException.class,
-                        exception -> assertThat(exception.reason())
-                                .isEqualTo(LichessGameClientException.Reason.INVALID_RESPONSE));
+        GameExportBatch utf8Batch = new HttpLichessGameClient(utf8Builder.build()).fetch(
+                "liu_private_token_123", "ChessOwner", 1, null);
+
+        assertThat(utf8Batch.games()).isEmpty();
+        assertThat(utf8Batch.rejected()).isEqualTo(1);
         utf8.verify();
 
         RestClient.Builder carriageReturnBuilder = RestClient.builder();
@@ -181,7 +179,7 @@ class HttpLichessGameClientTest {
     }
 
     @Test
-    void rejectsAnOversizedGameWithoutBufferingTheWholeResponse() {
+    void rejectsAnOversizedGamePerGameWithoutBufferingTheWholeResponse() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer upstream = MockRestServiceServer.bindTo(restClientBuilder).build();
         upstream.expect(requestTo(org.hamcrest.Matchers.startsWith(
@@ -193,12 +191,11 @@ class HttpLichessGameClientTest {
                         MediaType.parseMediaType("application/x-ndjson")));
         var client = new HttpLichessGameClient(restClientBuilder.build());
 
-        assertThatThrownBy(() -> client.fetch(
-                        "liu_private_token_123", "ChessOwner", 1, null))
-                .isInstanceOfSatisfying(
-                        LichessGameClientException.class,
-                        exception -> assertThat(exception.reason())
-                                .isEqualTo(LichessGameClientException.Reason.INVALID_RESPONSE));
+        GameExportBatch batch = client.fetch(
+                "liu_private_token_123", "ChessOwner", 1, null);
+
+        assertThat(batch.games()).isEmpty();
+        assertThat(batch.rejected()).isEqualTo(1);
         upstream.verify();
     }
 

@@ -12,6 +12,7 @@ import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,6 +34,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withNoContent;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 
 class LichessSessionControllerTest {
 
@@ -177,6 +179,32 @@ class LichessSessionControllerTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error").value("lichess_unavailable"))
                 .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    void preservesTheAccountRetryDelayForRetrievalAuthorization(
+            @TempDir Path temporaryDirectory) {
+        String cookieValue = sealedSession(temporaryDirectory);
+        RestClient.Builder restClientBuilder = RestClient.builder();
+        MockRestServiceServer upstream = MockRestServiceServer.bindTo(restClientBuilder).build();
+        upstream.expect(requestTo("https://lichess.org/api/account"))
+                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                        .header("Retry-After", "73"));
+        var service = new LichessSessionService(
+                CLOCK,
+                new HttpLichessAccountClient(restClientBuilder.build(), CLOCK),
+                token -> {},
+                new SessionCookieSealer(
+                        temporaryDirectory.resolve("runtime/lichess-cookie.key"),
+                        new SecureRandom()));
+
+        LichessSessionAuthorization authorization = service.authorize(cookieValue);
+
+        org.assertj.core.api.Assertions.assertThat(authorization.type())
+                .isEqualTo(LichessSessionAuthorization.Type.RATE_LIMITED);
+        org.assertj.core.api.Assertions.assertThat(authorization.retryAfterSeconds())
+                .isEqualTo(73L);
+        upstream.verify();
     }
 
     @Test

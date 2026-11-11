@@ -1,6 +1,6 @@
 # Chess Tweek — Agent Guide
 
-Chess Tweek is a local-first chess training web app for macOS. Stage 0 planning, the Stage 1 application foundation, and the Stage 2 Lichess connection implementation are complete.
+Chess Tweek is a local-first chess training web app for macOS. Stage 0 planning, the Stage 1 application foundation, and the Stage 2 Lichess connection implementation are complete. Stage 3 is being delivered in independently verified parts.
 
 This file is the source of truth for coding agents. Keep it aligned with the repository's current, verified state.
 
@@ -50,4 +50,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stages 0 and 1 are complete. Stage 2 implements authorization start, callback exchange, sealed-session validation, current account ratings, visible connection failures, retry, and logout behind fixed Lichess endpoints. Access tokens remain inside a Secure, HttpOnly, SameSite cookie sealed with an owner-only local key and never enter SQLite, browser JavaScript, or API response bodies. The packaged app reaches the real Lichess sign-in screen; the remaining Stage 2 acceptance check requires the owner to sign in and approve access. Stage 3 begins only after that check and review.
+Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Part 1 implements authenticated, bounded manual retrieval of 1–50 finished games with an optional before-date. It validates Lichess NDJSON and exposes only a safe retrieval summary; it does not persist games or start analysis. The next part adds the account-scoped, idempotent SQLite game catalog.

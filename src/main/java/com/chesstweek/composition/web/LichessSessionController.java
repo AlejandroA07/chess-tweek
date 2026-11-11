@@ -5,7 +5,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,26 +48,16 @@ public final class LichessSessionController {
         }
         sessionService.logout(sealedSession);
         return ResponseEntity.noContent()
-                .header(HttpHeaders.SET_COOKIE, clearedSessionCookie().toString())
+                .header(HttpHeaders.SET_COOKIE, LichessSessionCookies.cleared().toString())
                 .build();
     }
 
     private static ResponseEntity<SessionResponse> disconnected(boolean clearCookie) {
         var response = ResponseEntity.ok().cacheControl(CacheControl.noStore());
         if (clearCookie) {
-            response.header(HttpHeaders.SET_COOKIE, clearedSessionCookie().toString());
+            response.header(HttpHeaders.SET_COOKIE, LichessSessionCookies.cleared().toString());
         }
         return response.body(new SessionResponse(false, null));
-    }
-
-    private static ResponseCookie clearedSessionCookie() {
-        return ResponseCookie.from(LichessSessionService.COOKIE_NAME, "")
-                .path("/")
-                .maxAge(0)
-                .secure(true)
-                .httpOnly(true)
-                .sameSite("Strict")
-                .build();
     }
 
     public record SessionResponse(boolean connected, LichessSessionService.Account account) {}

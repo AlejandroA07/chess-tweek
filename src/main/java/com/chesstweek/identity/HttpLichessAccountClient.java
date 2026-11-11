@@ -1,6 +1,7 @@
 package com.chesstweek.identity;
 
 import java.net.URI;
+import java.time.Clock;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -9,18 +10,26 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import com.chesstweek.shared.http.RetryAfter;
+
 final class HttpLichessAccountClient implements LichessAccountClient {
 
     private static final URI ACCOUNT_ENDPOINT = URI.create("https://lichess.org/api/account");
 
     private final RestClient restClient;
+    private final Clock clock;
 
     HttpLichessAccountClient() {
-        this(LichessHttpClientFactory.create());
+        this(LichessHttpClientFactory.create(), Clock.systemUTC());
     }
 
     HttpLichessAccountClient(RestClient restClient) {
+        this(restClient, Clock.systemUTC());
+    }
+
+    HttpLichessAccountClient(RestClient restClient, Clock clock) {
         this.restClient = restClient;
+        this.clock = clock;
     }
 
     @Override
@@ -37,8 +46,23 @@ final class HttpLichessAccountClient implements LichessAccountClient {
             }
             return response.toAccount();
         } catch (RestClientResponseException exception) {
+            int status = exception.getStatusCode().value();
+            if (status == 401) {
+                throw new LichessAccountException(
+                        LichessAccountException.Reason.UNAUTHORIZED, null, exception);
+            }
+            if (status == 429) {
+                throw new LichessAccountException(
+                        LichessAccountException.Reason.RATE_LIMITED,
+                        RetryAfter.parse(
+                                exception.getResponseHeaders() == null
+                                        ? null
+                                        : exception.getResponseHeaders().getFirst("Retry-After"),
+                                clock.instant()),
+                        exception);
+            }
             throw new LichessAccountException(
-                    exception.getStatusCode().value() == 401, exception);
+                    LichessAccountException.Reason.UNAVAILABLE, null, exception);
         } catch (RestClientException exception) {
             throw new LichessAccountException(false, exception);
         }

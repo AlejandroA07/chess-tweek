@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 @Service
-public final class LichessSessionService {
+public final class LichessSessionService implements LichessSessionAuthorizer {
 
     public static final String COOKIE_NAME = "__Host-chess_tweek_session";
 
@@ -40,30 +40,65 @@ public final class LichessSessionService {
     }
 
     public Status status(String sealedSession) {
+        SessionValidation validation = validateSession(sealedSession);
+        return switch (validation.type()) {
+            case DISCONNECTED -> Status.disconnected(validation.clearCookie());
+            case RATE_LIMITED -> Status.unavailable();
+            case UPSTREAM_UNAVAILABLE -> Status.unavailable();
+            case CONNECTED -> {
+                LichessAccount account = validation.account();
+                yield Status.connected(new Account(
+                        account.id(),
+                        account.username(),
+                        new Ratings(
+                                account.ratings().bullet(),
+                                account.ratings().blitz(),
+                                account.ratings().rapid(),
+                                account.ratings().classical(),
+                                account.ratings().correspondence())));
+            }
+        };
+    }
+
+    @Override
+    public LichessSessionAuthorization authorize(String sealedSession) {
+        SessionValidation validation = validateSession(sealedSession);
+        return switch (validation.type()) {
+            case DISCONNECTED ->
+                LichessSessionAuthorization.disconnected(validation.clearCookie());
+            case RATE_LIMITED ->
+                LichessSessionAuthorization.rateLimited(validation.retryAfterSeconds());
+            case UPSTREAM_UNAVAILABLE -> LichessSessionAuthorization.unavailable();
+            case CONNECTED -> LichessSessionAuthorization.connected(
+                    validation.account().id(),
+                    validation.account().username(),
+                    validation.session().accessToken());
+        };
+    }
+
+    private SessionValidation validateSession(String sealedSession) {
         if (sealedSession == null) {
-            return Status.disconnected(false);
+            return SessionValidation.disconnected(false);
         }
         var opened = sessionCookieSealer.open(sealedSession, clock.instant());
         if (opened.isEmpty()) {
-            return Status.disconnected(true);
+            return SessionValidation.disconnected(true);
         }
 
         try {
-            LichessAccount account = accountClient.currentAccount(opened.orElseThrow().accessToken());
+            var session = opened.orElseThrow();
+            LichessAccount account = accountClient.currentAccount(session.accessToken());
             if (!isValid(account)) {
-                return Status.unavailable();
+                return SessionValidation.unavailable();
             }
-            return Status.connected(new Account(
-                    account.id(),
-                    account.username(),
-                    new Ratings(
-                            account.ratings().bullet(),
-                            account.ratings().blitz(),
-                            account.ratings().rapid(),
-                            account.ratings().classical(),
-                            account.ratings().correspondence())));
+            return SessionValidation.connected(session, account);
         } catch (LichessAccountException exception) {
-            return exception.unauthorized() ? Status.disconnected(true) : Status.unavailable();
+            if (exception.unauthorized()) {
+                return SessionValidation.disconnected(true);
+            }
+            return exception.rateLimited()
+                    ? SessionValidation.rateLimited(exception.retryAfterSeconds())
+                    : SessionValidation.unavailable();
         }
     }
 
@@ -95,6 +130,46 @@ public final class LichessSessionService {
 
     private static boolean validRating(Integer rating) {
         return rating == null || (rating >= 0 && rating <= 5_000);
+    }
+
+    private enum SessionValidationType {
+        CONNECTED,
+        DISCONNECTED,
+        RATE_LIMITED,
+        UPSTREAM_UNAVAILABLE
+    }
+
+    private record SessionValidation(
+            SessionValidationType type,
+            SessionCookieSealer.OpenedSession session,
+            LichessAccount account,
+            boolean clearCookie,
+            Long retryAfterSeconds) {
+
+        private static SessionValidation connected(
+                SessionCookieSealer.OpenedSession session, LichessAccount account) {
+            return new SessionValidation(
+                    SessionValidationType.CONNECTED, session, account, false, null);
+        }
+
+        private static SessionValidation disconnected(boolean clearCookie) {
+            return new SessionValidation(
+                    SessionValidationType.DISCONNECTED, null, null, clearCookie, null);
+        }
+
+        private static SessionValidation rateLimited(Long retryAfterSeconds) {
+            return new SessionValidation(
+                    SessionValidationType.RATE_LIMITED,
+                    null,
+                    null,
+                    false,
+                    retryAfterSeconds);
+        }
+
+        private static SessionValidation unavailable() {
+            return new SessionValidation(
+                    SessionValidationType.UPSTREAM_UNAVAILABLE, null, null, false, null);
+        }
     }
 
     public enum StatusType {

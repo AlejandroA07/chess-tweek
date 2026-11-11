@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import styles from './App.module.css'
+import { GamesLibrary } from './GamesLibrary'
 
 type HealthState = 'checking' | 'ready' | 'offline'
 type IconName = 'dashboard' | 'games' | 'reports' | 'puzzles' | 'admin'
@@ -108,6 +109,14 @@ export function App() {
       setSession({ kind: 'unavailable' })
     }
   }, [])
+
+  const handleCatalogSessionFailure = useCallback(
+    (failure: 'not_connected' | 'session_unavailable') => {
+      setAccountError(null)
+      setSession(failure === 'not_connected' ? { kind: 'disconnected' } : { kind: 'unavailable' })
+    },
+    [],
+  )
 
   useEffect(() => {
     const updateRoute = () => {
@@ -263,14 +272,22 @@ export function App() {
                 onRetry={() => void refreshSession()}
               />
             )}
-            <section className={styles.emptyState} aria-labelledby="workspace-title">
-              <span className={styles.emptyStateIcon}>
-                <NavIcon name={route.icon} />
-              </span>
-              <p className={styles.eyebrow}>{route.emptyState.eyebrow}</p>
-              <h2 id="workspace-title">{route.emptyState.title}</h2>
-              <p>{route.emptyState.description}</p>
-            </section>
+            {route.href === '#/games' ? (
+              <GamesLibrary
+                accountId={session.kind === 'connected' ? session.account.id : null}
+                connectionState={session.kind}
+                onSessionFailure={handleCatalogSessionFailure}
+              />
+            ) : (
+              <section className={styles.emptyState} aria-labelledby="workspace-title">
+                <span className={styles.emptyStateIcon}>
+                  <NavIcon name={route.icon} />
+                </span>
+                <p className={styles.eyebrow}>{route.emptyState.eyebrow}</p>
+                <h2 id="workspace-title">{route.emptyState.title}</h2>
+                <p>{route.emptyState.description}</p>
+              </section>
+            )}
           </div>
         </main>
       </div>

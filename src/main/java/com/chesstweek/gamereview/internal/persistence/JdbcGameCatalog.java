@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameCatalog;
+import com.chesstweek.gamereview.GameCatalogPage;
 
 @Repository
 public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
@@ -75,6 +76,12 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
             FROM game_review_game
             WHERE account_id = ?
             ORDER BY played_at_ms DESC, lichess_game_id
+            LIMIT ? OFFSET ?
+            """;
+    private static final String COUNT_BY_ACCOUNT = """
+            SELECT COUNT(*)
+            FROM game_review_game
+            WHERE account_id = ?
             """;
 
     private final NamedParameterJdbcTemplate namedJdbc;
@@ -97,9 +104,19 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
     }
 
     @Override
-    public List<CatalogGame> games(String accountId) {
+    public GameCatalogPage games(String accountId, int offset, int limit) {
         requireAccountId(accountId);
-        return jdbc.query(FIND_BY_ACCOUNT, this::mapGame, accountId);
+        if (offset < 0 || offset > 100_000 || limit < 1 || limit > 50) {
+            throw new IllegalArgumentException("Invalid catalog page");
+        }
+        List<CatalogGame> games = jdbc.query(
+                FIND_BY_ACCOUNT,
+                this::mapGame,
+                accountId,
+                limit,
+                offset);
+        int total = jdbc.queryForObject(COUNT_BY_ACCOUNT, Integer.class, accountId);
+        return new GameCatalogPage(games, total);
     }
 
     private MapSqlParameterSource parameters(

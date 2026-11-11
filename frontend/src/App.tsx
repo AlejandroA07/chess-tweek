@@ -275,6 +275,7 @@ export function App() {
             {route.href === '#/games' ? (
               <GamesLibrary
                 accountId={session.kind === 'connected' ? session.account.id : null}
+                accountUsername={session.kind === 'connected' ? session.account.username : null}
                 connectionState={session.kind}
                 onSessionFailure={handleCatalogSessionFailure}
               />

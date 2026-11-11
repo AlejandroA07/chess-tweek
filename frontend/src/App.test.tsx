@@ -167,6 +167,112 @@ describe('App', () => {
     expect(screen.getByText('Catalog only — analysis unavailable')).toBeInTheDocument()
   })
 
+  it('gets an older Lichess batch manually and refreshes the stored catalog', async () => {
+    let catalogRequests = 0
+    let retrievalRequest: RequestInit | undefined
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => connectedSession() } as Response
+      }
+      if (url === '/api/games?offset=0&limit=50') {
+        catalogRequests += 1
+        return {
+          ok: true,
+          json: async () => catalogRequests === 1
+            ? { total: 0, offset: 0, limit: 50, games: [] }
+            : {
+                total: 1,
+                offset: 0,
+                limit: 50,
+                games: [catalogCard('game0001', 'OlderPlayer', '2026-11-01T00:00:00Z')],
+              },
+        } as Response
+      }
+      if (url === '/api/lichess/games/retrievals') {
+        retrievalRequest = init
+        return {
+          ok: true,
+          json: async () => ({ requested: 5, received: 1, rejected: 0, before: '2026-11-02' }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+
+    expect(await screen.findByRole('heading', { name: 'No games stored on this Mac' }))
+      .toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Get Lichess Games' }))
+    const retrievalPanel = screen.getByRole('complementary', { name: 'Get Lichess Games' })
+    expect(retrievalPanel).toHaveTextContent('Connected as ChessOwner')
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Number of games' }), {
+      target: { value: '5' },
+    })
+    fireEvent.change(screen.getByLabelText('Games before'), {
+      target: { value: '2026-11-02' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Get Games' }))
+
+    expect(await screen.findByText('Received 1 game from Lichess.')).toBeInTheDocument()
+    expect(await screen.findByRole('article', { name: 'Win against OlderPlayer' })).toBeInTheDocument()
+    expect(retrievalRequest).toMatchObject({
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ count: 5, before: '2026-11-02' }),
+    })
+    expect(catalogRequests).toBe(2)
+  })
+
+  it('shows the safe retry time when Lichess rate-limits manual retrieval', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => connectedSession() } as Response
+      }
+      if (url === '/api/games?offset=0&limit=50') {
+        return {
+          ok: true,
+          json: async () => ({ total: 0, offset: 0, limit: 50, games: [] }),
+        } as Response
+      }
+      if (url === '/api/lichess/games/retrievals') {
+        return {
+          ok: false,
+          status: 429,
+          headers: new Headers({ 'Retry-After': '73' }),
+          json: async () => ({ error: 'lichess_rate_limited' }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+    expect(await screen.findByRole('heading', { name: 'No games stored on this Mac' }))
+      .toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Get Lichess Games' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Get Games' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Lichess asked us to wait 73 seconds before trying again.',
+    )
+    expect(screen.getByRole('button', { name: 'Get Games' })).toBeEnabled()
+  })
+
   it('loads older catalog pages without discarding visible games', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString()

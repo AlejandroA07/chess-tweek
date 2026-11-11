@@ -36,14 +36,16 @@ class GameCatalogPersistenceTest {
             assertThat(first.received()).isEqualTo(2);
             assertThat(first.rejected()).isEqualTo(1);
             assertThat(repeated.received()).isEqualTo(2);
-            assertThat(catalog.games("ownerid"))
+            assertThat(catalog.games("ownerid", 0, 50).games())
                     .extracting(CatalogGame::id)
                     .containsExactly("game0003", "game0001");
-            assertThat(catalog.games("another-account")).isEmpty();
+            assertThat(catalog.games("another-account", 0, 50).games()).isEmpty();
         }
 
         try (var restarted = start(databasePath)) {
-            List<CatalogGame> games = restarted.getBean(GameCatalog.class).games("ownerid");
+            List<CatalogGame> games = restarted.getBean(GameCatalog.class)
+                    .games("ownerid", 0, 50)
+                    .games();
 
             assertThat(games).hasSize(2);
             CatalogGame standard = games.stream()

@@ -50,4 +50,4 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 ## Current stage
 
-Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 and 2 implement authenticated, bounded manual retrieval plus an account-scoped, idempotent SQLite game catalog. Standard-game SAN is legally validated, non-standard variants remain cataloged but analysis-ineligible, and individual bad exports are rejected without losing valid games. No retrieval starts analysis. The next part adds the Games catalog API and interface.
+Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 3 implement authenticated manual retrieval, an account-scoped idempotent SQLite catalog, and the first Games library interface with bounded pages, responsive cards, safe connection/error states, and older-page loading. No retrieval starts analysis. The next part adds Get Lichess Games controls, catalog filters, and selection; rating-change display also requires extending ingestion because that value is not yet stored.

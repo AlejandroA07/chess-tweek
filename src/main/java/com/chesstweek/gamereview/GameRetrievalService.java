@@ -62,8 +62,8 @@ public final class GameRetrievalService implements GameRetrieval {
                 }
             }
             Instant retrievedAt = clock.instant();
-            catalog.save(accountId, accepted, retrievedAt);
-            return GameRetrievalResult.success(accepted.size(), rejected);
+            GameCatalogWriteResult writeResult = catalog.save(accountId, accepted, retrievedAt);
+            return GameRetrievalResult.success(writeResult, rejected);
         } catch (LichessGameClientException exception) {
             return switch (exception.reason()) {
                 case UNAUTHORIZED -> GameRetrievalResult.failed(

@@ -1,6 +1,6 @@
 # Development documentation
 
-**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 6 add protected manual retrieval, an account-scoped SQLite catalog, the Games library and retrieval panel, the complete approved server-backed filter set, and accessible selection for one eligible game or an exact eligible filtered group. Filter values are bounded or allowlisted before authorization and translated into parameterized account-scoped SQL. Exact write-result counts, rating-change ingestion, and Dashboard rating/bot context remain later Stage 3 parts.
+**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 7 add protected manual retrieval, an account-scoped SQLite catalog, exact new/updated/unchanged retrieval summaries, the Games library and retrieval panel, the complete approved server-backed filter set, and accessible selection for one eligible game or an exact eligible filtered group. Filter values are bounded or allowlisted before authorization and translated into parameterized account-scoped SQL. Rating-change ingestion and Dashboard rating/bot context remain later Stage 3 parts.
 
 The database is a local `var/chess-tweek.db` file with Flyway migrations, WAL journaling, foreign keys, normal synchronization, a five-second busy timeout, and at most two pooled connections. Run `node scripts/verify.mjs` for the complete gate.
 
@@ -24,3 +24,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-11-game-catalog-filter-foundation.md` | Records the server-backed result, color, and sort filter foundation. | dated report |
 | `2026-11-13-game-catalog-remaining-filters.md` | Records the remaining server-backed catalog filters and validation. | dated report |
 | `2026-11-13-game-catalog-selection.md` | Records eligible single-game and exact filtered-group selection. | dated report |
+| `2026-11-13-game-retrieval-write-counts.md` | Records exact new, updated, and unchanged retrieval accounting. | dated report |

@@ -50,6 +50,9 @@ public final class LichessGameRetrievalController {
                             validated.count(),
                             outcome.received(),
                             outcome.rejected(),
+                            outcome.created(),
+                            outcome.updated(),
+                            outcome.unchanged(),
                             validated.beforeText()));
             case NOT_CONNECTED -> notConnected(outcome.clearCookie());
             case RATE_LIMITED -> rateLimited(outcome.retryAfterSeconds());
@@ -106,7 +109,14 @@ public final class LichessGameRetrievalController {
 
     public record RetrievalRequest(Integer count, String before) {}
 
-    public record RetrievalResponse(int requested, int received, int rejected, String before) {}
+    public record RetrievalResponse(
+            int requested,
+            int received,
+            int rejected,
+            int created,
+            int updated,
+            int unchanged,
+            String before) {}
 
     public record ErrorResponse(String error) {}
 

@@ -103,6 +103,7 @@ Deliver:
 Acceptance:
 
 - Re-fetching creates no duplicate and older batches can be retrieved.
+- Retrieval summaries distinguish new, updated, unchanged, and rejected games exactly.
 - Lichess 401, 429, malformed NDJSON, oversized payload, invalid game, and network failures are visible and recoverable.
 - Retrieval never starts analysis.
 - The catalog survives an application restart.

@@ -2,6 +2,9 @@ export type GameRetrievalResult = {
   requested: number
   received: number
   rejected: number
+  created: number
+  updated: number
+  unchanged: number
   before: string | null
 }
 
@@ -52,7 +55,11 @@ export async function retrieveGames(
     !isInteger(body.requested, 1, 50) ||
     !isInteger(body.received, 0, body.requested) ||
     !isInteger(body.rejected, 0, body.requested) ||
+    !isInteger(body.created, 0, body.received) ||
+    !isInteger(body.updated, 0, body.received) ||
+    !isInteger(body.unchanged, 0, body.received) ||
     body.received + body.rejected > body.requested ||
+    body.created + body.updated + body.unchanged !== body.received ||
     !isBeforeDate(body.before)
   ) {
     throw new Error('Invalid retrieval response')

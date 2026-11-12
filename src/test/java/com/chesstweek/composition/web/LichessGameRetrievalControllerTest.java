@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.chesstweek.gamereview.GameRetrieval;
 import com.chesstweek.gamereview.GameRetrievalResult;
+import com.chesstweek.gamereview.GameCatalogWriteResult;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 
@@ -41,7 +42,7 @@ class LichessGameRetrievalControllerTest {
         GameRetrieval retrieval = (accessToken, accountId, username, count, before) -> {
             requestSeen.set(new RecordedRetrieval(
                     accessToken, accountId, username, count, before));
-            return GameRetrievalResult.success(2, 0);
+            return GameRetrievalResult.success(new GameCatalogWriteResult(1, 1, 0), 0);
         };
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new LichessGameRetrievalController(
                         new LichessGameRetrievalFacade(authorizer, retrieval)))
@@ -56,6 +57,9 @@ class LichessGameRetrievalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requested").value(2))
                 .andExpect(jsonPath("$.received").value(2))
+                .andExpect(jsonPath("$.created").value(1))
+                .andExpect(jsonPath("$.updated").value(1))
+                .andExpect(jsonPath("$.unchanged").value(0))
                 .andExpect(jsonPath("$.rejected").value(0))
                 .andExpect(jsonPath("$.before").value("2026-11-01"))
                 .andExpect(content().string(not(containsString("liu_private_token_123"))))
@@ -222,7 +226,7 @@ class LichessGameRetrievalControllerTest {
                     "owner-id", "ChessOwner", "liu_private_token_123");
         };
         GameRetrieval retrieval = (accessToken, accountId, username, count, before) ->
-                GameRetrievalResult.success(1, 0);
+                GameRetrievalResult.success(new GameCatalogWriteResult(1, 0, 0), 0);
         var facade = new LichessGameRetrievalFacade(
                 authorizer, retrieval, Clock.systemUTC());
         var executor = Executors.newSingleThreadExecutor();

@@ -108,7 +108,8 @@ class GameRetrievalServiceTest {
     }
 
     private static GameRetrievalService service(LichessGameClient client) {
-        GameCatalogStore catalog = (accountId, games, retrievedAt) -> {};
+        GameCatalogStore catalog = (accountId, games, retrievedAt) ->
+                new GameCatalogWriteResult(games.size(), 0, 0);
         return new GameRetrievalService(
                 client, new GamePayloadParser(), catalog, Clock.systemUTC());
     }

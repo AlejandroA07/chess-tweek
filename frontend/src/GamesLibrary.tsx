@@ -6,6 +6,7 @@ import {
   CatalogRequestError,
   EMPTY_CATALOG_FILTERS,
   requestCatalog,
+  requestEligibleSelectionTotal,
   type CatalogFilters,
   type CatalogGame,
 } from './gameCatalog'
@@ -19,6 +20,12 @@ type CatalogState =
   | { kind: 'error' }
 
 type ConnectionState = 'checking' | 'disconnected' | 'connected' | 'unavailable'
+
+type GameSelection =
+  | { kind: 'explicit'; ids: Set<string> }
+  | { kind: 'filtered'; total: number; excludedIds: Set<string> }
+
+const emptySelection = (): GameSelection => ({ kind: 'explicit', ids: new Set() })
 
 export function GamesLibrary({
   accountId,
@@ -37,7 +44,12 @@ export function GamesLibrary({
   const [olderError, setOlderError] = useState(false)
   const [retrievalOpen, setRetrievalOpen] = useState(false)
   const [filters, setFilters] = useState<CatalogFilters>(EMPTY_CATALOG_FILTERS)
+  const [selection, setSelection] = useState<GameSelection>(emptySelection)
+  const [selectionLoading, setSelectionLoading] = useState(false)
+  const [selectionError, setSelectionError] = useState(false)
+  const [selectionEmpty, setSelectionEmpty] = useState(false)
   const olderRequest = useRef<AbortController | null>(null)
+  const selectionRequest = useRef<AbortController | null>(null)
   const libraryRef = useRef<HTMLElement | null>(null)
   const countRef = useRef<HTMLParagraphElement | null>(null)
   const focusTarget = useRef<'library' | 'count' | null>(null)
@@ -53,13 +65,86 @@ export function GamesLibrary({
         <GameRetrievalPanel
           username={accountUsername}
           onClose={closeRetrieval}
-          onComplete={() => setRefreshKey((key) => key + 1)}
+          onComplete={() => {
+            selectionRequest.current?.abort()
+            setSelection(emptySelection())
+            setSelectionLoading(false)
+            setSelectionError(false)
+            setSelectionEmpty(false)
+            setRefreshKey((key) => key + 1)
+          }}
           onSessionFailure={onSessionFailure}
         />
       )
     : null
 
   const connectedView = (content: ReactNode) => <>{content}{retrievalPanel}</>
+
+  const selectedCount = selection.kind === 'explicit'
+    ? selection.ids.size
+    : selection.total - selection.excludedIds.size
+
+  const gameIsSelected = (gameId: string) => selection.kind === 'explicit'
+    ? selection.ids.has(gameId)
+    : !selection.excludedIds.has(gameId)
+
+  const toggleGameSelection = (game: CatalogGame) => {
+    if (!game.analysis.eligible) return
+    setSelection((current) => {
+      if (current.kind === 'filtered') {
+        const excludedIds = new Set(current.excludedIds)
+        if (excludedIds.has(game.id)) excludedIds.delete(game.id)
+        else excludedIds.add(game.id)
+        return { ...current, excludedIds }
+      }
+      const ids = new Set(current.ids)
+      if (ids.has(game.id)) ids.delete(game.id)
+      else ids.add(game.id)
+      return { kind: 'explicit', ids }
+    })
+  }
+
+  const clearSelection = () => {
+    selectionRequest.current?.abort()
+    setSelection(emptySelection())
+    setSelectionLoading(false)
+    setSelectionError(false)
+    setSelectionEmpty(false)
+  }
+
+  const changeFilters = (next: CatalogFilters) => {
+    clearSelection()
+    setFilters(next)
+  }
+
+  const selectAllFiltered = async () => {
+    const controller = new AbortController()
+    selectionRequest.current?.abort()
+    selectionRequest.current = controller
+    setSelectionLoading(true)
+    setSelectionError(false)
+    setSelectionEmpty(false)
+    try {
+      const total = await requestEligibleSelectionTotal(controller.signal, filters)
+      setSelection(total === 0
+        ? emptySelection()
+        : { kind: 'filtered', total, excludedIds: new Set() })
+      setSelectionEmpty(total === 0)
+    } catch (error: unknown) {
+      if (error instanceof CatalogRequestError && error.failure === 'not_connected') {
+        onSessionFailure(error.failure)
+      } else if (error instanceof CatalogRequestError && error.failure === 'session_unavailable') {
+        onSessionFailure(error.failure)
+      } else if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        setSelectionError(true)
+      }
+    } finally {
+      if (selectionRequest.current === controller) {
+        selectionRequest.current = null
+        setSelectionLoading(false)
+      }
+    }
+  }
 
   useEffect(() => {
     if (accountId === null) {
@@ -104,7 +189,18 @@ export function GamesLibrary({
     }
   }, [accountId, filters, onSessionFailure, refreshKey])
 
-  useEffect(() => () => olderRequest.current?.abort(), [])
+  useEffect(() => () => {
+    olderRequest.current?.abort()
+    selectionRequest.current?.abort()
+  }, [])
+
+  useEffect(() => {
+    selectionRequest.current?.abort()
+    setSelection(emptySelection())
+    setSelectionLoading(false)
+    setSelectionError(false)
+    setSelectionEmpty(false)
+  }, [accountId])
 
   useEffect(() => {
     if (focusTarget.current === 'library' && catalog.kind !== 'loading') {
@@ -191,8 +287,8 @@ export function GamesLibrary({
         <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
         <GameCatalogFilters
           filters={filters}
-          onChange={setFilters}
-          onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+          onChange={changeFilters}
+          onClear={() => changeFilters(EMPTY_CATALOG_FILTERS)}
         />
         <div className={styles.loadingGrid} aria-label="Loading stored games">
           {[0, 1, 2].map((card) => (
@@ -216,8 +312,8 @@ export function GamesLibrary({
         <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
         <GameCatalogFilters
           filters={filters}
-          onChange={setFilters}
-          onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+          onChange={changeFilters}
+          onClear={() => changeFilters(EMPTY_CATALOG_FILTERS)}
         />
         <div className={styles.message} role="alert">
           <h3>Stored games could not be loaded</h3>
@@ -243,13 +339,13 @@ export function GamesLibrary({
           <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
           <GameCatalogFilters
             filters={filters}
-            onChange={setFilters}
-            onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+            onChange={changeFilters}
+            onClear={() => changeFilters(EMPTY_CATALOG_FILTERS)}
           />
           <div className={styles.message}>
             <h3>No games match these filters</h3>
             <p>Clear filters to return to your complete stored library.</p>
-            <button type="button" onClick={() => setFilters(EMPTY_CATALOG_FILTERS)}>
+            <button type="button" onClick={() => changeFilters(EMPTY_CATALOG_FILTERS)}>
               Clear filters
             </button>
           </div>
@@ -270,14 +366,57 @@ export function GamesLibrary({
       <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
       <GameCatalogFilters
         filters={filters}
-        onChange={setFilters}
-        onClear={() => setFilters(EMPTY_CATALOG_FILTERS)}
+        onChange={changeFilters}
+        onClear={() => changeFilters(EMPTY_CATALOG_FILTERS)}
       />
       <p ref={countRef} className={styles.count} tabIndex={-1}>
         {catalogCount(catalog.games.length, catalog.total, filters)}
       </p>
+      <section className={styles.selectionActions} aria-label="Game selection">
+        <div>
+          <button
+            type="button"
+            disabled={selectionLoading || filters.analysis === 'catalog_only'}
+            onClick={() => void selectAllFiltered()}
+          >
+            {selectionLoading ? 'Selecting filtered games…' : 'Select All Filtered'}
+          </button>
+          <button type="button" disabled={selectedCount === 0} onClick={clearSelection}>
+            Clear Selection
+          </button>
+        </div>
+        <p>Only analysis-eligible games can be selected. Changing filters clears selection.</p>
+        {filters.analysis === 'catalog_only' && (
+          <p>Catalog-only games are unavailable for selection.</p>
+        )}
+        {selectionError && (
+          <p role="alert">Filtered games could not be selected. Try again.</p>
+        )}
+        {selectionEmpty && (
+          <p role="status">No analysis-eligible games match the current filters.</p>
+        )}
+      </section>
+      {selectedCount > 0 && (
+        <aside className={styles.selectionBar} aria-live="polite">
+          <strong>
+            {selectedCount} {selectedCount === 1 ? 'game' : 'games'} selected
+          </strong>
+          <span>
+            {selection.kind === 'filtered'
+              ? 'All analysis-eligible games matching the current filters.'
+              : 'Selected games are ready for a later eligible action.'}
+          </span>
+        </aside>
+      )}
       <div className={styles.gameGrid}>
-        {catalog.games.map((game) => <GameCard key={game.id} game={game} />)}
+        {catalog.games.map((game) => (
+          <GameCard
+            key={game.id}
+            game={game}
+            selected={game.analysis.eligible && gameIsSelected(game.id)}
+            onSelectionChange={() => toggleGameSelection(game)}
+          />
+        ))}
       </div>
       {catalog.nextOffset < catalog.total && (
         <div className={styles.loadOlder}>
@@ -355,7 +494,15 @@ function ConnectionMessage({
   )
 }
 
-function GameCard({ game }: { game: CatalogGame }) {
+function GameCard({
+  game,
+  selected,
+  onSelectionChange,
+}: {
+  game: CatalogGame
+  selected: boolean
+  onSelectionChange: () => void
+}) {
   const result = titleCase(game.result)
   const opponentName = game.opponent.title
     ? `${game.opponent.title} ${game.opponent.name}`
@@ -365,7 +512,23 @@ function GameCard({ game }: { game: CatalogGame }) {
     : 'Opening unavailable'
 
   return (
-    <article className={styles.gameCard} aria-label={`${result} against ${game.opponent.name}`}>
+    <article
+      className={styles.gameCard}
+      aria-label={`${result} against ${game.opponent.name}`}
+      data-selected={selected}
+    >
+      <label className={styles.selectionToggle} data-eligible={game.analysis.eligible}>
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={!game.analysis.eligible}
+          aria-label={game.analysis.eligible
+            ? `Select game against ${game.opponent.name}`
+            : `${game.opponent.name} cannot be selected because analysis is unavailable`}
+          onChange={onSelectionChange}
+        />
+        <span>{game.analysis.eligible ? 'Select game' : 'Selection unavailable'}</span>
+      </label>
       <div className={styles.cardHeading}>
         <span className={styles.result} data-result={game.result}>{result}</span>
         <span>{formatDate(game.playedAt)}</span>
@@ -468,6 +631,6 @@ function catalogCount(loaded: number, total: number, filters: CatalogFilters) {
     return `${total} matching ${total === 1 ? 'game' : 'games'}`
   }
   return loaded === total
-    ? `${total} stored games`
+    ? `${total} stored ${total === 1 ? 'game' : 'games'}`
     : `${loaded} of ${total} stored games loaded`
 }

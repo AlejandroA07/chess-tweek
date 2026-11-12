@@ -451,7 +451,15 @@ function titleCase(value: string) {
 }
 
 function hasNarrowingFilters(filters: CatalogFilters) {
-  return filters.result !== '' || filters.color !== ''
+  return filters.result !== ''
+    || filters.color !== ''
+    || filters.opening !== ''
+    || filters.opponent !== ''
+    || filters.speed !== ''
+    || filters.from !== ''
+    || filters.to !== ''
+    || filters.variant !== ''
+    || filters.analysis !== ''
 }
 
 function catalogCount(loaded: number, total: number, filters: CatalogFilters) {

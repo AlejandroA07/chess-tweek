@@ -1,6 +1,7 @@
 package com.chesstweek.composition.web;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -149,6 +150,13 @@ class GameCatalogControllerTest {
                         .queryParam("limit", "10")
                         .queryParam("result", "win")
                         .queryParam("color", "white")
+                        .queryParam("opening", "C20")
+                        .queryParam("opponent", "bot")
+                        .queryParam("speed", "blitz")
+                        .queryParam("from", "2026-11-01")
+                        .queryParam("to", "2026-11-11")
+                        .queryParam("variant", "standard")
+                        .queryParam("analysis", "eligible")
                         .queryParam("sort", "oldest"))
                 .andExpect(status().isOk());
 
@@ -157,6 +165,13 @@ class GameCatalogControllerTest {
                 10,
                 CatalogGame.Result.WIN,
                 CatalogGame.Color.WHITE,
+                "C20",
+                GameCatalogQuery.OpponentType.BOT,
+                CatalogGame.Speed.BLITZ,
+                LocalDate.parse("2026-11-01"),
+                LocalDate.parse("2026-11-11"),
+                CatalogGame.Variant.STANDARD,
+                GameCatalogQuery.AnalysisState.ELIGIBLE,
                 GameCatalogQuery.Sort.OLDEST));
     }
 
@@ -199,6 +214,34 @@ class GameCatalogControllerTest {
                         .queryParam("result", "winning")
                         .queryParam("color", "green")
                         .queryParam("sort", "random"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_catalog_filter"));
+
+        assertThat(authorizationCalls).hasValue(0);
+    }
+
+    @Test
+    void rejectsInvalidAdvancedFiltersBeforeOpeningTheSession() throws Exception {
+        var authorizationCalls = new AtomicInteger();
+        LichessSessionAuthorizer authorizer = sealedSession -> {
+            authorizationCalls.incrementAndGet();
+            throw new AssertionError("Invalid filters must not open the session");
+        };
+        GameCatalog catalog = (accountId, query) -> {
+            throw new AssertionError("Invalid filters must not read the catalog");
+        };
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .build();
+
+        mockMvc.perform(get("/api/games")
+                        .queryParam("opening", " leading-space")
+                        .queryParam("opponent", "computer")
+                        .queryParam("speed", "hyper")
+                        .queryParam("from", "2026-11-12")
+                        .queryParam("to", "2026-11-01")
+                        .queryParam("variant", "bughouse")
+                        .queryParam("analysis", "complete"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid_catalog_filter"));
 

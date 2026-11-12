@@ -167,7 +167,7 @@ describe('App', () => {
     expect(screen.getByText('Catalog only — analysis unavailable')).toBeInTheDocument()
   })
 
-  it('filters the full catalog by result and color and changes its sort order', async () => {
+  it('combines the full catalog filters and changes its sort order', async () => {
     const catalogUrls: string[] = []
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString()
@@ -182,6 +182,13 @@ describe('App', () => {
         catalogUrls.push(url)
         const filtered = url.includes('result=loss')
           && url.includes('color=black')
+          && url.includes('opening=C20')
+          && url.includes('opponent=human')
+          && url.includes('speed=blitz')
+          && url.includes('from=2026-11-01')
+          && url.includes('to=2026-11-10')
+          && url.includes('variant=standard')
+          && url.includes('analysis=eligible')
           && url.includes('sort=oldest')
         const loss = {
           ...catalogCard('game0002', 'FilteredPlayer', '2026-11-10T00:00:00Z'),
@@ -217,6 +224,27 @@ describe('App', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Color' }), {
       target: { value: 'black' },
     })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Opening' }), {
+      target: { value: 'C20' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Opponent type' }), {
+      target: { value: 'human' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Speed' }), {
+      target: { value: 'blitz' },
+    })
+    fireEvent.change(screen.getByLabelText('Games from'), {
+      target: { value: '2026-11-01' },
+    })
+    fireEvent.change(screen.getByLabelText('Games to'), {
+      target: { value: '2026-11-10' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Variant' }), {
+      target: { value: 'standard' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Analysis status' }), {
+      target: { value: 'eligible' },
+    })
     fireEvent.change(screen.getByRole('combobox', { name: 'Sort games' }), {
       target: { value: 'oldest' },
     })
@@ -224,7 +252,9 @@ describe('App', () => {
     expect(await screen.findByText('1 matching game')).toBeInTheDocument()
     expect(screen.getByRole('article', { name: 'Loss against FilteredPlayer' })).toBeInTheDocument()
     expect(catalogUrls).toContain(
-      '/api/games?offset=0&limit=50&result=loss&color=black&sort=oldest',
+      '/api/games?offset=0&limit=50&result=loss&color=black&opening=C20&opponent=human'
+        + '&speed=blitz&from=2026-11-01&to=2026-11-10&variant=standard'
+        + '&analysis=eligible&sort=oldest',
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))

@@ -1,5 +1,7 @@
 package com.chesstweek.composition.web;
 
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.dao.DataAccessException;
@@ -39,6 +41,13 @@ public final class GameCatalogController {
             @RequestParam(name = "limit", defaultValue = "50") String limitText,
             @RequestParam(name = "result", defaultValue = "") String result,
             @RequestParam(name = "color", defaultValue = "") String color,
+            @RequestParam(name = "opening", defaultValue = "") String opening,
+            @RequestParam(name = "opponent", defaultValue = "") String opponent,
+            @RequestParam(name = "speed", defaultValue = "") String speed,
+            @RequestParam(name = "from", defaultValue = "") String from,
+            @RequestParam(name = "to", defaultValue = "") String to,
+            @RequestParam(name = "variant", defaultValue = "") String variant,
+            @RequestParam(name = "analysis", defaultValue = "") String analysis,
             @RequestParam(name = "sort", defaultValue = "newest") String sort) {
         Integer offset = boundedInteger(offsetText, 0, 100_000);
         Integer limit = boundedInteger(limitText, 1, 50);
@@ -49,16 +58,59 @@ public final class GameCatalogController {
         }
         if (!allowed(result, "", "win", "loss", "draw")
                 || !allowed(color, "", "white", "black")
+                || !validOpening(opening)
+                || !allowed(opponent, "", "human", "lichess_ai", "bot", "anonymous")
+                || !allowed(
+                        speed,
+                        "",
+                        "ultraBullet",
+                        "bullet",
+                        "blitz",
+                        "rapid",
+                        "classical",
+                        "correspondence")
+                || !allowed(
+                        variant,
+                        "",
+                        "standard",
+                        "chess960",
+                        "crazyhouse",
+                        "antichess",
+                        "atomic",
+                        "horde",
+                        "kingOfTheHill",
+                        "racingKings",
+                        "threeCheck",
+                        "fromPosition")
+                || !allowed(analysis, "", "eligible", "catalog_only")
                 || !allowed(sort, "newest", "oldest")) {
             return ResponseEntity.badRequest()
                     .cacheControl(CacheControl.noStore())
                     .body(new CatalogError("invalid_catalog_filter"));
+        }
+        LocalDate playedFrom;
+        LocalDate playedTo;
+        try {
+            playedFrom = optionalDate(from);
+            playedTo = optionalDate(to);
+        } catch (DateTimeException exception) {
+            return invalidFilter();
+        }
+        if (playedFrom != null && playedTo != null && playedFrom.isAfter(playedTo)) {
+            return invalidFilter();
         }
         var query = new GameCatalogQuery(
                 offset,
                 limit,
                 result.isEmpty() ? null : CatalogGame.Result.fromValue(result),
                 color.isEmpty() ? null : CatalogGame.Color.fromValue(color),
+                opening.isEmpty() ? null : opening,
+                opponentType(opponent),
+                speed.isEmpty() ? null : CatalogGame.Speed.fromValue(speed),
+                playedFrom,
+                playedTo,
+                variant.isEmpty() ? null : CatalogGame.Variant.fromValue(variant),
+                analysisState(analysis),
                 "oldest".equals(sort)
                         ? GameCatalogQuery.Sort.OLDEST
                         : GameCatalogQuery.Sort.NEWEST);
@@ -75,6 +127,54 @@ public final class GameCatalogController {
 
     private static boolean allowed(String value, String... allowed) {
         return List.of(allowed).contains(value);
+    }
+
+    private static boolean validOpening(String value) {
+        if (value.isEmpty()) {
+            return true;
+        }
+        return value.length() <= 80
+                && value.equals(value.strip())
+                && value.codePoints().noneMatch(Character::isISOControl);
+    }
+
+    private static LocalDate optionalDate(String value) {
+        if (value.isEmpty()) {
+            return null;
+        }
+        if (value.length() != 10) {
+            throw new DateTimeException("Invalid date filter");
+        }
+        LocalDate date = LocalDate.parse(value);
+        if (date.isBefore(LocalDate.of(2000, 1, 1))
+                || date.isAfter(LocalDate.of(2100, 12, 31))) {
+            throw new DateTimeException("Date filter out of range");
+        }
+        return date;
+    }
+
+    private static GameCatalogQuery.OpponentType opponentType(String value) {
+        return switch (value) {
+            case "human" -> GameCatalogQuery.OpponentType.HUMAN;
+            case "lichess_ai" -> GameCatalogQuery.OpponentType.LICHESS_AI;
+            case "bot" -> GameCatalogQuery.OpponentType.BOT;
+            case "anonymous" -> GameCatalogQuery.OpponentType.ANONYMOUS;
+            default -> null;
+        };
+    }
+
+    private static GameCatalogQuery.AnalysisState analysisState(String value) {
+        return switch (value) {
+            case "eligible" -> GameCatalogQuery.AnalysisState.ELIGIBLE;
+            case "catalog_only" -> GameCatalogQuery.AnalysisState.CATALOG_ONLY;
+            default -> null;
+        };
+    }
+
+    private static ResponseEntity<CatalogError> invalidFilter() {
+        return ResponseEntity.badRequest()
+                .cacheControl(CacheControl.noStore())
+                .body(new CatalogError("invalid_catalog_filter"));
     }
 
     private ResponseEntity<?> connected(String accountId, GameCatalogQuery query) {

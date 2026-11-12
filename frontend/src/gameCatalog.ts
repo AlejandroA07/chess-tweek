@@ -76,7 +76,25 @@ export async function requestCatalog(
   signal: AbortSignal,
   filters: CatalogFilters = EMPTY_CATALOG_FILTERS,
 ): Promise<CatalogPage> {
-  const parameters = new URLSearchParams({ offset: offset.toString(), limit: PAGE_SIZE.toString() })
+  return requestCatalogPage(offset, PAGE_SIZE, signal, filters)
+}
+
+export async function requestEligibleSelectionTotal(
+  signal: AbortSignal,
+  filters: CatalogFilters,
+): Promise<number> {
+  if (filters.analysis === 'catalog_only') return 0
+  const page = await requestCatalogPage(0, 1, signal, { ...filters, analysis: 'eligible' })
+  return page.total
+}
+
+async function requestCatalogPage(
+  offset: number,
+  limit: number,
+  signal: AbortSignal,
+  filters: CatalogFilters,
+): Promise<CatalogPage> {
+  const parameters = new URLSearchParams({ offset: offset.toString(), limit: limit.toString() })
   if (filters.result) parameters.set('result', filters.result)
   if (filters.color) parameters.set('color', filters.color)
   if (filters.opening) parameters.set('opening', filters.opening)

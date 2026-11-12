@@ -162,9 +162,128 @@ describe('App', () => {
     expect(within(botCard).getByText('My moves · Not analyzed')).toBeInTheDocument()
     expect(within(botCard).getByText('Opponent moves · Not analyzed')).toBeInTheDocument()
     expect(within(botCard).getByText('Bot')).toBeInTheDocument()
-    expect(screen.getByText('VariantPlayerWithAnIntentionallyLongDisplayNameForOverflow'))
+    const variantCard = screen.getByRole('article', {
+      name: 'Loss against VariantPlayerWithAnIntentionallyLongDisplayNameForOverflow',
+    })
+    expect(within(variantCard).getByText('VariantPlayerWithAnIntentionallyLongDisplayNameForOverflow'))
       .toBeInTheDocument()
     expect(screen.getByText('Catalog only — analysis unavailable')).toBeInTheDocument()
+
+    const eligibleSelection = within(botCard).getByRole('checkbox', {
+      name: 'Select game against StudyBot',
+    })
+    expect(eligibleSelection).toBeEnabled()
+    expect(within(variantCard).getByRole('checkbox', {
+      name: 'VariantPlayerWithAnIntentionallyLongDisplayNameForOverflow cannot be selected because analysis is unavailable',
+    })).toBeDisabled()
+
+    fireEvent.click(eligibleSelection)
+    expect(screen.getByText('1 game selected')).toBeInTheDocument()
+    expect(botCard).toHaveAttribute('data-selected', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Selection' }))
+    expect(screen.queryByText('1 game selected')).not.toBeInTheDocument()
+    expect(eligibleSelection).not.toBeChecked()
+  })
+
+  it('selects every eligible game in the filtered catalog, including unloaded pages', async () => {
+    const eligible = catalogCard('game0001', 'EligiblePlayer', '2026-11-11T00:00:00Z')
+    const unsupported = {
+      ...catalogCard('game0002', 'VariantPlayer', '2026-11-10T00:00:00Z'),
+      variant: 'crazyhouse',
+      analysis: { eligible: false, status: 'unsupported_variant' as const },
+    }
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => connectedSession() } as Response
+      }
+      if (url === '/api/games?offset=0&limit=50') {
+        return {
+          ok: true,
+          json: async () => ({ total: 75, offset: 0, limit: 50, games: [eligible, unsupported] }),
+        } as Response
+      }
+      if (url === '/api/games?offset=0&limit=1&analysis=eligible') {
+        return {
+          ok: true,
+          json: async () => ({ total: 61, offset: 0, limit: 1, games: [eligible] }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+
+    expect(await screen.findByText('2 of 75 stored games loaded')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Select All Filtered' }))
+
+    expect(await screen.findByText('61 games selected')).toBeInTheDocument()
+    const eligibleSelection = screen.getByRole('checkbox', {
+      name: 'Select game against EligiblePlayer',
+    })
+    expect(eligibleSelection).toBeChecked()
+    expect(screen.getByRole('checkbox', {
+      name: 'VariantPlayer cannot be selected because analysis is unavailable',
+    })).toBeDisabled()
+    expect(screen.getByText('All analysis-eligible games matching the current filters.'))
+      .toBeInTheDocument()
+
+    fireEvent.click(eligibleSelection)
+    expect(screen.getByText('60 games selected')).toBeInTheDocument()
+    expect(eligibleSelection).not.toBeChecked()
+
+    fireEvent.click(eligibleSelection)
+    expect(screen.getByText('61 games selected')).toBeInTheDocument()
+    expect(eligibleSelection).toBeChecked()
+  })
+
+  it('explains when the filtered catalog contains no eligible games', async () => {
+    const unsupported = {
+      ...catalogCard('game0002', 'VariantPlayer', '2026-11-10T00:00:00Z'),
+      variant: 'crazyhouse',
+      analysis: { eligible: false, status: 'unsupported_variant' as const },
+    }
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => connectedSession() } as Response
+      }
+      if (url === '/api/games?offset=0&limit=50') {
+        return {
+          ok: true,
+          json: async () => ({ total: 1, offset: 0, limit: 50, games: [unsupported] }),
+        } as Response
+      }
+      if (url === '/api/games?offset=0&limit=1&analysis=eligible') {
+        return {
+          ok: true,
+          json: async () => ({ total: 0, offset: 0, limit: 1, games: [] }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+    expect(await screen.findByText('1 stored game')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select All Filtered' }))
+
+    expect(await screen.findByText('No analysis-eligible games match the current filters.'))
+      .toBeInTheDocument()
+    expect(screen.queryByText(/games selected/)).not.toBeInTheDocument()
   })
 
   it('combines the full catalog filters and changes its sort order', async () => {
@@ -198,7 +317,12 @@ describe('App', () => {
         return {
           ok: true,
           json: async () => filtered
-            ? { total: 1, offset: 0, limit: 50, games: [loss] }
+            ? {
+                total: 1,
+                offset: 0,
+                limit: url.includes('limit=1') ? 1 : 50,
+                games: [loss],
+              }
             : {
                 total: 2,
                 offset: 0,
@@ -257,8 +381,17 @@ describe('App', () => {
         + '&analysis=eligible&sort=oldest',
     )
 
+    fireEvent.click(screen.getByRole('button', { name: 'Select All Filtered' }))
+    expect(await screen.findByText('1 game selected')).toBeInTheDocument()
+    expect(catalogUrls).toContain(
+      '/api/games?offset=0&limit=1&result=loss&color=black&opening=C20&opponent=human'
+        + '&speed=blitz&from=2026-11-01&to=2026-11-10&variant=standard'
+        + '&analysis=eligible&sort=oldest',
+    )
+
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(await screen.findByText('2 stored games')).toBeInTheDocument()
+    expect(screen.queryByText('1 game selected')).not.toBeInTheDocument()
   })
 
   it('gets an older Lichess batch manually and refreshes the stored catalog', async () => {

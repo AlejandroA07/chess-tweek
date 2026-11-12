@@ -96,6 +96,7 @@ Deliver:
 - Moves, clocks, result, ratings, opponent, owner color, speed, opening ECO/name, variant, and available phase divisions.
 - Idempotent storage keyed by Lichess game ID.
 - The approved library and filters for result, color, opening, opponent type, speed, date, variant, and analysis status.
+- Single-game and filtered-group selection for eligible actions.
 - Cataloged but analysis-ineligible non-standard variants.
 - Current ratings and bot-opponent record on Dashboard.
 

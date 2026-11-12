@@ -110,6 +110,8 @@ export function GameRetrievalPanel({
         {submission.kind === 'success' && (
           <p>
             Received {submission.result.received} {submission.result.received === 1 ? 'game' : 'games'} from Lichess.
+            {' '}{submission.result.created} new, {submission.result.updated} updated,{' '}
+            {submission.result.unchanged} unchanged.
             {submission.result.rejected > 0 && ` ${submission.result.rejected} invalid games were skipped.`}
           </p>
         )}

@@ -3,6 +3,7 @@ package com.chesstweek.gamereview;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -36,7 +37,13 @@ class GameCatalogPersistenceTest {
             assertThat(first.status()).isEqualTo(GameRetrievalResult.Status.SUCCESS);
             assertThat(first.received()).isEqualTo(2);
             assertThat(first.rejected()).isEqualTo(1);
+            assertThat(first.created()).isEqualTo(2);
+            assertThat(first.updated()).isZero();
+            assertThat(first.unchanged()).isZero();
             assertThat(repeated.received()).isEqualTo(2);
+            assertThat(repeated.created()).isZero();
+            assertThat(repeated.updated()).isEqualTo(1);
+            assertThat(repeated.unchanged()).isEqualTo(1);
             assertThat(catalog.games("ownerid", GameCatalogQuery.unfiltered(0, 50)).games())
                     .extracting(CatalogGame::id)
                     .containsExactly("game0003", "game0001");
@@ -135,6 +142,7 @@ class GameCatalogPersistenceTest {
             assertThat(standard.ownerResult()).isEqualTo(CatalogGame.Result.WIN);
             assertThat(standard.ownerColor()).isEqualTo(CatalogGame.Color.WHITE);
             assertThat(standard.opponent().name()).isEqualTo("Opponent");
+            assertThat(standard.opponent().rating()).isEqualTo(1701);
             assertThat(standard.opponent().title()).isEqualTo("BOT");
             assertThat(standard.opening().eco()).isEqualTo("C20");
             assertThat(standard.analysisEligible()).isTrue();
@@ -163,13 +171,23 @@ class GameCatalogPersistenceTest {
         @Bean
         @Primary
         LichessGameClient fakeLichessGameClient() {
-            return (accessToken, username, count, before) -> new GameExportBatch(List.of(
-                    new ExportedGame("game0001", "mate", standardGame("game0001", VALID_MOVES)),
-                    new ExportedGame("game0002", "mate", standardGame("game0002", "e4 e5 e4")),
-                    new ExportedGame("game0003", "mate", variantGame())));
+            var retrievals = new AtomicInteger();
+            return (accessToken, username, count, before) -> {
+                int opponentRating = retrievals.getAndIncrement() == 0 ? 1700 : 1701;
+                return new GameExportBatch(List.of(
+                        new ExportedGame(
+                                "game0001",
+                                "mate",
+                                standardGame("game0001", VALID_MOVES, opponentRating)),
+                        new ExportedGame(
+                                "game0002",
+                                "mate",
+                                standardGame("game0002", "e4 e5 e4", opponentRating)),
+                        new ExportedGame("game0003", "mate", variantGame())));
+            };
         }
 
-        private static String standardGame(String id, String moves) {
+        private static String standardGame(String id, String moves, int opponentRating) {
             return """
                     {
                       "id":"%s",
@@ -183,7 +201,7 @@ class GameCatalogPersistenceTest {
                       "winner":"white",
                       "players":{
                         "white":{"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800},
-                        "black":{"user":{"id":"opponent","name":"Opponent","title":"BOT"},"rating":1700}
+                        "black":{"user":{"id":"opponent","name":"Opponent","title":"BOT"},"rating":%d}
                       },
                       "clock":{"initial":300,"increment":3,"totalTime":420},
                       "clocks":[3000,3000,2970,2990],
@@ -192,7 +210,7 @@ class GameCatalogPersistenceTest {
                       "moves":"%s",
                       "pgn":"[Result \\\"1-0\\\"]\\n\\n%s 1-0"
                     }
-                    """.formatted(id, moves, moves);
+                    """.formatted(id, opponentRating, moves, moves);
         }
 
         private static String variantGame() {

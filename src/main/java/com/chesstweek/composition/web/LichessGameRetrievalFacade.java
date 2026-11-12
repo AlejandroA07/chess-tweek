@@ -74,7 +74,12 @@ final class LichessGameRetrievalFacade {
 
     private Outcome mapResult(GameRetrievalResult result) {
         return switch (result.status()) {
-            case SUCCESS -> Outcome.success(result.received(), result.rejected());
+            case SUCCESS -> Outcome.success(
+                    result.received(),
+                    result.rejected(),
+                    result.created(),
+                    result.updated(),
+                    result.unchanged());
             case UNAUTHORIZED -> Outcome.notConnected(true);
             case RATE_LIMITED -> rateLimited(result.retryAfterSeconds());
             case INVALID_RESPONSE -> Outcome.failed(Status.INVALID_RESPONSE, null);
@@ -121,19 +126,35 @@ final class LichessGameRetrievalFacade {
             Status status,
             int received,
             int rejected,
+            int created,
+            int updated,
+            int unchanged,
             Long retryAfterSeconds,
             boolean clearCookie) {
 
-        private static Outcome success(int received, int rejected) {
-            return new Outcome(Status.SUCCESS, received, rejected, null, false);
+        private static Outcome success(
+                int received,
+                int rejected,
+                int created,
+                int updated,
+                int unchanged) {
+            return new Outcome(
+                    Status.SUCCESS,
+                    received,
+                    rejected,
+                    created,
+                    updated,
+                    unchanged,
+                    null,
+                    false);
         }
 
         private static Outcome notConnected(boolean clearCookie) {
-            return new Outcome(Status.NOT_CONNECTED, 0, 0, null, clearCookie);
+            return new Outcome(Status.NOT_CONNECTED, 0, 0, 0, 0, 0, null, clearCookie);
         }
 
         private static Outcome failed(Status status, Long retryAfterSeconds) {
-            return new Outcome(status, 0, 0, retryAfterSeconds, false);
+            return new Outcome(status, 0, 0, 0, 0, 0, retryAfterSeconds, false);
         }
     }
 }

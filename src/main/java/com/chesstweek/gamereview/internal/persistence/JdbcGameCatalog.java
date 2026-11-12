@@ -4,7 +4,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import tools.jackson.core.type.TypeReference;
@@ -21,6 +23,7 @@ import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogPage;
 import com.chesstweek.gamereview.GameCatalogQuery;
+import com.chesstweek.gamereview.GameCatalogWriteResult;
 
 @Repository
 public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
@@ -83,6 +86,12 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
             FROM game_review_game
             WHERE account_id = :accountId
             """;
+    private static final String FIND_EXISTING_BY_IDS = """
+            SELECT *
+            FROM game_review_game
+            WHERE account_id = :accountId
+              AND lichess_game_id IN (:gameIds)
+            """;
     private static final String NEWEST_FIRST =
             " ORDER BY played_at_ms DESC, lichess_game_id LIMIT :limit OFFSET :offset";
     private static final String OLDEST_FIRST =
@@ -98,11 +107,36 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
 
     @Override
     @Transactional
-    public void save(String accountId, List<CatalogGame> games, Instant retrievedAt) {
+    public GameCatalogWriteResult save(
+            String accountId, List<CatalogGame> games, Instant retrievedAt) {
         requireAccountId(accountId);
-        for (CatalogGame game : games) {
-            namedJdbc.update(UPSERT, parameters(accountId, game, retrievedAt));
+        if (games.isEmpty()) {
+            return new GameCatalogWriteResult(0, 0, 0);
         }
+        var existingParameters = new MapSqlParameterSource()
+                .addValue("accountId", accountId)
+                .addValue("gameIds", games.stream().map(CatalogGame::id).toList());
+        Map<String, CatalogGame> existing = new HashMap<>();
+        for (CatalogGame stored : namedJdbc.query(
+                FIND_EXISTING_BY_IDS, existingParameters, this::mapGame)) {
+            existing.put(stored.id(), stored);
+        }
+        int created = 0;
+        int updated = 0;
+        int unchanged = 0;
+        for (CatalogGame game : games) {
+            CatalogGame stored = existing.get(game.id());
+            if (stored == null) {
+                created += 1;
+            } else if (stored.equals(game)) {
+                unchanged += 1;
+            } else {
+                updated += 1;
+            }
+            namedJdbc.update(UPSERT, parameters(accountId, game, retrievedAt));
+            existing.put(game.id(), game);
+        }
+        return new GameCatalogWriteResult(created, updated, unchanged);
     }
 
     @Override

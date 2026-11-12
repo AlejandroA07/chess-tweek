@@ -424,7 +424,15 @@ describe('App', () => {
         retrievalRequest = init
         return {
           ok: true,
-          json: async () => ({ requested: 5, received: 1, rejected: 0, before: '2026-11-02' }),
+          json: async () => ({
+            requested: 5,
+            received: 1,
+            rejected: 0,
+            created: 1,
+            updated: 0,
+            unchanged: 0,
+            before: '2026-11-02',
+          }),
         } as Response
       }
 
@@ -448,7 +456,9 @@ describe('App', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Get Games' }))
 
-    expect(await screen.findByText('Received 1 game from Lichess.')).toBeInTheDocument()
+    expect(await screen.findByText(
+      'Received 1 game from Lichess. 1 new, 0 updated, 0 unchanged.',
+    )).toBeInTheDocument()
     expect(await screen.findByRole('article', { name: 'Win against OlderPlayer' })).toBeInTheDocument()
     expect(retrievalRequest).toMatchObject({
       method: 'POST',

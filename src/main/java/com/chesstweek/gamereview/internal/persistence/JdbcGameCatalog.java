@@ -3,6 +3,7 @@ package com.chesstweek.gamereview.internal.persistence;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -120,6 +121,64 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
             filters.append(" AND owner_color = :color");
             parameters.addValue("color", query.color().value());
         }
+        if (query.opening() != null) {
+            filters.append(" AND (opening_eco = :opening COLLATE NOCASE"
+                    + " OR opening_name LIKE :openingPattern ESCAPE '\\' COLLATE NOCASE)");
+            parameters.addValue("opening", query.opening());
+            parameters.addValue("openingPattern", "%" + likePattern(query.opening()) + "%");
+        }
+        if (query.opponentType() != null) {
+            switch (query.opponentType()) {
+                case HUMAN -> {
+                    filters.append(" AND opponent_kind = :opponentKind"
+                            + " AND (opponent_title IS NULL OR opponent_title <> :botTitle)");
+                    parameters.addValue("opponentKind", CatalogGame.OpponentKind.USER.value());
+                    parameters.addValue("botTitle", "BOT");
+                }
+                case BOT -> {
+                    filters.append(" AND opponent_kind = :opponentKind"
+                            + " AND opponent_title = :botTitle");
+                    parameters.addValue("opponentKind", CatalogGame.OpponentKind.USER.value());
+                    parameters.addValue("botTitle", "BOT");
+                }
+                case LICHESS_AI -> {
+                    filters.append(" AND opponent_kind = :opponentKind");
+                    parameters.addValue("opponentKind", CatalogGame.OpponentKind.AI.value());
+                }
+                case ANONYMOUS -> {
+                    filters.append(" AND opponent_kind = :opponentKind");
+                    parameters.addValue(
+                            "opponentKind", CatalogGame.OpponentKind.ANONYMOUS.value());
+                }
+            }
+        }
+        if (query.speed() != null) {
+            filters.append(" AND speed = :speed");
+            parameters.addValue("speed", query.speed().value());
+        }
+        if (query.playedFrom() != null) {
+            filters.append(" AND played_at_ms >= :playedFrom");
+            parameters.addValue(
+                    "playedFrom",
+                    query.playedFrom().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli());
+        }
+        if (query.playedTo() != null) {
+            filters.append(" AND played_at_ms < :playedBefore");
+            parameters.addValue(
+                    "playedBefore",
+                    query.playedTo().plusDays(1)
+                            .atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli());
+        }
+        if (query.variant() != null) {
+            filters.append(" AND variant = :variant");
+            parameters.addValue("variant", query.variant().value());
+        }
+        if (query.analysisState() != null) {
+            filters.append(" AND analysis_eligible = :analysisEligible");
+            parameters.addValue(
+                    "analysisEligible",
+                    query.analysisState() == GameCatalogQuery.AnalysisState.ELIGIBLE ? 1 : 0);
+        }
         String order = query.sort() == GameCatalogQuery.Sort.OLDEST
                 ? OLDEST_FIRST
                 : NEWEST_FIRST;
@@ -132,6 +191,10 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
                 parameters,
                 Integer.class);
         return new GameCatalogPage(games, total);
+    }
+
+    private static String likePattern(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private MapSqlParameterSource parameters(

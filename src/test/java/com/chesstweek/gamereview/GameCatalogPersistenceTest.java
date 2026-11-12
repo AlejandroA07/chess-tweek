@@ -1,6 +1,7 @@
 package com.chesstweek.gamereview;
 
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,63 @@ class GameCatalogPersistenceTest {
                     .games())
                     .extracting(CatalogGame::id)
                     .containsExactly("game0001", "game0003");
+
+            GameCatalogPage advanced = catalog.games(
+                    "ownerid",
+                    new GameCatalogQuery(
+                            0,
+                            50,
+                            null,
+                            null,
+                            "King's Pawn",
+                            GameCatalogQuery.OpponentType.BOT,
+                            CatalogGame.Speed.BLITZ,
+                            LocalDate.parse("2026-11-11"),
+                            LocalDate.parse("2026-11-11"),
+                            CatalogGame.Variant.STANDARD,
+                            GameCatalogQuery.AnalysisState.ELIGIBLE,
+                            GameCatalogQuery.Sort.NEWEST));
+            assertThat(advanced.total()).isEqualTo(1);
+            assertThat(advanced.games())
+                    .extracting(CatalogGame::id)
+                    .containsExactly("game0001");
+
+            assertThat(catalog.games(
+                            "ownerid",
+                            new GameCatalogQuery(
+                                    0,
+                                    50,
+                                    null,
+                                    null,
+                                    "%",
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    GameCatalogQuery.Sort.NEWEST))
+                    .total())
+                    .isZero();
+
+            assertThat(catalog.games(
+                            "ownerid",
+                            new GameCatalogQuery(
+                                    0,
+                                    50,
+                                    null,
+                                    null,
+                                    null,
+                                    GameCatalogQuery.OpponentType.HUMAN,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    GameCatalogQuery.Sort.NEWEST))
+                    .games())
+                    .extracting(CatalogGame::id)
+                    .containsExactly("game0003");
         }
 
         try (var restarted = start(databasePath)) {
@@ -77,6 +135,7 @@ class GameCatalogPersistenceTest {
             assertThat(standard.ownerResult()).isEqualTo(CatalogGame.Result.WIN);
             assertThat(standard.ownerColor()).isEqualTo(CatalogGame.Color.WHITE);
             assertThat(standard.opponent().name()).isEqualTo("Opponent");
+            assertThat(standard.opponent().title()).isEqualTo("BOT");
             assertThat(standard.opening().eco()).isEqualTo("C20");
             assertThat(standard.analysisEligible()).isTrue();
 
@@ -124,7 +183,7 @@ class GameCatalogPersistenceTest {
                       "winner":"white",
                       "players":{
                         "white":{"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800},
-                        "black":{"user":{"id":"opponent","name":"Opponent"},"rating":1700}
+                        "black":{"user":{"id":"opponent","name":"Opponent","title":"BOT"},"rating":1700}
                       },
                       "clock":{"initial":300,"increment":3,"totalTime":420},
                       "clocks":[3000,3000,2970,2990],

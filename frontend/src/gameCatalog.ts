@@ -37,12 +37,27 @@ export type CatalogPage = {
 export type CatalogFilters = {
   result: '' | 'win' | 'loss' | 'draw'
   color: '' | 'white' | 'black'
+  opening: string
+  opponent: '' | 'human' | 'lichess_ai' | 'bot' | 'anonymous'
+  speed: '' | 'ultraBullet' | 'bullet' | 'blitz' | 'rapid' | 'classical' | 'correspondence'
+  from: string
+  to: string
+  variant: '' | 'standard' | 'chess960' | 'crazyhouse' | 'antichess' | 'atomic'
+    | 'horde' | 'kingOfTheHill' | 'racingKings' | 'threeCheck' | 'fromPosition'
+  analysis: '' | 'eligible' | 'catalog_only'
   sort: 'newest' | 'oldest'
 }
 
 export const EMPTY_CATALOG_FILTERS: CatalogFilters = {
   result: '',
   color: '',
+  opening: '',
+  opponent: '',
+  speed: '',
+  from: '',
+  to: '',
+  variant: '',
+  analysis: '',
   sort: 'newest',
 }
 
@@ -64,6 +79,13 @@ export async function requestCatalog(
   const parameters = new URLSearchParams({ offset: offset.toString(), limit: PAGE_SIZE.toString() })
   if (filters.result) parameters.set('result', filters.result)
   if (filters.color) parameters.set('color', filters.color)
+  if (filters.opening) parameters.set('opening', filters.opening)
+  if (filters.opponent) parameters.set('opponent', filters.opponent)
+  if (filters.speed) parameters.set('speed', filters.speed)
+  if (filters.from) parameters.set('from', filters.from)
+  if (filters.to) parameters.set('to', filters.to)
+  if (filters.variant) parameters.set('variant', filters.variant)
+  if (filters.analysis) parameters.set('analysis', filters.analysis)
   if (filters.sort === 'oldest') parameters.set('sort', filters.sort)
   const response = await fetch(`/api/games?${parameters}`, {
     credentials: 'same-origin',

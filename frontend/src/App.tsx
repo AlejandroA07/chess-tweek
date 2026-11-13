@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import styles from './App.module.css'
+import { DashboardRatingContext } from './DashboardRatingContext'
 import { GamesLibrary } from './GamesLibrary'
 
 type HealthState = 'checking' | 'ready' | 'offline'
@@ -272,6 +273,13 @@ export function App() {
                 onRetry={() => void refreshSession()}
               />
             )}
+            {route.href === '#/dashboard' && session.kind === 'connected' && (
+              <DashboardRatingContext
+                key={session.account.id}
+                currentRatings={session.account.ratings}
+                onSessionFailure={handleCatalogSessionFailure}
+              />
+            )}
             {route.href === '#/games' ? (
               <GamesLibrary
                 accountId={session.kind === 'connected' ? session.account.id : null}
@@ -279,7 +287,7 @@ export function App() {
                 connectionState={session.kind}
                 onSessionFailure={handleCatalogSessionFailure}
               />
-            ) : (
+            ) : route.href === '#/dashboard' && session.kind === 'connected' ? null : (
               <section className={styles.emptyState} aria-labelledby="workspace-title">
                 <span className={styles.emptyStateIcon}>
                   <NavIcon name={route.icon} />
@@ -374,7 +382,7 @@ function ConnectionPanel({
       <div className={styles.accountHeading}>
         <div>
           <h2>{session.account.username}</h2>
-          <p>Current ratings from Lichess</p>
+          <p>Read-only access to your account and puzzles</p>
         </div>
         <button
           className={styles.secondaryButton}
@@ -385,32 +393,12 @@ function ConnectionPanel({
           {action === 'logging-out' ? 'Logging out…' : 'Log out'}
         </button>
       </div>
-      <dl className={styles.ratings}>
-        {ratingSpeeds.map((speed) => (
-          <div key={speed}>
-            <dt>{ratingLabels[speed]}</dt>
-            <dd>{formatRating(session.account.ratings[speed])}</dd>
-          </div>
-        ))}
-      </dl>
       {error && <p className={styles.actionError} role="alert">{error}</p>}
     </section>
   )
 }
 
 const ratingSpeeds: RatingSpeed[] = ['bullet', 'blitz', 'rapid', 'classical', 'correspondence']
-const ratingLabels: Record<RatingSpeed, string> = {
-  bullet: 'Bullet',
-  blitz: 'Blitz',
-  rapid: 'Rapid',
-  classical: 'Classical',
-  correspondence: 'Correspondence',
-}
-
-function formatRating(rating: number | null) {
-  return rating === null ? 'Not rated' : rating.toLocaleString('en-US')
-}
-
 function accountStatus(session: SessionState) {
   if (session.kind === 'checking') return 'Checking connection…'
   if (session.kind === 'connected') return session.account.username

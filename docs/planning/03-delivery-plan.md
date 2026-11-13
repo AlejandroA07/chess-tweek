@@ -98,7 +98,7 @@ Deliver:
 - The approved library and filters for result, color, opening, opponent type, speed, date, variant, and analysis status.
 - Single-game and filtered-group selection for eligible actions.
 - Cataloged but analysis-ineligible non-standard variants.
-- Current ratings and bot-opponent record on Dashboard.
+- Current ratings, rating history built from stored rated games, and bot-opponent record on Dashboard.
 
 Acceptance:
 
@@ -294,4 +294,4 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0, 1, and 2 are complete. Stage 3 is delivered in independently reviewed parts. Parts 1 through 8 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, and the owner's per-game rating change. The Dashboard rating and bot context completes Stage 3, and Stage 4 single-game analysis follows.
+Stages 0, 1, and 2 are complete. Stage 3 is delivered in independently reviewed parts. Parts 1 through 9 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record. The owner's live check closes Stage 3, and Stage 4 single-game analysis follows.

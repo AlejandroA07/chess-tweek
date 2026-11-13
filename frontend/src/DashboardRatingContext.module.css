@@ -1,0 +1,249 @@
+.panel {
+  width: 100%;
+  padding: clamp(var(--space-4), 4vw, var(--space-6));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.heading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.375rem, 3vw, 1.625rem);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.heading p:not(.eyebrow) {
+  max-width: 40rem;
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-2);
+  color: var(--color-primary);
+  font-family: var(--font-technical);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.link {
+  min-height: 2.75rem;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.otherRatings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: var(--space-4) 0 0;
+}
+
+.otherRatings div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.otherRatings dt {
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.otherRatings dd {
+  margin: 0;
+  font-family: var(--font-technical);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.4fr);
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.card {
+  min-width: 0;
+  min-height: 11rem;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rating {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.change,
+.note {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.change {
+  font-family: var(--font-technical);
+  font-variant-numeric: tabular-nums;
+}
+
+.sparkline {
+  width: 100%;
+  height: 2.25rem;
+  margin-top: var(--space-2);
+  overflow: visible;
+}
+
+.sparkline polyline {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.tally {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+}
+
+.tally dt {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.tally dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.groups {
+  width: 100%;
+  margin-top: var(--space-3);
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.groups th,
+.groups td {
+  padding: var(--space-1) 0;
+  border-top: 1px solid var(--color-border);
+  text-align: right;
+}
+
+.groups th:first-child {
+  text-align: left;
+}
+
+.groups thead th {
+  border-top: 0;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.groups tbody th {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.groups td {
+  font-family: var(--font-technical);
+  font-variant-numeric: tabular-nums;
+}
+
+.failure {
+  margin-top: var(--space-5);
+}
+
+.failure h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+
+.failure p {
+  margin: var(--space-2) 0 var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.secondaryButton {
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .botCard {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .heading {
+    flex-direction: column;
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card {
+    min-height: 0;
+  }
+}

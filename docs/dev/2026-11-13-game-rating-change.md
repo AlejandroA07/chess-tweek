@@ -2,7 +2,7 @@
 
 Stage 3 Part 8 stores and shows how much the owner's Lichess rating changed in each retrieved game. It uses only the number Lichess reports and does not calculate or estimate a rating.
 
-The Lichess game export already supplies `players.<color>.ratingDiff` for rated games, so the retrieval request is unchanged. The parser reads `ratingDiff` only for the owner's side. The value must be a JSON integer from -1000 through 1000. A rating change on a casual game is inconsistent upstream data, so that game is rejected like any other invalid game, without affecting the rest of the batch. The opponent's rating change is not stored.
+The Lichess game export already supplies `players.<color>.ratingDiff` for rated games, so the retrieval request is unchanged. The parser reads `ratingDiff` only for the owner's side of a rated game. There it must be a JSON integer from -1000 through 1000, or the game is rejected like any other invalid game, without affecting the rest of the batch. The opponent's value is never read, so it cannot reject a game. A casual game never counts toward rating, so any `ratingDiff` it carries is ignored and the game is kept with no change. This keeps casual bot games available for the Dashboard bot record.
 
 Migration `V3__game_owner_rating_change.sql` adds the nullable `owner_rating_change` column with the same range enforced by a database `CHECK` constraint. Null means Lichess supplied no change: a casual game, or a rated game exported without one. Zero is kept as a real, unchanged rating. Games stored before this migration keep a null change. A later Get Lichess Games run that returns a change for one of them now reports it as updated rather than unchanged, because the stored game data is different.
 
@@ -18,7 +18,7 @@ Known limitation: Lichess's provisional-rating flag is not stored yet. Part 9's 
 | Object-level authorization | Pass: the change is stored and read only inside the authorized account's rows. |
 | Token/session handling | Unchanged: no token or session data is added to responses or logs. |
 | Request validation | Unchanged: no new request parameter exists. |
-| Upstream payload validation | Pass: an integer-only bounded value, owner side only, rejected on casual games; enforced again by a SQLite `CHECK` constraint. |
+| Upstream payload validation | Pass: an integer-only bounded value read from the owner's side of rated games only; enforced again by a SQLite `CHECK` constraint. |
 | Response DTOs | Pass: one bounded nullable integer is added. |
 | Client validation and output encoding | Pass: the client checks the range and React renders the value as text. |
 | Safe errors and logging | Unchanged. |

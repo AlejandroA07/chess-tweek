@@ -76,6 +76,24 @@ class GamePayloadParserTest {
     }
 
     @Test
+    void doesNotRejectAGameForTheOpponentsRatingChange() {
+        CatalogGame game = parser.parse("ownerid", ratedGame("""
+                {"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800,"ratingDiff":3}
+                """, """
+                {"user":{"id":"opponent","name":"Opponent"},"rating":1750,"ratingDiff":"odd"}
+                """));
+        CatalogGame ownerIsBlack = parser.parse("ownerid", ratedGame("""
+                {"user":{"id":"opponent","name":"Opponent"},"rating":1750,"ratingDiff":5000}
+                """, """
+                {"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800,"ratingDiff":-3}
+                """));
+
+        assertThat(game.ownerRatingChange()).isEqualTo(3);
+        assertThat(ownerIsBlack.ownerColor()).isEqualTo(CatalogGame.Color.BLACK);
+        assertThat(ownerIsBlack.ownerRatingChange()).isEqualTo(-3);
+    }
+
+    @Test
     void rejectsAnInvalidOwnerRatingChange() {
         for (String ratingDiff : new String[] {"1001", "-1001", "7.5", "\"7\"", "true"}) {
             ExportedGame invalid = ratedGame("""
@@ -91,7 +109,7 @@ class GamePayloadParserTest {
     }
 
     @Test
-    void rejectsARatingChangeOnACasualGame() {
+    void ignoresARatingChangeOnACasualGameInsteadOfDroppingTheGame() {
         ExportedGame casualWithChange = new ExportedGame("game0001", "mate", """
                 {
                   "id":"game0001",
@@ -103,15 +121,17 @@ class GamePayloadParserTest {
                   "status":"mate",
                   "winner":"white",
                   "players":{
-                    "white":{"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800,"ratingDiff":5},
+                    "white":{"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800,"ratingDiff":"odd"},
                     "black":{"user":{"id":"opponent","name":"Opponent"},"rating":1750}
                   },
                   "moves":"e4 e5 Qh5 Nc6 Bc4 Nf6 Qxf7#"
                 }
                 """);
 
-        assertThatThrownBy(() -> parser.parse("ownerid", casualWithChange))
-                .isInstanceOf(GamePayloadParser.GamePayloadException.class);
+        CatalogGame game = parser.parse("ownerid", casualWithChange);
+
+        assertThat(game.rated()).isFalse();
+        assertThat(game.ownerRatingChange()).isNull();
     }
 
     private static ExportedGame ratedGame(String white, String black) {

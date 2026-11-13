@@ -81,10 +81,7 @@ final class GamePayloadParser {
 
         Players players = players(root.get("players"), accountId);
         CatalogGame.Color ownerColor = players.ownerColor();
-        Integer ownerRatingChange = players.owner().ratingChange();
-        if (ownerRatingChange != null && !rated) {
-            throw invalid();
-        }
+        Integer ownerRatingChange = rated ? ratingChange(players.ownerNode()) : null;
         CatalogGame.Result result = result(root.get("winner"), ownerColor, status);
         String pgn = optionalText(root, "pgn", 1, MAX_PGN_LENGTH);
         List<Integer> clocks = clocks(root.get("clocks"));
@@ -126,17 +123,23 @@ final class GamePayloadParser {
         if (players == null || !players.isObject()) {
             throw invalid();
         }
-        Player white = player(players.get("white"));
-        Player black = player(players.get("black"));
+        JsonNode whiteNode = players.get("white");
+        JsonNode blackNode = players.get("black");
+        Player white = player(whiteNode);
+        Player black = player(blackNode);
         boolean ownerIsWhite = white.userId() != null && white.userId().equalsIgnoreCase(accountId);
         boolean ownerIsBlack = black.userId() != null && black.userId().equalsIgnoreCase(accountId);
         if (ownerIsWhite == ownerIsBlack) {
             throw invalid();
         }
         if (ownerIsWhite) {
-            return new Players(CatalogGame.Color.WHITE, white, black);
+            return new Players(CatalogGame.Color.WHITE, white, black, whiteNode);
         }
-        return new Players(CatalogGame.Color.BLACK, black, white);
+        return new Players(CatalogGame.Color.BLACK, black, white, blackNode);
+    }
+
+    private static Integer ratingChange(JsonNode ownerNode) {
+        return optionalInteger(ownerNode, "ratingDiff", -MAX_RATING_CHANGE, MAX_RATING_CHANGE);
     }
 
     private static Player player(JsonNode node) {
@@ -146,8 +149,7 @@ final class GamePayloadParser {
         JsonNode aiLevel = node.get("aiLevel");
         if (aiLevel != null) {
             int level = integer(aiLevel, 1, 8);
-            return new Player(
-                    CatalogGame.OpponentKind.AI, null, "Lichess AI", null, null, level, null);
+            return new Player(CatalogGame.OpponentKind.AI, null, "Lichess AI", null, null, level);
         }
 
         JsonNode user = node.get("user");
@@ -159,10 +161,7 @@ final class GamePayloadParser {
             if (title != null && !TITLE.matcher(title).matches()) {
                 throw invalid();
             }
-            Integer ratingChange = optionalInteger(
-                    node, "ratingDiff", -MAX_RATING_CHANGE, MAX_RATING_CHANGE);
-            return new Player(
-                    CatalogGame.OpponentKind.USER, id, name, rating, title, null, ratingChange);
+            return new Player(CatalogGame.OpponentKind.USER, id, name, rating, title, null);
         }
 
         String name = optionalText(node, "name", 1, MAX_NAME_LENGTH);
@@ -172,7 +171,6 @@ final class GamePayloadParser {
                 null,
                 name == null ? "Anonymous" : name,
                 rating,
-                null,
                 null,
                 null);
     }
@@ -334,7 +332,11 @@ final class GamePayloadParser {
         }
     }
 
-    private record Players(CatalogGame.Color ownerColor, Player owner, Player opponent) {}
+    private record Players(
+            CatalogGame.Color ownerColor,
+            Player owner,
+            Player opponent,
+            JsonNode ownerNode) {}
 
     private record Player(
             CatalogGame.OpponentKind kind,
@@ -342,8 +344,7 @@ final class GamePayloadParser {
             String name,
             Integer rating,
             String title,
-            Integer aiLevel,
-            Integer ratingChange) {
+            Integer aiLevel) {
 
         private CatalogGame.Opponent toOpponent() {
             return new CatalogGame.Opponent(kind, userId, name, rating, title, aiLevel);

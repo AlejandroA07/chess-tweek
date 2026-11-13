@@ -93,6 +93,7 @@ Failure behavior:
 ### Rating and bot context
 
 - Show current and historical Lichess ratings by speed using Lichess data.
+- Current ratings come from the connected Lichess account. Rating history and the most recent change are built from stored rated standard games (each game's rating plus its Lichess rating change), not from a separate Lichess rating-history request. Owner decision, 2026-11-13.
 - Do not invent a Chess Tweek Elo.
 - Show win/draw/loss against Lichess AI and accounts titled `BOT`, grouped by displayed opponent rating.
 - Casual bot games can contribute to bot records even when they do not alter an official rating.

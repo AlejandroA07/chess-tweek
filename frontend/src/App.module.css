@@ -362,37 +362,6 @@
   margin-top: var(--space-1);
 }
 
-.ratings {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin: var(--space-5) 0 0;
-}
-
-.ratings div {
-  min-width: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-subtle);
-}
-
-.ratings dt {
-  overflow-wrap: anywhere;
-  color: var(--color-text-muted);
-  font-family: var(--font-technical);
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.ratings dd {
-  margin: var(--space-1) 0 0;
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
 .actionError {
   margin: var(--space-3) 0 0;
   color: var(--color-error);
@@ -550,10 +519,6 @@
 
   .callbackBanner {
     align-items: start;
-  }
-
-  .ratings {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

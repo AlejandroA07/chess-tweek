@@ -27,3 +27,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-13-game-retrieval-write-counts.md` | Records exact new, updated, and unchanged retrieval accounting. | dated report |
 | `2026-11-13-game-rating-change.md` | Records the owner's validated per-game Lichess rating change. | dated report |
 | `2026-11-13-dashboard-rating-context.md` | Records the Dashboard rating history and bot record built from stored games. | dated report |
+| `2026-11-13-no-stale-app-page.md` | Records why the browser kept an old page and the caching fix. | dated report |

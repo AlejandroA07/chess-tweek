@@ -14,6 +14,12 @@ function ratingContext() {
   return {
     ratings: [
       {
+        speed: 'rapid',
+        gamesCounted: 1,
+        latestChange: 0,
+        points: [{ playedAt: '2026-11-04T00:00:00Z', rating: 1902 }],
+      },
+      {
         speed: 'blitz',
         gamesCounted: 14,
         latestChange: -6,
@@ -23,12 +29,7 @@ function ratingContext() {
           { playedAt: '2026-11-03T00:00:00Z', rating: 1765 },
         ],
       },
-      {
-        speed: 'rapid',
-        gamesCounted: 1,
-        latestChange: 0,
-        points: [{ playedAt: '2026-11-04T00:00:00Z', rating: 1902 }],
-      },
+      { speed: 'bullet', gamesCounted: 0, latestChange: null, points: [] },
       { speed: 'classical', gamesCounted: 0, latestChange: null, points: [] },
     ],
     botRecord: {
@@ -50,7 +51,7 @@ function ratingContext() {
 
 function emptyContext() {
   return {
-    ratings: ['blitz', 'rapid', 'classical'].map((speed) => ({
+    ratings: ['rapid', 'blitz', 'bullet', 'classical'].map((speed) => ({
       speed,
       gamesCounted: 0,
       latestChange: null,
@@ -88,12 +89,18 @@ describe('DashboardRatingContext', () => {
     render(<DashboardRatingContext currentRatings={currentRatings} onSessionFailure={vi.fn()} />)
 
     const blitz = await screen.findByRole('article', { name: 'Blitz rating' })
+    expect(screen.getAllByRole('article').map((card) => card.getAttribute('aria-labelledby')))
+      .toEqual(['rating-rapid', 'rating-blitz', 'rating-bullet', 'rating-classical', 'bot-record-title'])
     expect(within(blitz).getByText('1,765')).toBeInTheDocument()
     expect(within(blitz).getByText('Last game −6')).toBeInTheDocument()
-    expect(within(blitz).getByRole('img', {
-      name: 'Blitz rating after the last 3 stored rated games: from 1,720 to 1,765, lowest 1,720, highest 1,771',
-    })).toBeInTheDocument()
+    expect(within(blitz).getByText('1,720 to 1,765 over the last 3 stored rated games'))
+      .toBeInTheDocument()
+    expect(within(blitz).getByText('Low 1,720 · High 1,771')).toBeInTheDocument()
     expect(within(blitz).getByText('14 rated games stored')).toBeInTheDocument()
+
+    const bullet = screen.getByRole('article', { name: 'Bullet rating' })
+    expect(within(bullet).getByText('1,801')).toBeInTheDocument()
+    expect(within(bullet).getByText('No rated Bullet games stored yet.')).toBeInTheDocument()
 
     const rapid = screen.getByRole('article', { name: 'Rapid rating' })
     expect(within(rapid).getByText('Last game ±0')).toBeInTheDocument()
@@ -180,9 +187,9 @@ describe('DashboardRatingContext', () => {
     expect(screen.getByRole('article', { name: 'Bot record' }).parentElement)
       .toHaveAttribute('aria-busy', 'true')
     const other = screen.getByLabelText('Other Lichess ratings')
-    expect(within(other).getByText('Bullet')).toBeInTheDocument()
-    expect(within(other).getByText('1,801')).toBeInTheDocument()
+    expect(within(other).getByText('Correspondence')).toBeInTheDocument()
     expect(within(other).getByText('2,020')).toBeInTheDocument()
+    expect(within(other).queryByText('Bullet')).not.toBeInTheDocument()
   })
 
   it('reports revoked and unavailable sessions to the shell', async () => {

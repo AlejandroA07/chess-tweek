@@ -11,7 +11,10 @@ public record RatingContext(List<SpeedHistory> histories, BotRecord botRecord) {
 
     /** Speeds whose rating history the Dashboard shows, in display order. */
     public static final List<CatalogGame.Speed> HISTORY_SPEEDS = List.of(
-            CatalogGame.Speed.BLITZ, CatalogGame.Speed.RAPID, CatalogGame.Speed.CLASSICAL);
+            CatalogGame.Speed.RAPID,
+            CatalogGame.Speed.BLITZ,
+            CatalogGame.Speed.BULLET,
+            CatalogGame.Speed.CLASSICAL);
 
     /** Most recent rated games kept per speed for the history line. */
     public static final int HISTORY_POINTS = 30;

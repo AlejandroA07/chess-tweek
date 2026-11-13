@@ -824,6 +824,7 @@ describe('App', () => {
           ok: true,
           json: async () => ({
             ratings: [
+              { speed: 'rapid', gamesCounted: 0, latestChange: null, points: [] },
               {
                 speed: 'blitz',
                 gamesCounted: 2,
@@ -833,7 +834,7 @@ describe('App', () => {
                   { playedAt: '2026-11-11T00:00:00Z', rating: 1765 },
                 ],
               },
-              { speed: 'rapid', gamesCounted: 0, latestChange: null, points: [] },
+              { speed: 'bullet', gamesCounted: 0, latestChange: null, points: [] },
               { speed: 'classical', gamesCounted: 0, latestChange: null, points: [] },
             ],
             botRecord: {

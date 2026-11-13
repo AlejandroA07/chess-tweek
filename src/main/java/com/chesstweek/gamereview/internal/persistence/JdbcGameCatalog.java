@@ -33,14 +33,16 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
     private static final String UPSERT = """
             INSERT INTO game_review_game (
                 account_id, lichess_game_id, played_at_ms, last_move_at_ms, status,
-                owner_result, owner_color, owner_rating, opponent_kind, opponent_user_id,
+                owner_result, owner_color, owner_rating, owner_rating_change,
+                opponent_kind, opponent_user_id,
                 opponent_name, opponent_rating, opponent_title, opponent_ai_level, speed,
                 rated, variant, clock_initial_seconds, clock_increment_seconds, days_per_turn,
                 opening_eco, opening_name, opening_ply, middlegame_ply, endgame_ply,
                 moves_san, pgn, clocks_json, analysis_eligible, retrieved_at_ms
             ) VALUES (
                 :accountId, :gameId, :playedAt, :lastMoveAt, :status,
-                :ownerResult, :ownerColor, :ownerRating, :opponentKind, :opponentUserId,
+                :ownerResult, :ownerColor, :ownerRating, :ownerRatingChange,
+                :opponentKind, :opponentUserId,
                 :opponentName, :opponentRating, :opponentTitle, :opponentAiLevel, :speed,
                 :rated, :variant, :clockInitial, :clockIncrement, :daysPerTurn,
                 :openingEco, :openingName, :openingPly, :middlegamePly, :endgamePly,
@@ -53,6 +55,7 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
                 owner_result = excluded.owner_result,
                 owner_color = excluded.owner_color,
                 owner_rating = excluded.owner_rating,
+                owner_rating_change = excluded.owner_rating_change,
                 opponent_kind = excluded.opponent_kind,
                 opponent_user_id = excluded.opponent_user_id,
                 opponent_name = excluded.opponent_name,
@@ -246,6 +249,7 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
                 .addValue("ownerResult", game.ownerResult().value())
                 .addValue("ownerColor", game.ownerColor().value())
                 .addValue("ownerRating", game.ownerRating())
+                .addValue("ownerRatingChange", game.ownerRatingChange())
                 .addValue("opponentKind", opponent.kind().value())
                 .addValue("opponentUserId", opponent.userId())
                 .addValue("opponentName", opponent.name())
@@ -282,6 +286,7 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
                 CatalogGame.Result.fromValue(result.getString("owner_result")),
                 CatalogGame.Color.fromValue(result.getString("owner_color")),
                 nullableInteger(result, "owner_rating"),
+                nullableInteger(result, "owner_rating_change"),
                 new CatalogGame.Opponent(
                         CatalogGame.OpponentKind.fromValue(result.getString("opponent_kind")),
                         result.getString("opponent_user_id"),

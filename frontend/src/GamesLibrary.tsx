@@ -536,6 +536,7 @@ function GameCard({
       <h3>{opponentName}</h3>
       <p className={styles.rating}>
         {formatOpponent(game)} · You {formatRating(game.ownerRating)}
+        {formatRatingChange(game.ownerRatingChange)}
       </p>
       <p className={styles.opening}>{opening}</p>
       <dl className={styles.details}>
@@ -583,6 +584,12 @@ function formatOpponent(game: CatalogGame) {
 
 function formatRating(value: number | null) {
   return value === null ? 'Unrated' : value.toLocaleString('en-US')
+}
+
+function formatRatingChange(value: number | null) {
+  if (value === null) return ''
+  if (value === 0) return ' (\u00b10)'
+  return value > 0 ? ` (+${value})` : ` (\u2212${Math.abs(value)})`
 }
 
 function formatDate(value: string) {

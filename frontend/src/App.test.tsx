@@ -98,6 +98,7 @@ describe('App', () => {
                 result: 'win',
                 ownerColor: 'white',
                 ownerRating: 1800,
+                ownerRatingChange: 8,
                 opponent: {
                   type: 'bot',
                   name: 'StudyBot',
@@ -123,6 +124,7 @@ describe('App', () => {
                 result: 'loss',
                 ownerColor: 'black',
                 ownerRating: 1792,
+                ownerRatingChange: null,
                 opponent: {
                   type: 'human',
                   name: 'VariantPlayerWithAnIntentionallyLongDisplayNameForOverflow',
@@ -157,6 +159,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Lichess games' })).toBeInTheDocument()
     const botCard = screen.getByRole('article', { name: 'Win against StudyBot' })
     expect(within(botCard).getByText('BOT StudyBot')).toBeInTheDocument()
+    expect(within(botCard).getByText('1,750 · You 1,800 (+8)')).toBeInTheDocument()
     expect(within(botCard).getByText("C20 · King's Pawn Game")).toBeInTheDocument()
     expect(within(botCard).getByText('5+3 Blitz')).toBeInTheDocument()
     expect(within(botCard).getByText('My moves · Not analyzed')).toBeInTheDocument()
@@ -167,6 +170,7 @@ describe('App', () => {
     })
     expect(within(variantCard).getByText('VariantPlayerWithAnIntentionallyLongDisplayNameForOverflow'))
       .toBeInTheDocument()
+    expect(within(variantCard).getByText('1,810 · You 1,792')).toBeInTheDocument()
     expect(screen.getByText('Catalog only — analysis unavailable')).toBeInTheDocument()
 
     const eligibleSelection = within(botCard).getByRole('checkbox', {
@@ -596,6 +600,77 @@ describe('App', () => {
     expect(catalogRequests).toBe(2)
   })
 
+  it('shows rating losses and unchanged ratings with explicit signs', async () => {
+    const loss = {
+      ...catalogCard('game0001', 'LossPlayer', '2026-11-11T00:00:00Z'),
+      result: 'loss',
+      ownerRatingChange: -12,
+    }
+    const unchanged = {
+      ...catalogCard('game0002', 'DrawPlayer', '2026-11-10T00:00:00Z'),
+      result: 'draw',
+      ownerRatingChange: 0,
+    }
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => connectedSession() } as Response
+      }
+      if (url === '/api/games?offset=0&limit=50') {
+        return {
+          ok: true,
+          json: async () => ({ total: 2, offset: 0, limit: 50, games: [loss, unchanged] }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+
+    const lossCard = await screen.findByRole('article', { name: 'Loss against LossPlayer' })
+    expect(within(lossCard).getByText('1,750 · You 1,800 (\u221212)')).toBeInTheDocument()
+    const drawCard = screen.getByRole('article', { name: 'Draw against DrawPlayer' })
+    expect(within(drawCard).getByText('1,750 · You 1,800 (\u00b10)')).toBeInTheDocument()
+  })
+
+  it('rejects a catalog card with an invalid rating change instead of rendering it', async () => {
+    const invalid = {
+      ...catalogCard('game0001', 'InvalidPlayer', '2026-11-11T00:00:00Z'),
+      ownerRatingChange: 2.5,
+    }
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+
+      if (url === '/api/health') {
+        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      }
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => connectedSession() } as Response
+      }
+      if (url === '/api/games?offset=0&limit=50') {
+        return {
+          ok: true,
+          json: async () => ({ total: 1, offset: 0, limit: 50, games: [invalid] }),
+        } as Response
+      }
+
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+
+    expect(await screen.findByRole('heading', { name: 'Stored games could not be loaded' }))
+      .toBeInTheDocument()
+    expect(screen.queryByText('InvalidPlayer')).not.toBeInTheDocument()
+  })
+
   it('updates the shared session when the catalog discovers revoked access', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString()
@@ -875,6 +950,7 @@ function catalogCard(id: string, opponentName: string, playedAt: string) {
     result: 'win',
     ownerColor: 'white',
     ownerRating: 1800,
+    ownerRatingChange: null,
     opponent: {
       type: 'human',
       name: opponentName,

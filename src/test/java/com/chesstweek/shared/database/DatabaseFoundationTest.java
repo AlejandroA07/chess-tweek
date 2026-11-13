@@ -18,6 +18,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DatabaseFoundationTest {
 
+    private static final String OUT_OF_RANGE_RATING_CHANGE = """
+            INSERT INTO game_review_game (
+                account_id, lichess_game_id, played_at_ms, last_move_at_ms, status,
+                owner_result, owner_color, owner_rating, owner_rating_change,
+                opponent_kind, opponent_user_id, opponent_name, speed, rated, variant,
+                moves_san, clocks_json, analysis_eligible, retrieved_at_ms
+            ) VALUES (
+                'ownerid', 'game0001', 0, 0, 'mate',
+                'win', 'white', 1800, 1001,
+                'user', 'opponent', 'Opponent', 'blitz', 1, 'standard',
+                'e4', '[]', 1, 0
+            )
+            """;
+
     @Test
     void databaseSurvivesAnApplicationRestart(@TempDir Path temporaryDirectory) throws Exception {
         var databasePath = temporaryDirectory.resolve("runtime/chess-tweek.db");
@@ -34,11 +48,19 @@ class DatabaseFoundationTest {
                             PosixFilePermission.OWNER_WRITE);
             assertThat(jdbc.queryForObject(
                     "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1",
-                    Integer.class)).isEqualTo(2);
+                    Integer.class)).isEqualTo(3);
             assertThat(jdbc.queryForObject(
                     "SELECT COUNT(*) FROM sqlite_master "
                             + "WHERE type = 'table' AND name = 'game_review_game'",
                     Integer.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM pragma_table_info('game_review_game') "
+                            + "WHERE name = 'owner_rating_change' AND \"notnull\" = 0",
+                    Integer.class)).isEqualTo(1);
+            assertThatThrownBy(() -> jdbc.update(OUT_OF_RANGE_RATING_CHANGE))
+                    .hasMessageContaining("CHECK constraint failed: owner_rating_change");
+            assertThat(jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM game_review_game", Integer.class)).isZero();
             assertThat(jdbc.queryForObject("PRAGMA foreign_keys", Integer.class)).isEqualTo(1);
             assertThat(jdbc.queryForObject("PRAGMA journal_mode", String.class)).isEqualTo("wal");
             assertThat(jdbc.queryForObject("PRAGMA synchronous", Integer.class)).isEqualTo(1);

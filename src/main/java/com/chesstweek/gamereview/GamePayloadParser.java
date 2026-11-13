@@ -27,6 +27,7 @@ final class GamePayloadParser {
     private static final int MAX_NAME_LENGTH = 64;
     private static final int MAX_OPENING_NAME_LENGTH = 160;
     private static final int MAX_PLIES = 2_000;
+    private static final int MAX_RATING_CHANGE = 1_000;
     private static final Set<CatalogGame.Status> DRAW_STATUSES = Set.of(
             CatalogGame.Status.DRAW,
             CatalogGame.Status.STALEMATE,
@@ -80,6 +81,10 @@ final class GamePayloadParser {
 
         Players players = players(root.get("players"), accountId);
         CatalogGame.Color ownerColor = players.ownerColor();
+        Integer ownerRatingChange = players.owner().ratingChange();
+        if (ownerRatingChange != null && !rated) {
+            throw invalid();
+        }
         CatalogGame.Result result = result(root.get("winner"), ownerColor, status);
         String pgn = optionalText(root, "pgn", 1, MAX_PGN_LENGTH);
         List<Integer> clocks = clocks(root.get("clocks"));
@@ -95,6 +100,7 @@ final class GamePayloadParser {
                 result,
                 ownerColor,
                 players.owner().rating(),
+                ownerRatingChange,
                 players.opponent().toOpponent(),
                 speed,
                 rated,
@@ -140,7 +146,8 @@ final class GamePayloadParser {
         JsonNode aiLevel = node.get("aiLevel");
         if (aiLevel != null) {
             int level = integer(aiLevel, 1, 8);
-            return new Player(CatalogGame.OpponentKind.AI, null, "Lichess AI", null, null, level);
+            return new Player(
+                    CatalogGame.OpponentKind.AI, null, "Lichess AI", null, null, level, null);
         }
 
         JsonNode user = node.get("user");
@@ -152,7 +159,10 @@ final class GamePayloadParser {
             if (title != null && !TITLE.matcher(title).matches()) {
                 throw invalid();
             }
-            return new Player(CatalogGame.OpponentKind.USER, id, name, rating, title, null);
+            Integer ratingChange = optionalInteger(
+                    node, "ratingDiff", -MAX_RATING_CHANGE, MAX_RATING_CHANGE);
+            return new Player(
+                    CatalogGame.OpponentKind.USER, id, name, rating, title, null, ratingChange);
         }
 
         String name = optionalText(node, "name", 1, MAX_NAME_LENGTH);
@@ -162,6 +172,7 @@ final class GamePayloadParser {
                 null,
                 name == null ? "Anonymous" : name,
                 rating,
+                null,
                 null,
                 null);
     }
@@ -331,7 +342,8 @@ final class GamePayloadParser {
             String name,
             Integer rating,
             String title,
-            Integer aiLevel) {
+            Integer aiLevel,
+            Integer ratingChange) {
 
         private CatalogGame.Opponent toOpponent() {
             return new CatalogGame.Opponent(kind, userId, name, rating, title, aiLevel);

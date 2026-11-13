@@ -4,6 +4,7 @@ export type CatalogGame = {
   result: 'win' | 'draw' | 'loss'
   ownerColor: 'white' | 'black'
   ownerRating: number | null
+  ownerRatingChange: number | null
   opponent: {
     type: 'human' | 'bot' | 'lichess_ai' | 'anonymous'
     name: string
@@ -161,6 +162,7 @@ function parseGame(value: unknown): CatalogGame {
     !isOneOf(value.result, ['win', 'draw', 'loss']) ||
     !isOneOf(value.ownerColor, ['white', 'black']) ||
     !isNullableInteger(value.ownerRating, 0, 5_000) ||
+    !isNullableInteger(value.ownerRatingChange, -1_000, 1_000) ||
     !isRecord(value.opponent) ||
     !isOneOf(value.opponent.type, ['human', 'bot', 'lichess_ai', 'anonymous']) ||
     !isBoundedText(value.opponent.name, 64) ||

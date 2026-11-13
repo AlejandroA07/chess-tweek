@@ -12,6 +12,7 @@ public record CatalogGame(
         Result ownerResult,
         Color ownerColor,
         Integer ownerRating,
+        Integer ownerRatingChange,
         Opponent opponent,
         Speed speed,
         boolean rated,

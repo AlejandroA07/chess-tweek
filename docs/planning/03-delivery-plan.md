@@ -294,4 +294,4 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0 and 1 are complete. The verified local application foundation, SQLite persistence, shared responsive shell, and five intentional empty routes are ready. After owner review, Stage 2 begins the Lichess connection.
+Stages 0, 1, and 2 are complete. Stage 3 is delivered in independently reviewed parts. Parts 1 through 8 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, and the owner's per-game rating change. The Dashboard rating and bot context completes Stage 3, and Stage 4 single-game analysis follows.

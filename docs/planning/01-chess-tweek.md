@@ -320,7 +320,7 @@ Admin exposes every project operation that exists in v1:
 
 - [x] **0. Repository, planning, and design selection** — create the repository baseline, local harness skeleton, documentation model, decision-complete specification, architecture record, 15 Stitch prompts, and approved canonical design direction. Stop for owner review.
 - [x] **1. Application foundation** — implement the approved `DESIGN.md`, scaffold the verified Spring Boot/React/SQLite application and shared shell, complete the harness, CI, architecture tests, and `scripts/verify.mjs`. Needs 0 and the approved canonical design direction.
-- [ ] **2. Lichess connection** — deliver PKCE login, secure local session, account/rating display, reconnect, and logout end to end. Needs 1.
+- [x] **2. Lichess connection** — deliver PKCE login, secure local session, account/rating display, reconnect, and logout end to end. Needs 1.
 - [ ] **3. Lichess game catalog** — deliver Get Lichess Games, durable idempotent catalog, filters/cards, and bot/rating context. Needs 2.
 - [ ] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review, and coach cards. Needs 3.
 - [ ] **5. Bulk analysis queue** — deliver owner-only 2–20 game jobs, persistent states, pause/resume/cancel/retry, and restart recovery. Needs 4.

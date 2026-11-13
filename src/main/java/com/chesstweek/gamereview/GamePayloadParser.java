@@ -27,6 +27,7 @@ final class GamePayloadParser {
     private static final int MAX_NAME_LENGTH = 64;
     private static final int MAX_OPENING_NAME_LENGTH = 160;
     private static final int MAX_PLIES = 2_000;
+    private static final int MAX_RATING_CHANGE = 1_000;
     private static final Set<CatalogGame.Status> DRAW_STATUSES = Set.of(
             CatalogGame.Status.DRAW,
             CatalogGame.Status.STALEMATE,
@@ -80,6 +81,7 @@ final class GamePayloadParser {
 
         Players players = players(root.get("players"), accountId);
         CatalogGame.Color ownerColor = players.ownerColor();
+        Integer ownerRatingChange = rated ? ratingChange(players.ownerNode()) : null;
         CatalogGame.Result result = result(root.get("winner"), ownerColor, status);
         String pgn = optionalText(root, "pgn", 1, MAX_PGN_LENGTH);
         List<Integer> clocks = clocks(root.get("clocks"));
@@ -95,6 +97,7 @@ final class GamePayloadParser {
                 result,
                 ownerColor,
                 players.owner().rating(),
+                ownerRatingChange,
                 players.opponent().toOpponent(),
                 speed,
                 rated,
@@ -120,17 +123,23 @@ final class GamePayloadParser {
         if (players == null || !players.isObject()) {
             throw invalid();
         }
-        Player white = player(players.get("white"));
-        Player black = player(players.get("black"));
+        JsonNode whiteNode = players.get("white");
+        JsonNode blackNode = players.get("black");
+        Player white = player(whiteNode);
+        Player black = player(blackNode);
         boolean ownerIsWhite = white.userId() != null && white.userId().equalsIgnoreCase(accountId);
         boolean ownerIsBlack = black.userId() != null && black.userId().equalsIgnoreCase(accountId);
         if (ownerIsWhite == ownerIsBlack) {
             throw invalid();
         }
         if (ownerIsWhite) {
-            return new Players(CatalogGame.Color.WHITE, white, black);
+            return new Players(CatalogGame.Color.WHITE, white, black, whiteNode);
         }
-        return new Players(CatalogGame.Color.BLACK, black, white);
+        return new Players(CatalogGame.Color.BLACK, black, white, blackNode);
+    }
+
+    private static Integer ratingChange(JsonNode ownerNode) {
+        return optionalInteger(ownerNode, "ratingDiff", -MAX_RATING_CHANGE, MAX_RATING_CHANGE);
     }
 
     private static Player player(JsonNode node) {
@@ -323,7 +332,11 @@ final class GamePayloadParser {
         }
     }
 
-    private record Players(CatalogGame.Color ownerColor, Player owner, Player opponent) {}
+    private record Players(
+            CatalogGame.Color ownerColor,
+            Player owner,
+            Player opponent,
+            JsonNode ownerNode) {}
 
     private record Player(
             CatalogGame.OpponentKind kind,

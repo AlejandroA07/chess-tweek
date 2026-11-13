@@ -55,6 +55,8 @@ class GameCatalogControllerTest {
                 .andExpect(jsonPath("$.games[0].playedAt").value("2026-11-11T00:00:00Z"))
                 .andExpect(jsonPath("$.games[0].result").value("win"))
                 .andExpect(jsonPath("$.games[0].ownerColor").value("white"))
+                .andExpect(jsonPath("$.games[0].ownerRating").value(1800))
+                .andExpect(jsonPath("$.games[0].ownerRatingChange").value(-4))
                 .andExpect(jsonPath("$.games[0].opponent.type").value("bot"))
                 .andExpect(jsonPath("$.games[0].opponent.name").value("StudyBot"))
                 .andExpect(jsonPath("$.games[0].speed").value("blitz"))
@@ -257,6 +259,7 @@ class GameCatalogControllerTest {
                 CatalogGame.Result.WIN,
                 CatalogGame.Color.WHITE,
                 1800,
+                -4,
                 new CatalogGame.Opponent(
                         CatalogGame.OpponentKind.USER,
                         "studybot",

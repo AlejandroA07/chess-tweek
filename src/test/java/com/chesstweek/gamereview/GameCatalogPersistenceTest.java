@@ -143,6 +143,8 @@ class GameCatalogPersistenceTest {
             assertThat(standard.ownerColor()).isEqualTo(CatalogGame.Color.WHITE);
             assertThat(standard.opponent().name()).isEqualTo("Opponent");
             assertThat(standard.opponent().rating()).isEqualTo(1701);
+            assertThat(standard.ownerRating()).isEqualTo(1800);
+            assertThat(standard.ownerRatingChange()).isEqualTo(-4);
             assertThat(standard.opponent().title()).isEqualTo("BOT");
             assertThat(standard.opening().eco()).isEqualTo("C20");
             assertThat(standard.analysisEligible()).isTrue();
@@ -153,6 +155,7 @@ class GameCatalogPersistenceTest {
                     .orElseThrow();
             assertThat(variant.variant()).isEqualTo(CatalogGame.Variant.CRAZYHOUSE);
             assertThat(variant.analysisEligible()).isFalse();
+            assertThat(variant.ownerRatingChange()).isNull();
         }
     }
 
@@ -200,8 +203,8 @@ class GameCatalogPersistenceTest {
                       "status":"mate",
                       "winner":"white",
                       "players":{
-                        "white":{"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800},
-                        "black":{"user":{"id":"opponent","name":"Opponent","title":"BOT"},"rating":%d}
+                        "white":{"user":{"id":"ownerid","name":"ChessOwner"},"rating":1800,"ratingDiff":-4},
+                        "black":{"user":{"id":"opponent","name":"Opponent","title":"BOT"},"rating":%d,"ratingDiff":4}
                       },
                       "clock":{"initial":300,"increment":3,"totalTime":420},
                       "clocks":[3000,3000,2970,2990],

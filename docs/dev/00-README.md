@@ -1,6 +1,6 @@
 # Development documentation
 
-**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 7 add protected manual retrieval, an account-scoped SQLite catalog, exact new/updated/unchanged retrieval summaries, the Games library and retrieval panel, the complete approved server-backed filter set, and accessible selection for one eligible game or an exact eligible filtered group. Filter values are bounded or allowlisted before authorization and translated into parameterized account-scoped SQL. Rating-change ingestion and Dashboard rating/bot context remain later Stage 3 parts.
+**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 8 add protected manual retrieval, an account-scoped SQLite catalog, exact new/updated/unchanged retrieval summaries, the owner's per-game Lichess rating change, the Games library and retrieval panel, the complete approved server-backed filter set, and accessible selection for one eligible game or an exact eligible filtered group. Filter values are bounded or allowlisted before authorization and translated into parameterized account-scoped SQL. Dashboard rating and bot context is the remaining Stage 3 part.
 
 The database is a local `var/chess-tweek.db` file with Flyway migrations, WAL journaling, foreign keys, normal synchronization, a five-second busy timeout, and at most two pooled connections. Run `node scripts/verify.mjs` for the complete gate.
 
@@ -25,3 +25,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-13-game-catalog-remaining-filters.md` | Records the remaining server-backed catalog filters and validation. | dated report |
 | `2026-11-13-game-catalog-selection.md` | Records eligible single-game and exact filtered-group selection. | dated report |
 | `2026-11-13-game-retrieval-write-counts.md` | Records exact new, updated, and unchanged retrieval accounting. | dated report |
+| `2026-11-13-game-rating-change.md` | Records the owner's validated per-game Lichess rating change. | dated report |

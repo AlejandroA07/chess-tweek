@@ -34,8 +34,9 @@ class GameRatingContextPersistenceTest {
             assertThat(context.histories())
                     .extracting(SpeedHistory::speed)
                     .containsExactly(
-                            CatalogGame.Speed.BLITZ,
                             CatalogGame.Speed.RAPID,
+                            CatalogGame.Speed.BLITZ,
+                            CatalogGame.Speed.BULLET,
                             CatalogGame.Speed.CLASSICAL);
             assertThat(context.histories()).allSatisfy(history -> {
                 assertThat(history.gamesCounted()).isZero();
@@ -68,7 +69,7 @@ class GameRatingContextPersistenceTest {
             RatingContext context = application.getBean(GameRatingContext.class)
                     .ratingContext("ownerid");
 
-            SpeedHistory blitz = context.histories().get(0);
+            SpeedHistory blitz = history(context, CatalogGame.Speed.BLITZ);
             assertThat(blitz.gamesCounted()).isEqualTo(3);
             assertThat(blitz.latestChange()).isNull();
             assertThat(blitz.points()).containsExactly(
@@ -76,13 +77,19 @@ class GameRatingContextPersistenceTest {
                     new RatingPoint(START.plusSeconds(3_600), 1502),
                     new RatingPoint(START.plusSeconds(7_200), 1502));
 
-            SpeedHistory rapid = context.histories().get(1);
+            SpeedHistory rapid = history(context, CatalogGame.Speed.RAPID);
             assertThat(rapid.gamesCounted()).isEqualTo(1);
             assertThat(rapid.latestChange()).isZero();
             assertThat(rapid.points()).containsExactly(
                     new RatingPoint(START.plusSeconds(5 * 3_600), 1600));
 
-            SpeedHistory classical = context.histories().get(2);
+            SpeedHistory bullet = history(context, CatalogGame.Speed.BULLET);
+            assertThat(bullet.gamesCounted()).isEqualTo(1);
+            assertThat(bullet.latestChange()).isEqualTo(5);
+            assertThat(bullet.points()).containsExactly(
+                    new RatingPoint(START.plusSeconds(6 * 3_600), 1405));
+
+            SpeedHistory classical = history(context, CatalogGame.Speed.CLASSICAL);
             assertThat(classical.gamesCounted()).isZero();
             assertThat(classical.points()).isEmpty();
         }
@@ -100,10 +107,9 @@ class GameRatingContextPersistenceTest {
             }
             application.getBean(GameCatalogStore.class).save("ownerid", games, START);
 
-            SpeedHistory rapid = application.getBean(GameRatingContext.class)
-                    .ratingContext("ownerid")
-                    .histories()
-                    .get(1);
+            SpeedHistory rapid = history(
+                    application.getBean(GameRatingContext.class).ratingContext("ownerid"),
+                    CatalogGame.Speed.RAPID);
 
             assertThat(rapid.gamesCounted()).isEqualTo(RatingContext.HISTORY_POINTS + 5);
             assertThat(rapid.points()).hasSize(RatingContext.HISTORY_POINTS);
@@ -159,6 +165,13 @@ class GameRatingContextPersistenceTest {
             assertThatThrownBy(() -> context.ratingContext(null))
                     .isInstanceOf(IllegalArgumentException.class);
         }
+    }
+
+    private static SpeedHistory history(RatingContext context, CatalogGame.Speed speed) {
+        return context.histories().stream()
+                .filter(history -> history.speed() == speed)
+                .findFirst()
+                .orElseThrow();
     }
 
     private static CatalogGame rated(

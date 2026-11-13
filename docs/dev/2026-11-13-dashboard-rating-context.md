@@ -10,7 +10,7 @@ On 2026-11-13 the owner chose to build rating history from games already stored 
 
 `GET /api/dashboard/rating-context` is protected by the existing sealed Lichess session. It reads only the authorized account's rows through `JdbcGameRatingContext`, which uses named, parameterized SQL.
 
-- **Rating history:** covers Blitz, Rapid, and Classical, counting only rated standard-chess games that have an owner rating. Variant games have their own Lichess ratings and are excluded.
+- **Rating history:** covers Rapid, Blitz, Bullet, and Classical, in that order at the owner's request, counting only rated standard-chess games that have an owner rating. Variant games have their own Lichess ratings and are excluded.
   - Each game becomes one point: its pre-game rating plus its Lichess rating change. A missing change counts as zero.
   - The response holds the 30 most recent points per speed (oldest first), the number of qualifying games, and the most recent game's change. That change is null when Lichess supplied none.
 - **Bot record:** counts every stored game against Lichess AI or a `BOT`-titled account, rated or casual and any variant.
@@ -21,12 +21,13 @@ On 2026-11-13 the owner chose to build rating history from games already stored 
 
 ## Interface
 
-- **Rating panel:** the Dashboard shows one "Ratings and bot record" panel under the account panel. Each Blitz, Rapid, and Classical card shows:
+- **Rating panel:** the Dashboard shows one "Ratings and bot record" panel under the account panel. Each Rapid, Blitz, Bullet, and Classical card shows:
   - the current Lichess rating from the session
   - the most recent change, such as `Last game −6`
-  - an SVG history line with a full text description for assistive technology
+  - an SVG history line with a visible caption giving the first and last rating, the number of games shown, and the low and high, so the line can be checked against Lichess
   - the number of stored rated games
-- **Other ratings:** Bullet and Correspondence appear in a compact line, since the design gives them no card. The account panel no longer repeats the ratings.
+- **Other ratings:** Correspondence appears in a compact line. The account panel no longer repeats the ratings.
+- **Bot record:** the card spans the row below the four rating cards, with totals on the left and the group table on the right.
 - **Current ratings stay visible:** they show while the history loads and after a history failure. The failure offers Retry.
 - **Empty states:** they explain what is missing and link to Games.
 - **Placeholder:** the old "No chess activity yet" Dashboard placeholder now shows only while Lichess is disconnected.

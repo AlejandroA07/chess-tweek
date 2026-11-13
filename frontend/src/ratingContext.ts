@@ -1,6 +1,6 @@
-export type HistorySpeed = 'blitz' | 'rapid' | 'classical'
+export type HistorySpeed = 'rapid' | 'blitz' | 'bullet' | 'classical'
 
-export const HISTORY_SPEEDS: readonly HistorySpeed[] = ['blitz', 'rapid', 'classical']
+export const HISTORY_SPEEDS: readonly HistorySpeed[] = ['rapid', 'blitz', 'bullet', 'classical']
 
 const MAX_HISTORY_POINTS = 30
 const MAX_GAMES = 10_000_000

@@ -44,16 +44,17 @@ class DashboardRatingContextControllerTest {
                 .perform(get("/api/dashboard/rating-context").cookie(SESSION))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(jsonPath("$.ratings[0].speed").value("blitz"))
-                .andExpect(jsonPath("$.ratings[0].gamesCounted").value(2))
-                .andExpect(jsonPath("$.ratings[0].latestChange").value(-6))
-                .andExpect(jsonPath("$.ratings[0].points[0].playedAt")
+                .andExpect(jsonPath("$.ratings[0].speed").value("rapid"))
+                .andExpect(jsonPath("$.ratings[0].latestChange").doesNotExist())
+                .andExpect(jsonPath("$.ratings[1].speed").value("blitz"))
+                .andExpect(jsonPath("$.ratings[1].gamesCounted").value(2))
+                .andExpect(jsonPath("$.ratings[1].latestChange").value(-6))
+                .andExpect(jsonPath("$.ratings[1].points[0].playedAt")
                         .value("2026-11-01T00:00:00Z"))
-                .andExpect(jsonPath("$.ratings[0].points[0].rating").value(1508))
-                .andExpect(jsonPath("$.ratings[0].points[1].rating").value(1502))
-                .andExpect(jsonPath("$.ratings[1].speed").value("rapid"))
-                .andExpect(jsonPath("$.ratings[1].latestChange").doesNotExist())
-                .andExpect(jsonPath("$.ratings[2].speed").value("classical"))
+                .andExpect(jsonPath("$.ratings[1].points[0].rating").value(1508))
+                .andExpect(jsonPath("$.ratings[1].points[1].rating").value(1502))
+                .andExpect(jsonPath("$.ratings[2].speed").value("bullet"))
+                .andExpect(jsonPath("$.ratings[3].speed").value("classical"))
                 .andExpect(jsonPath("$.botRecord.wins").value(2))
                 .andExpect(jsonPath("$.botRecord.draws").value(1))
                 .andExpect(jsonPath("$.botRecord.losses").value(1))
@@ -143,6 +144,8 @@ class DashboardRatingContextControllerTest {
         return new RatingContext(
                 List.of(
                         new RatingContext.SpeedHistory(
+                                CatalogGame.Speed.RAPID, 0, null, List.of()),
+                        new RatingContext.SpeedHistory(
                                 CatalogGame.Speed.BLITZ,
                                 2,
                                 -6,
@@ -151,7 +154,7 @@ class DashboardRatingContextControllerTest {
                                         new RatingContext.RatingPoint(
                                                 start.plusSeconds(3_600), 1502))),
                         new RatingContext.SpeedHistory(
-                                CatalogGame.Speed.RAPID, 0, null, List.of()),
+                                CatalogGame.Speed.BULLET, 0, null, List.of()),
                         new RatingContext.SpeedHistory(
                                 CatalogGame.Speed.CLASSICAL, 0, null, List.of())),
                 new RatingContext.BotRecord(

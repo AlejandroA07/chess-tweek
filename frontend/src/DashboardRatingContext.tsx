@@ -16,18 +16,18 @@ type LoadState =
   | { kind: 'ready'; context: RatingContext }
   | { kind: 'error' }
 
-type OtherSpeed = 'bullet' | 'correspondence'
+type OtherSpeed = 'correspondence'
 
-const otherSpeeds: OtherSpeed[] = ['bullet', 'correspondence']
+const otherSpeeds: OtherSpeed[] = ['correspondence']
 
 const otherSpeedLabels: Record<OtherSpeed, string> = {
-  bullet: 'Bullet',
   correspondence: 'Correspondence',
 }
 
 const speedLabels: Record<HistorySpeed, string> = {
-  blitz: 'Blitz',
   rapid: 'Rapid',
+  blitz: 'Blitz',
+  bullet: 'Bullet',
   classical: 'Classical',
 }
 
@@ -148,7 +148,7 @@ function StoredHistory({ label, rating }: { label: string; rating: SpeedRating }
         <p className={styles.change}>{formatLatestChange(rating.latestChange)}</p>
       )}
       {rating.points.length >= 2 ? (
-        <Sparkline label={label} rating={rating} />
+        <Sparkline rating={rating} />
       ) : rating.gamesCounted > 0 ? (
         <p className={styles.note}>A history line needs at least two stored rated games.</p>
       ) : null}
@@ -161,7 +161,7 @@ function StoredHistory({ label, rating }: { label: string; rating: SpeedRating }
   )
 }
 
-function Sparkline({ label, rating }: { label: string; rating: SpeedRating }) {
+function Sparkline({ rating }: { rating: SpeedRating }) {
   const values = rating.points.map((point) => point.rating)
   const lowest = Math.min(...values)
   const highest = Math.max(...values)
@@ -176,19 +176,24 @@ function Sparkline({ label, rating }: { label: string; rating: SpeedRating }) {
       : padding + (1 - (value - lowest) / span) * (height - 2 * padding)
     return `${x.toFixed(1)},${y.toFixed(1)}`
   })
-  const description = `${label} rating after the last ${values.length} stored rated games: ` +
-    `from ${formatNumber(values[0])} to ${formatNumber(values[values.length - 1])}, ` +
-    `lowest ${formatNumber(lowest)}, highest ${formatNumber(highest)}`
   return (
-    <svg
-      className={styles.sparkline}
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={description}
-    >
-      <polyline points={coordinates.join(' ')} />
-    </svg>
+    <figure className={styles.history}>
+      <svg
+        className={styles.sparkline}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <polyline points={coordinates.join(' ')} />
+      </svg>
+      <figcaption>
+        <span>
+          {formatNumber(values[0])} to {formatNumber(values[values.length - 1])} over the last{' '}
+          {values.length} stored rated games
+        </span>
+        <span>Low {formatNumber(lowest)} · High {formatNumber(highest)}</span>
+      </figcaption>
+    </figure>
   )
 }
 
@@ -201,29 +206,31 @@ function BotRecordCard({ record, loading }: { record: BotRecord | null; loading:
       ) : record.games === 0 ? (
         <p className={styles.note}>No games against Lichess AI or BOT accounts are stored yet.</p>
       ) : (
-        <>
-          <dl className={styles.tally}>
-            <div>
-              <dt>Wins</dt>
-              <dd>{formatNumber(record.wins)}</dd>
-            </div>
-            <div>
-              <dt>Draws</dt>
-              <dd>{formatNumber(record.draws)}</dd>
-            </div>
-            <div>
-              <dt>Losses</dt>
-              <dd>{formatNumber(record.losses)}</dd>
-            </div>
-          </dl>
-          <p className={styles.note}>
-            {formatNumber(record.games)} game{record.games === 1 ? '' : 's'} counted
-          </p>
-          <p className={styles.note}>
-            {record.lowestRating === null || record.highestRating === null
-              ? 'No rated BOT opponents'
-              : `BOT ratings ${formatNumber(record.lowestRating)}–${formatNumber(record.highestRating)}`}
-          </p>
+        <div className={styles.botBody}>
+          <div>
+            <dl className={styles.tally}>
+              <div>
+                <dt>Wins</dt>
+                <dd>{formatNumber(record.wins)}</dd>
+              </div>
+              <div>
+                <dt>Draws</dt>
+                <dd>{formatNumber(record.draws)}</dd>
+              </div>
+              <div>
+                <dt>Losses</dt>
+                <dd>{formatNumber(record.losses)}</dd>
+              </div>
+            </dl>
+            <p className={styles.note}>
+              {formatNumber(record.games)} game{record.games === 1 ? '' : 's'} counted
+            </p>
+            <p className={styles.note}>
+              {record.lowestRating === null || record.highestRating === null
+                ? 'No rated BOT opponents'
+                : `BOT ratings ${formatNumber(record.lowestRating)}–${formatNumber(record.highestRating)}`}
+            </p>
+          </div>
           <table className={styles.groups} aria-label="Results by opponent group">
             <thead>
               <tr>
@@ -244,7 +251,7 @@ function BotRecordCard({ record, loading }: { record: BotRecord | null; loading:
               ))}
             </tbody>
           </table>
-        </>
+        </div>
       )}
     </article>
   )

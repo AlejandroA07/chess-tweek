@@ -147,6 +147,29 @@
   opacity: 0.65;
 }
 
+.profile {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.profile .subheading {
+  margin-top: 0;
+}
+
+.profile .secondaryButton {
+  margin-top: 0;
+}
+
+.warning {
+  max-width: 42rem;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-warning);
+  color: var(--color-text);
+  background: var(--color-surface-subtle);
+}
+
 .error {
   margin: var(--space-3) 0 0;
   color: var(--color-error);

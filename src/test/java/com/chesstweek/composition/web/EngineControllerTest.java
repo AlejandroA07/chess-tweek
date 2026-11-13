@@ -1,12 +1,16 @@
 package com.chesstweek.composition.web;
 
+import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.chesstweek.gamereview.EngineBenchmark;
 import com.chesstweek.gamereview.EngineHealth;
+import com.chesstweek.gamereview.EngineProfile;
 import com.chesstweek.gamereview.EngineStatus;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
@@ -27,6 +31,9 @@ class EngineControllerTest {
 
     private final AtomicInteger checks = new AtomicInteger();
     private final AtomicInteger statusReads = new AtomicInteger();
+    private final AtomicInteger benchmarks = new AtomicInteger();
+    private EngineProfile storedProfile;
+    private EngineBenchmark.BenchmarkResult benchmarkResult;
 
     @Test
     void reportsTheLocatedEngineWithoutStartingIt() throws Exception {
@@ -36,7 +43,8 @@ class EngineControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.state").value("not_checked"))
-                .andExpect(jsonPath("$.path").value("/opt/homebrew/bin/stockfish"));
+                .andExpect(jsonPath("$.path").value("/opt/homebrew/bin/stockfish"))
+                .andExpect(jsonPath("$.profile").doesNotExist());
 
         assertThat(statusReads).hasValue(1);
         assertThat(checks).hasValue(0);
@@ -106,6 +114,78 @@ class EngineControllerTest {
     }
 
     @Test
+    void includesTheCurrentProfileWithTheEngineStatus() throws Exception {
+        storedProfile = profile();
+
+        mockMvc(connected(), ready())
+                .perform(get("/api/engine").cookie(SESSION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.profile.id").value(7))
+                .andExpect(jsonPath("$.profile.engineName").value("Stockfish 19"))
+                .andExpect(jsonPath("$.profile.threads").value(2))
+                .andExpect(jsonPath("$.profile.hashMb").value(256))
+                .andExpect(jsonPath("$.profile.multiPv").value(3))
+                .andExpect(jsonPath("$.profile.nodesPerSecond").value(1_050_000))
+                .andExpect(jsonPath("$.profile.quickNodes").value(790_000))
+                .andExpect(jsonPath("$.profile.deepNodes").value(3_150_000))
+                .andExpect(jsonPath("$.profile.createdAt").value("2026-11-14T09:00:00Z"));
+    }
+
+    @Test
+    void runsABenchmarkForASameOriginConnectedRequest() throws Exception {
+        benchmarkResult = new EngineBenchmark.BenchmarkResult(ready(), profile());
+
+        mockMvc(connected(), ready())
+                .perform(post("/api/engine/benchmarks").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.state").value("ready"))
+                .andExpect(jsonPath("$.profile.quickNodes").value(790_000));
+
+        assertThat(benchmarks).hasValue(1);
+    }
+
+    @Test
+    void refusesCrossOriginOrDisconnectedBenchmarksBeforeRunning() throws Exception {
+        benchmarkResult = new EngineBenchmark.BenchmarkResult(ready(), profile());
+
+        mockMvc(connected(), ready())
+                .perform(post("/api/engine/benchmarks")
+                        .cookie(SESSION)
+                        .header("Origin", "https://example.com"))
+                .andExpect(status().isForbidden());
+        mockMvc(sealed -> LichessSessionAuthorization.disconnected(false), ready())
+                .perform(post("/api/engine/benchmarks").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(benchmarks).hasValue(0);
+    }
+
+    @Test
+    void reportsBenchmarkFailuresWithFixedCodes() throws Exception {
+        String path = "/opt/homebrew/bin/stockfish";
+        benchmarkResult = new EngineBenchmark.BenchmarkResult(
+                new EngineStatus(EngineStatus.State.BUSY, path, null), null);
+        mockMvc(connected(), ready())
+                .perform(post("/api/engine/benchmarks").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("engine_busy"));
+
+        benchmarkResult = new EngineBenchmark.BenchmarkResult(
+                new EngineStatus(EngineStatus.State.NOT_INSTALLED, path, null), null);
+        mockMvc(connected(), ready())
+                .perform(post("/api/engine/benchmarks").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("engine_not_ready"));
+
+        benchmarkResult = new EngineBenchmark.BenchmarkResult(ready(), null);
+        mockMvc(connected(), ready())
+                .perform(post("/api/engine/benchmarks").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.error").value("benchmark_failed"));
+    }
+
+    @Test
     void reportsABusyEngineAsAConflict() throws Exception {
         mockMvc(connected(), new EngineStatus(EngineStatus.State.BUSY, "/opt/homebrew/bin/stockfish", null))
                 .perform(post("/api/engine/health-checks").cookie(SESSION).header("Origin", ORIGIN))
@@ -127,7 +207,27 @@ class EngineControllerTest {
                 return result;
             }
         };
-        return MockMvcBuilders.standaloneSetup(new EngineController(authorizer, health)).build();
+        EngineBenchmark benchmark = new EngineBenchmark() {
+            @Override
+            public Optional<EngineProfile> currentProfile() {
+                return Optional.ofNullable(storedProfile);
+            }
+
+            @Override
+            public BenchmarkResult run() {
+                benchmarks.incrementAndGet();
+                return benchmarkResult;
+            }
+        };
+        return MockMvcBuilders
+                .standaloneSetup(new EngineController(authorizer, health, benchmark))
+                .build();
+    }
+
+    private static EngineProfile profile() {
+        return new EngineProfile(
+                7, "Stockfish 19", 2, 256, 3, 6, 1_000_000, 1_050_000, 750, 3_000,
+                790_000, 3_150_000, Instant.parse("2026-11-14T09:00:00Z"));
     }
 
     private static LichessSessionAuthorizer connected() {

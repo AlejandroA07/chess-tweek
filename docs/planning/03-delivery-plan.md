@@ -294,4 +294,4 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0, 1, and 2 are complete. Stage 3 is delivered in independently reviewed parts. Parts 1 through 9 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record. The owner's live check closes Stage 3, and Stage 4 single-game analysis follows.
+Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed parts. Parts 1 through 9 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record. Stage 3 is complete, including the owner's live check. Stage 4 is delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards.

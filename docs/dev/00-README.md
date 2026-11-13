@@ -1,6 +1,6 @@
 # Development documentation
 
-**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 9 add protected manual retrieval, an account-scoped SQLite catalog, exact new/updated/unchanged retrieval summaries, the owner's per-game Lichess rating change, Dashboard rating history and bot record built from stored games, the Games library and retrieval panel, the complete approved server-backed filter set, and accessible selection for one eligible game or an exact eligible filtered group. Filter values are bounded or allowlisted before authorization and translated into parameterized account-scoped SQL. Every Stage 3 deliverable is implemented; the owner's live check closes Stage 3 before Stage 4 single-game analysis.
+**Current state:** Stages 0, 1, and 2 are complete, including the owner's live Lichess connection check. Stage 3 Parts 1 through 9 add protected manual retrieval, an account-scoped SQLite catalog, exact new/updated/unchanged retrieval summaries, the owner's per-game Lichess rating change, Dashboard rating history and bot record built from stored games, the Games library and retrieval panel, the complete approved server-backed filter set, and accessible selection for one eligible game or an exact eligible filtered group. Filter values are bounded or allowlisted before authorization and translated into parameterized account-scoped SQL. Stage 3 is complete, including the owner's live check. Stage 4 Part 1 locates Stockfish, runs a bounded UCI health check, and shows engine status on the Admin page.
 
 The database is a local `var/chess-tweek.db` file with Flyway migrations, WAL journaling, foreign keys, normal synchronization, a five-second busy timeout, and at most two pooled connections. Run `node scripts/verify.mjs` for the complete gate.
 
@@ -28,3 +28,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-13-game-rating-change.md` | Records the owner's validated per-game Lichess rating change. | dated report |
 | `2026-11-13-dashboard-rating-context.md` | Records the Dashboard rating history and bot record built from stored games. | dated report |
 | `2026-11-13-no-stale-app-page.md` | Records why the browser kept an old page and the caching fix. | dated report |
+| `2026-11-13-stockfish-health.md` | Records Stockfish detection, the bounded UCI health check, and Admin engine status. | dated report |

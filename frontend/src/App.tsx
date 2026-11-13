@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import styles from './App.module.css'
+import { AdminEngine } from './AdminEngine'
 import { DashboardRatingContext } from './DashboardRatingContext'
 import { GamesLibrary } from './GamesLibrary'
 
@@ -287,6 +288,8 @@ export function App() {
                 connectionState={session.kind}
                 onSessionFailure={handleCatalogSessionFailure}
               />
+            ) : route.href === '#/admin' && session.kind === 'connected' ? (
+              <AdminEngine onSessionFailure={handleCatalogSessionFailure} />
             ) : route.href === '#/dashboard' && session.kind === 'connected' ? null : (
               <section className={styles.emptyState} aria-labelledby="workspace-title">
                 <span className={styles.emptyStateIcon}>

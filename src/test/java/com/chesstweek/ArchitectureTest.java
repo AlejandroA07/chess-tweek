@@ -62,6 +62,13 @@ class ArchitectureTest {
                     "com.zaxxer.hikari..");
 
     @ArchTest
+    static final ArchRule only_the_engine_adapter_starts_processes = noClasses()
+            .that().resideOutsideOfPackage("..gamereview.internal.engine..")
+            .should().dependOnClassesThat().haveFullyQualifiedName("java.lang.ProcessBuilder")
+            .orShould().dependOnClassesThat().haveFullyQualifiedName("java.lang.Process")
+            .orShould().dependOnClassesThat().haveFullyQualifiedName("java.lang.Runtime");
+
+    @ArchTest
     static final ArchRule web_controllers_stay_in_composition = classes()
             .that().areAnnotatedWith(RestController.class)
             .should().resideInAPackage("..composition.web..");

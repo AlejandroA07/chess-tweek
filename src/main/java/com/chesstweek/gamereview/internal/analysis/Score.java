@@ -1,0 +1,31 @@
+package com.chesstweek.gamereview.internal.analysis;
+
+/**
+ * Stockfish's centipawn or mate score from the side to move. It is stored for explanation;
+ * classification uses expected score, except for the forced-mate rules.
+ */
+public sealed interface Score {
+
+    /** Centipawns; positive favors the side to move. */
+    record Centipawns(int value) implements Score {
+
+        public Centipawns {
+            if (Math.abs(value) > 100_000) {
+                throw new IllegalArgumentException("Centipawn score out of range");
+            }
+        }
+    }
+
+    /**
+     * Moves to mate. Positive means the side to move mates; negative means it is mated. Zero is
+     * only valid for a side to move that is already checkmated, and is reported as negative.
+     */
+    record Mate(int moves) implements Score {
+
+        public Mate {
+            if (moves == 0 || Math.abs(moves) > 1_000) {
+                throw new IllegalArgumentException("Mate distance out of range");
+            }
+        }
+    }
+}

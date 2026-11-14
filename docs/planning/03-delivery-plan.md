@@ -302,10 +302,5 @@ Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed
 
 **Next immediate action (2026-11-14):**
 
-1. The owner live-checks Stage 4 Part 2 on `feature/engine-benchmark-profile` (PR #25):
-   - run `./scripts/start.sh`
-   - on Admin, click Run Benchmark
-   - confirm the speed (about 1.1 million nodes/s), the quick and deep budgets, and "measured with Stockfish 19"
-   - click Run Benchmark Again and confirm a new profile replaces the shown one
-2. The owner merges PR #25.
-3. Start Stage 4 Part 3 on a new `feature/<topic>` branch from the updated `main`: the analysis rules (expected score from WDL, inaccuracy/mistake/blunder thresholds, forced-mate rules, the second deep pass, and game phases), tested with a fake engine.
+1. The owner reviews and merges the Stage 4 Part 3 analysis-rules PR. It adds no visible change, so there is nothing to live-check.
+2. Start Stage 4 Part 4 on a new `feature/<topic>` branch from the updated `main`: single-game analysis. Parse Stockfish search output into evaluations, run the two passes for My moves, Opponent moves, or Both, and store an immutable analysis version linked to its engine profile.

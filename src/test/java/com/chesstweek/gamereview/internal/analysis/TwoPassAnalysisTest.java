@@ -131,6 +131,32 @@ class TwoPassAnalysisTest {
     }
 
     @Test
+    void reportsQuickThenDeepProgressAsMovesJudged() throws Exception {
+        ReplayedGame game = ReplayedGame.fromSan("e4 e5 Nf3 Nc6");
+        engine.at(3, QUICK, eval("g8f6", centipawns(0), wdl(0, 1_000, 0)));
+        engine.at(4, QUICK, eval("f1b5", centipawns(150), wdl(400, 600, 0)));
+        var reported = new ArrayList<String>();
+
+        new TwoPassAnalysis(engine, QUICK, DEEP).analyze(
+                game, GamePhases.of(null, game), Set.of(Color.WHITE, Color.BLACK),
+                new TwoPassAnalysis.Progress() {
+                    @Override
+                    public void quick(int judged, int total) {
+                        reported.add("quick " + judged + "/" + total);
+                    }
+
+                    @Override
+                    public void deep(int judged, int total) {
+                        reported.add("deep " + judged + "/" + total);
+                    }
+                });
+
+        assertThat(reported).containsExactly(
+                "quick 0/4", "quick 1/4", "quick 2/4", "quick 3/4", "quick 4/4",
+                "deep 0/1", "deep 1/1");
+    }
+
+    @Test
     void aFailedSearchFailsTheWholeAnalysis() {
         ReplayedGame game = ReplayedGame.fromSan("e4 e5 Nf3 Nc6");
         engine.failAt = 2;

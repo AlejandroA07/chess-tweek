@@ -48,7 +48,7 @@ class DatabaseFoundationTest {
                             PosixFilePermission.OWNER_WRITE);
             assertThat(jdbc.queryForObject(
                     "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1",
-                    Integer.class)).isEqualTo(4);
+                    Integer.class)).isEqualTo(5);
             assertThat(jdbc.queryForObject(
                     "SELECT COUNT(*) FROM sqlite_master "
                             + "WHERE type = 'table' AND name = 'game_review_game'",

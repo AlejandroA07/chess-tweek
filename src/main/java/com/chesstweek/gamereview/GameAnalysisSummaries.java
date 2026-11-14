@@ -19,9 +19,11 @@ public interface GameAnalysisSummaries {
     /** Either side is null when that side has never been analyzed. */
     record Summary(Version myMoves, Version opponentMoves) {}
 
+    /** {@code currentProfile} is false when a newer benchmark profile exists than the one used. */
     record Version(
             long id,
             Instant completedAt,
+            boolean currentProfile,
             int moves,
             int inaccuracies,
             int mistakes,

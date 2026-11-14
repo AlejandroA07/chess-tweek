@@ -33,6 +33,7 @@ export type CatalogGame = {
 export type AnalysisVersionSummary = {
   id: number
   completedAt: string
+  currentProfile: boolean
   moves: number
   inaccuracies: number
   mistakes: number
@@ -81,7 +82,8 @@ export class CatalogRequestError extends Error {
   }
 }
 
-const PAGE_SIZE = 50
+export const CATALOG_PAGE_SIZE = 50
+const PAGE_SIZE = CATALOG_PAGE_SIZE
 
 export async function requestCatalog(
   offset: number,
@@ -209,6 +211,7 @@ function isVersionSummary(value: unknown) {
     isRecord(value) &&
     isSafeInteger(value.id, 1, Number.MAX_SAFE_INTEGER) &&
     isDate(value.completedAt) &&
+    typeof value.currentProfile === 'boolean' &&
     isSafeInteger(value.moves, 0, 600) &&
     isSafeInteger(value.inaccuracies, 0, value.moves) &&
     isSafeInteger(value.mistakes, 0, value.moves) &&

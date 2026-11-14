@@ -33,7 +33,9 @@ public class JdbcAnalysisVersionStore implements AnalysisVersionStore, GameAnaly
     private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
     private static final String LATEST_BY_SIDE = """
             SELECT v.lichess_game_id, v.side, v.id, v.completed_at_ms, v.move_count,
-                   v.inaccuracies, v.mistakes, v.blunders
+                   v.inaccuracies, v.mistakes, v.blunders,
+                   v.profile_id = (SELECT MAX(p.id) FROM game_review_engine_profile p)
+                       AS current_profile
             FROM game_review_analysis_version v
             WHERE v.account_id = :accountId
               AND v.lichess_game_id IN (:gameIds)
@@ -138,6 +140,7 @@ public class JdbcAnalysisVersionStore implements AnalysisVersionStore, GameAnaly
                     var version = new Version(
                             row.getLong("id"),
                             Instant.ofEpochMilli(row.getLong("completed_at_ms")),
+                            row.getInt("current_profile") == 1,
                             row.getInt("move_count"),
                             row.getInt("inaccuracies"),
                             row.getInt("mistakes"),

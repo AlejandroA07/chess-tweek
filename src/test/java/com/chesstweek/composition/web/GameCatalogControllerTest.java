@@ -42,7 +42,7 @@ class GameCatalogControllerTest {
             requested.set(accountId + " " + gameIds);
             return java.util.Map.of("game0001", new GameAnalysisSummaries.Summary(
                     new GameAnalysisSummaries.Version(
-                            12, Instant.parse("2026-11-14T13:00:00Z"), 40, 3, 1, 2),
+                            12, Instant.parse("2026-11-14T13:00:00Z"), false, 40, 3, 1, 2),
                     null));
         };
 
@@ -57,6 +57,7 @@ class GameCatalogControllerTest {
                 .andExpect(jsonPath("$.games[0].analysis.myMoves.id").value(12))
                 .andExpect(jsonPath("$.games[0].analysis.myMoves.completedAt")
                         .value("2026-11-14T13:00:00Z"))
+                .andExpect(jsonPath("$.games[0].analysis.myMoves.currentProfile").value(false))
                 .andExpect(jsonPath("$.games[0].analysis.myMoves.moves").value(40))
                 .andExpect(jsonPath("$.games[0].analysis.myMoves.inaccuracies").value(3))
                 .andExpect(jsonPath("$.games[0].analysis.myMoves.mistakes").value(1))

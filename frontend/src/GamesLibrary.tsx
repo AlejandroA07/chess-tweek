@@ -6,6 +6,7 @@ import { GameRetrievalPanel } from './GameRetrievalPanel'
 import {
   CatalogRequestError,
   EMPTY_CATALOG_FILTERS,
+  CATALOG_PAGE_SIZE,
   requestCatalog,
   requestEligibleSelectionTotal,
   type CatalogFilters,
@@ -64,16 +65,32 @@ export function GamesLibrary({
     opponentName: string
   } | null>(null)
 
+  const refreshRequest = useRef<AbortController | null>(null)
+  const loadedGameCount = useRef(0)
+  useEffect(() => {
+    loadedGameCount.current = catalog.kind === 'ready' ? catalog.games.length : 0
+  }, [catalog])
+
+  /**
+   * Re-reads every loaded page and updates matching cards in place, so cards from older pages
+   * keep their place. A filter change or unmount aborts it.
+   */
   const refreshAnalyzedCards = useCallback(() => {
-    requestCatalog(0, new AbortController().signal, filters)
-      .then((response) => setCatalog((current) => current.kind === 'ready'
-        ? {
-            kind: 'ready',
-            total: response.total,
-            games: response.games,
-            nextOffset: response.offset + response.games.length,
-          }
-        : current))
+    const loaded = loadedGameCount.current
+    if (loaded === 0) return
+    refreshRequest.current?.abort()
+    const controller = new AbortController()
+    refreshRequest.current = controller
+    const offsets = Array.from({ length: Math.ceil(loaded / CATALOG_PAGE_SIZE) }, (_, page) =>
+      page * CATALOG_PAGE_SIZE)
+    Promise.all(offsets.map((offset) => requestCatalog(offset, controller.signal, filters)))
+      .then((pages) => {
+        if (controller.signal.aborted) return
+        const updated = new Map(pages.flatMap((page) => page.games).map((game) => [game.id, game]))
+        setCatalog((current) => current.kind === 'ready'
+          ? { ...current, games: current.games.map((game) => updated.get(game.id) ?? game) }
+          : current)
+      })
       .catch(() => {
         // The cards keep their previous status; the next library load shows the saved result.
       })
@@ -96,10 +113,8 @@ export function GamesLibrary({
   }
 
   const retryAnalysis = () => {
-    const last = lastAnalysisRequest.current
     const job = analysis.job
     if (job !== null) analysis.start(job.gameId, job.perspective)
-    else if (last !== null) analysis.start(last.gameId, last.perspective)
   }
 
   const analyzedOpponentName = (job: AnalysisJob | null) => {
@@ -212,6 +227,7 @@ export function GamesLibrary({
     const controller = new AbortController()
     let ignore = false
     olderRequest.current?.abort()
+    refreshRequest.current?.abort()
     setCatalog({ kind: 'loading' })
     setLoadingOlder(false)
     setOlderError(false)
@@ -249,6 +265,7 @@ export function GamesLibrary({
   useEffect(() => () => {
     olderRequest.current?.abort()
     selectionRequest.current?.abort()
+    refreshRequest.current?.abort()
   }, [])
 
   useEffect(() => {
@@ -429,6 +446,7 @@ export function GamesLibrary({
       <GameAnalysisPanel
         job={analysis.job}
         opponentName={analyzedOpponentName(analysis.job)}
+        starting={analysis.starting}
         canceling={analysis.canceling}
         startFailure={analysis.startFailure}
         now={Date.now()}
@@ -482,9 +500,7 @@ export function GamesLibrary({
             game={game}
             selected={game.analysis.eligible && gameIsSelected(game.id)}
             onSelectionChange={() => toggleGameSelection(game)}
-            runningJob={analysis.job?.state === 'running' && analysis.job.gameId === game.id
-              ? analysis.job
-              : null}
+            currentJob={analysis.job?.gameId === game.id ? analysis.job : null}
             analysisLocked={analysisLocked}
             onAnalyze={(perspective) => startGameAnalysis(game, perspective)}
           />
@@ -570,14 +586,14 @@ function GameCard({
   game,
   selected,
   onSelectionChange,
-  runningJob,
+  currentJob,
   analysisLocked,
   onAnalyze,
 }: {
   game: CatalogGame
   selected: boolean
   onSelectionChange: () => void
-  runningJob: AnalysisJob | null
+  currentJob: AnalysisJob | null
   analysisLocked: boolean
   onAnalyze: (perspective: AnalysisPerspective) => void
 }) {
@@ -645,12 +661,12 @@ function GameCard({
             <AnalysisBadge
               side="My moves"
               version={game.analysis.myMoves}
-              running={runningJob !== null && runningJob.perspective !== 'opponent_moves'}
+              job={currentJob !== null && currentJob.perspective !== 'opponent_moves' ? currentJob : null}
             />
             <AnalysisBadge
               side="Opponent moves"
               version={game.analysis.opponentMoves}
-              running={runningJob !== null && runningJob.perspective !== 'my_moves'}
+              job={currentJob !== null && currentJob.perspective !== 'my_moves' ? currentJob : null}
             />
           </div>
           <AnalysisActions
@@ -671,22 +687,34 @@ function GameCard({
 function AnalysisBadge({
   side,
   version,
-  running,
+  job,
 }: {
   side: string
   version: AnalysisVersionSummary | null
-  running: boolean
+  job: AnalysisJob | null
 }) {
-  if (running) {
+  if (job?.state === 'running') {
     return <p className={styles.analysis} data-analysis="running">{side} · Analyzing…</p>
   }
+  const failed = job?.state === 'failed'
+    ? <span className={styles.analysisFailure}>Last analysis failed. Nothing was saved.</span>
+    : null
   if (version === null) {
-    return <p className={styles.analysis}>{side} · Not analyzed</p>
+    return (
+      <p className={styles.analysis} data-analysis={failed ? 'failed' : undefined}>
+        {side} · Not analyzed
+        {failed}
+      </p>
+    )
   }
   return (
-    <p className={styles.analysis} data-analysis="analyzed">
+    <p className={styles.analysis} data-analysis={failed ? 'failed' : 'analyzed'}>
       {side} · Analyzed
       <span className={styles.analysisCounts}>{severityCounts(version)}</span>
+      {!version.currentProfile && (
+        <span className={styles.analysisProfile}>Earlier engine profile · reanalyze to update</span>
+      )}
+      {failed}
     </p>
   )
 }
@@ -728,7 +756,7 @@ function AnalysisActions({
           className={styles.moreButton}
           disabled={locked}
           aria-expanded={moreOpen}
-          aria-controls={optionsId}
+          aria-controls={moreOpen ? optionsId : undefined}
           aria-label={`More analysis options for the game against ${game.opponent.name}`}
           onClick={() => setMoreOpen((open) => !open)}
         >
@@ -750,7 +778,9 @@ function AnalysisActions({
             {verb(game.analysis.opponentMoves)} Opponent Moves
           </button>
           <button type="button" onClick={() => choose('both')}>
-            Analyze Both Sides
+            {game.analysis.myMoves !== null && game.analysis.opponentMoves !== null
+              ? 'Reanalyze Both Sides'
+              : 'Analyze Both Sides'}
           </button>
         </div>
       )}
@@ -761,9 +791,9 @@ function AnalysisActions({
 
 function severityCounts(version: AnalysisVersionSummary) {
   const parts = [
-    plural(version.blunders, 'blunder'),
-    plural(version.mistakes, 'mistake'),
-    plural(version.inaccuracies, 'inaccuracy', 'inaccuracies'),
+    plural(version.blunders, 'Blunder'),
+    plural(version.mistakes, 'Mistake'),
+    plural(version.inaccuracies, 'Inaccuracy', 'Inaccuracies'),
   ]
   return parts.join(' · ')
 }

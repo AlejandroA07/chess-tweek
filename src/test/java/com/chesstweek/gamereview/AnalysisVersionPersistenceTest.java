@@ -142,11 +142,26 @@ class AnalysisVersionPersistenceTest {
             List<Long> newer = store.saveAll(List.of(version(AnalysisVersionStore.Side.OWNER,
                     CatalogGame.Color.WHITE, profileId, findings, ReplayedGame.Color.WHITE)));
 
-            GameAnalysisSummaries.Summary summary = summaries.latest(ACCOUNT, List.of(GAME_ID)).get(GAME_ID);
+            store.saveAll(List.of(version(AnalysisVersionStore.Side.OPPONENT, CatalogGame.Color.BLACK,
+                    profileId, findings, ReplayedGame.Color.BLACK)));
+            application.getBean(GameCatalogStore.class).save(
+                    ACCOUNT, List.of(game("efgh5678")), STARTED);
+
+            Map<String, GameAnalysisSummaries.Summary> latest =
+                    summaries.latest(ACCOUNT, List.of(GAME_ID, "efgh5678"));
+            assertThat(latest).containsOnlyKeys(GAME_ID);
+            GameAnalysisSummaries.Summary summary = latest.get(GAME_ID);
             assertThat(summary.myMoves().id()).isEqualTo(newer.getFirst());
             assertThat(summary.myMoves().moves()).isEqualTo(4);
             assertThat(summary.myMoves().completedAt()).isEqualTo(COMPLETED);
-            assertThat(summary.opponentMoves()).isNull();
+            assertThat(summary.myMoves().currentProfile()).isTrue();
+            assertThat(summary.opponentMoves().moves()).isEqualTo(3);
+
+            application.getBean(EngineProfileStore.class).save(new EngineProfile(
+                    0, "Stockfish 19", 2, 256, 3, 6, 1_000_000, 1_200_000, 750, 3_000,
+                    900_000, 3_600_000, COMPLETED));
+            assertThat(summaries.latest(ACCOUNT, List.of(GAME_ID)).get(GAME_ID).myMoves()
+                    .currentProfile()).isFalse();
             assertThat(summaries.latest("someone", List.of(GAME_ID))).isEmpty();
             assertThatThrownBy(() -> summaries.latest(ACCOUNT, List.of("bad id")))
                     .isInstanceOf(IllegalArgumentException.class);
@@ -198,8 +213,12 @@ class AnalysisVersionPersistenceTest {
     }
 
     private static CatalogGame game() {
+        return game(GAME_ID);
+    }
+
+    private static CatalogGame game(String id) {
         return new CatalogGame(
-                GAME_ID,
+                id,
                 Instant.parse("2026-11-13T10:00:00Z"),
                 Instant.parse("2026-11-13T10:05:00Z"),
                 CatalogGame.Status.MATE,

@@ -44,6 +44,7 @@ describe('Game analysis on Games', () => {
   let analyzed: boolean
   let startResponse: { status: number; body: unknown }
   let requests: { url: string; init?: RequestInit }[]
+  let catalog: (url: string) => unknown
 
   beforeEach(() => {
     window.history.replaceState(null, '', '/')
@@ -52,18 +53,22 @@ describe('Game analysis on Games', () => {
     analyzed = false
     startResponse = { status: 202, body: { job: running({ pass: 'starting', judged: 0, total: 0 }) } }
     requests = []
+    catalog = (url) => url === '/api/games?offset=0&limit=50'
+      ? {
+          total: 2,
+          offset: 0,
+          limit: 50,
+          games: [card(GAME_ID, 'Rival', analyzed), catalogOnlyCard()],
+        }
+      : undefined
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString()
       requests.push({ url, init })
       if (url === '/api/health') return json(200, { status: 'ok' })
       if (url === '/api/lichess/session') return json(200, connectedSession())
-      if (url === '/api/games?offset=0&limit=50') {
-        return json(200, {
-          total: 2,
-          offset: 0,
-          limit: 50,
-          games: [card(GAME_ID, 'Rival', analyzed), catalogOnlyCard()],
-        })
+      if (url.startsWith('/api/games?')) {
+        const page = catalog(url)
+        if (page !== undefined) return json(200, page)
       }
       if (url === '/api/analysis') {
         if (polls.length > 0) currentJob = polls.shift() ?? null
@@ -105,8 +110,10 @@ describe('Game analysis on Games', () => {
       .toBeInTheDocument()
     expect(await within(panel).findByText('First pass · 3 of 40 moves', {}, { timeout: 3_000 }))
       .toBeInTheDocument()
-    expect(within(panel).getByRole('progressbar', { name: 'Analysis progress' }))
-      .toHaveAttribute('value', '3')
+    expect(within(panel).getByRole('progressbar', { name: 'First pass' }))
+      .toHaveAttribute('value', String(3 / 40))
+    expect(within(panel).getByRole('progressbar', { name: 'Second pass' }))
+      .toHaveAttribute('value', '0')
     expect(within(gameCard).getByText('My moves · Analyzing…')).toBeInTheDocument()
     expect(within(gameCard).getByRole('button', { name: 'Analyze my moves against Rival' }))
       .toBeDisabled()
@@ -115,7 +122,7 @@ describe('Game analysis on Games', () => {
 
     expect(await screen.findByRole('heading', { name: 'Analysis saved' }, { timeout: 3_000 }))
       .toBeInTheDocument()
-    const refreshed = await screen.findByText('2 blunders · 1 mistake · 3 inaccuracies')
+    const refreshed = await screen.findByText('2 Blunders · 1 Mistake · 3 Inaccuracies')
     expect(refreshed.closest('p')).toHaveTextContent('My moves · Analyzed')
     expect(screen.getByRole('button', { name: 'Reanalyze my moves against Rival' })).toBeEnabled()
 
@@ -194,7 +201,95 @@ describe('Game analysis on Games', () => {
 
     expect(await screen.findByRole('heading', { name: 'Analysis canceled' }, { timeout: 3_000 }))
       .toBeInTheDocument()
-    expect(screen.getByText(/Nothing was saved\./)).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Game analysis' }))
+      .getByText(/Nothing was saved\./)).toBeInTheDocument()
+  })
+
+  it('can analyze again after a cancel without a stuck Stopping button', async () => {
+    currentJob = running()
+    await openGames()
+    await screen.findByRole('heading', { name: 'Analyzing your moves against Rival' })
+
+    polls = [finished('canceled')]
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Analysis' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Analyze Again' }, { timeout: 3_000 }))
+
+    expect(await screen.findByRole('button', { name: 'Cancel Analysis' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Stopping…' })).not.toBeInTheDocument()
+  })
+
+  it('shows the running analysis when another start is refused as busy', async () => {
+    await openGames()
+    startResponse = { status: 409, body: { error: 'analysis_busy' } }
+    currentJob = running({ perspective: 'both' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze my moves against Rival' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Another analysis is already running.')
+    expect(await screen.findByRole('heading', { name: 'Analyzing both sides against Rival' }))
+      .toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel Analysis' })).toBeEnabled()
+  })
+
+  it('marks a failed analysis on the card it belongs to', async () => {
+    await openGames()
+    polls = [finished('failed', { failure: 'engine_failed' })]
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze my moves against Rival' }))
+
+    const gameCard = screen.getByRole('article', { name: 'Win against Rival' })
+    expect(await within(gameCard).findByText(
+      'Last analysis failed. Nothing was saved.', {}, { timeout: 3_000 },
+    )).toBeInTheDocument()
+    expect(within(gameCard).getByText(/Opponent moves · Not analyzed/)).not.toHaveTextContent('failed')
+  })
+
+  it('updates a card loaded from an older page in place when its analysis is saved', async () => {
+    const newer = Array.from({ length: 50 }, (_, index) =>
+      card(`newer${String(index).padStart(3, '0')}`, `Newer${index}`, false))
+    let olderAnalyzed = false
+    catalog = (url) => {
+      if (url === '/api/games?offset=0&limit=50') {
+        return { total: 51, offset: 0, limit: 50, games: newer }
+      }
+      if (url === '/api/games?offset=50&limit=50') {
+        return { total: 51, offset: 50, limit: 50, games: [card(GAME_ID, 'OlderRival', olderAnalyzed)] }
+      }
+      return undefined
+    }
+    render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Load older games' }))
+    const olderCard = await screen.findByRole('article', { name: 'Win against OlderRival' })
+
+    startResponse = { status: 202, body: { job: running() } }
+    polls = [finished('completed', { versionIds: [12] })]
+    fireEvent.click(within(olderCard).getByRole('button', {
+      name: 'Analyze my moves against OlderRival',
+    }))
+    olderAnalyzed = true
+
+    expect(await within(olderCard).findByText(
+      '2 Blunders · 1 Mistake · 3 Inaccuracies', {}, { timeout: 3_000 },
+    )).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(51)
+  })
+
+  it('marks results from an earlier engine profile', async () => {
+    catalog = () => ({
+      total: 1,
+      offset: 0,
+      limit: 50,
+      games: [{
+        ...card(GAME_ID, 'Rival', true),
+        analysis: {
+          ...card(GAME_ID, 'Rival', true).analysis,
+          myMoves: { ...card(GAME_ID, 'Rival', true).analysis.myMoves!, currentProfile: false },
+        },
+      }],
+    })
+    await openGames()
+
+    expect(screen.getByText('Earlier engine profile · reanalyze to update')).toBeInTheDocument()
   })
 
   it('does not show a finished analysis from before the view opened', async () => {
@@ -256,6 +351,7 @@ function card(id: string, opponentName: string, analyzed: boolean) {
           myMoves: {
             id: 12,
             completedAt: '2026-11-14T12:02:00Z',
+            currentProfile: true,
             moves: 40,
             inaccuracies: 3,
             mistakes: 1,

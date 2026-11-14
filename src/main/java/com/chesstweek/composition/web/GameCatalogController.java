@@ -247,6 +247,7 @@ public final class GameCatalogController {
         return version == null ? null : new VersionResponse(
                 version.id(),
                 version.completedAt().toString(),
+                version.currentProfile(),
                 version.moves(),
                 version.inaccuracies(),
                 version.mistakes(),
@@ -350,6 +351,7 @@ public final class GameCatalogController {
     public record VersionResponse(
             long id,
             String completedAt,
+            boolean currentProfile,
             int moves,
             int inaccuracies,
             int mistakes,

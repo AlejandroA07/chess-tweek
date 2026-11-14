@@ -12,7 +12,9 @@ const perspectiveLabels: Record<AnalysisPerspective, string> = {
   both: 'both sides',
 }
 
-const jobFailures: Record<AnalysisJobFailure, { text: string; admin: boolean }> = {
+type Explanation = { text: string; admin: boolean }
+
+const jobFailures: Record<AnalysisJobFailure, Explanation> = {
   engine_busy: {
     text: 'Stockfish was busy with a health check or benchmark. Nothing was saved. Try again in a moment.',
     admin: false,
@@ -35,7 +37,7 @@ const jobFailures: Record<AnalysisJobFailure, { text: string; admin: boolean }> 
   },
 }
 
-const startFailures: Record<AnalysisRequestFailure, { text: string; admin: boolean }> = {
+const startFailures: Record<AnalysisRequestFailure, Explanation> = {
   analysis_busy: { text: 'Another analysis is already running. Wait for it to finish or cancel it.', admin: false },
   engine_profile_missing: { text: 'Analysis needs an engine benchmark first. Open Admin and run the benchmark.', admin: true },
   analysis_not_supported: { text: 'This game cannot be analyzed. Only standard chess games are supported.', admin: false },
@@ -46,9 +48,14 @@ const startFailures: Record<AnalysisRequestFailure, { text: string; admin: boole
   session_unavailable: { text: 'The Lichess session could not be checked. Try again.', admin: false },
 }
 
+/**
+ * The single analysis, as one region. A visually hidden live region stays mounted and announces
+ * only pass changes and outcomes, so screen readers are not interrupted by every progress poll.
+ */
 export function GameAnalysisPanel({
   job,
   opponentName,
+  starting,
   canceling,
   startFailure,
   now,
@@ -58,6 +65,7 @@ export function GameAnalysisPanel({
 }: {
   job: AnalysisJob | null
   opponentName: string | null
+  starting: boolean
   canceling: boolean
   startFailure: AnalysisRequestFailure | null
   now: number
@@ -65,112 +73,166 @@ export function GameAnalysisPanel({
   onRetry: () => void
   onDismiss: () => void
 }) {
-  if (startFailure !== null) {
-    const failure = startFailures[startFailure]
-    return (
-      <section className={styles.panel} aria-label="Game analysis" data-tone="error">
-        <div role="alert">
-          <h3>Analysis did not start</h3>
-          <p>{failure.text}</p>
-        </div>
-        <div className={styles.actions}>
-          {failure.admin && <a className={styles.secondary} href="#/admin">Open Admin</a>}
-          <button className={styles.tertiary} type="button" onClick={onDismiss}>Dismiss</button>
-        </div>
-      </section>
+  return (
+    <>
+      <p className={styles.announcement} aria-live="polite">{announcement(job, starting)}</p>
+      {visiblePanel()}
+    </>
+  )
+
+  function visiblePanel() {
+    const refused = startFailure === null ? null : (
+      <div role="alert" className={styles.refusal}>
+        <h3>Analysis did not start</h3>
+        <p>{startFailures[startFailure].text}</p>
+      </div>
     )
-  }
-  if (job === null) return null
 
-  const subject = `${perspectiveLabels[job.perspective]} against ${opponentName ?? 'this opponent'}`
+    if (job === null || (startFailure !== null && job.state !== 'running')) {
+      if (starting) {
+        return (
+          <section className={styles.panel} aria-label="Game analysis">
+            <h3>Starting analysis…</h3>
+          </section>
+        )
+      }
+      if (startFailure === null) return null
+      return (
+        <section className={styles.panel} aria-label="Game analysis" data-tone="error">
+          {refused}
+          <div className={styles.actions}>
+            {startFailures[startFailure].admin && (
+              <a className={styles.secondary} href="#/admin">Open Admin</a>
+            )}
+            <button className={styles.tertiary} type="button" onClick={onDismiss}>Dismiss</button>
+          </div>
+        </section>
+      )
+    }
 
-  if (job.state === 'running') {
-    return (
-      <section className={styles.panel} aria-label="Game analysis">
-        <div aria-live="polite">
+    const subject = `${perspectiveLabels[job.perspective]} against ${opponentName ?? 'this opponent'}`
+
+    if (job.state === 'running') {
+      const scope = job.perspective === 'both' ? ' (both sides)' : ''
+      const firstDone = job.pass === 'deep' || job.pass === 'saving'
+      return (
+        <section className={styles.panel} aria-label="Game analysis">
+          {refused}
           <h3>Analyzing {subject}</h3>
-          <p className={styles.step}>{runningStep(job)}</p>
-        </div>
-        <progress
-          className={styles.progress}
-          aria-label="Analysis progress"
-          max={job.total || 1}
-          value={job.pass === 'starting' ? 0 : job.judged}
-        />
-        <p className={styles.meta}>
-          <span>Elapsed {formatElapsed(now - Date.parse(job.startedAt))}</span>
-          <span>Stockfish runs locally and can warm your Mac.</span>
-        </p>
-        <div className={styles.actions}>
-          <button
-            className={styles.secondary}
-            type="button"
-            disabled={canceling}
-            onClick={onCancel}
-          >
-            {canceling ? 'Stopping…' : 'Cancel Analysis'}
-          </button>
-          {canceling && <p className={styles.note}>Stopping after the current search. Nothing will be saved.</p>}
-        </div>
-      </section>
-    )
-  }
+          <p className={styles.step}>{runningStep(job, scope)}</p>
+          <div className={styles.passes}>
+            <label className={styles.pass}>
+              <span>First pass</span>
+              <progress
+                max={1}
+                value={firstDone ? 1 : job.pass === 'quick' && job.total > 0 ? job.judged / job.total : 0}
+              />
+            </label>
+            <label className={styles.pass}>
+              <span>Second pass</span>
+              <progress
+                max={1}
+                value={job.pass === 'saving'
+                  ? 1
+                  : job.pass === 'deep' && job.total > 0 ? job.judged / job.total : 0}
+              />
+            </label>
+          </div>
+          <p className={styles.meta}>
+            <span>Elapsed {formatElapsed(now - Date.parse(job.startedAt))}</span>
+            <span>Stockfish runs locally and can warm your Mac.</span>
+          </p>
+          <div className={styles.actions}>
+            <button
+              className={styles.secondary}
+              type="button"
+              disabled={canceling}
+              onClick={onCancel}
+            >
+              {canceling ? 'Stopping…' : 'Cancel Analysis'}
+            </button>
+            {canceling && <p className={styles.note}>Stopping after the current search. Nothing will be saved.</p>}
+          </div>
+        </section>
+      )
+    }
 
-  if (job.state === 'completed') {
-    return (
-      <section className={styles.panel} aria-label="Game analysis" data-tone="success">
-        <div role="status">
+    if (job.state === 'completed') {
+      return (
+        <section className={styles.panel} aria-label="Game analysis" data-tone="success">
           <h3>Analysis saved</h3>
           <p>
             Stockfish finished {subject}
             {job.finishedAt ? ` in ${formatElapsed(Date.parse(job.finishedAt) - Date.parse(job.startedAt))}` : ''}.
             The results are shown on the game card.
           </p>
-        </div>
-        <div className={styles.actions}>
-          <button className={styles.tertiary} type="button" onClick={onDismiss}>Dismiss</button>
-        </div>
-      </section>
-    )
-  }
+          <div className={styles.actions}>
+            <button className={styles.tertiary} type="button" onClick={onDismiss}>Dismiss</button>
+          </div>
+        </section>
+      )
+    }
 
-  if (job.state === 'canceled') {
-    return (
-      <section className={styles.panel} aria-label="Game analysis">
-        <div role="status">
+    if (job.state === 'canceled') {
+      return (
+        <section className={styles.panel} aria-label="Game analysis">
           <h3>Analysis canceled</h3>
           <p>The analysis of {subject} was stopped. Nothing was saved.</p>
+          <div className={styles.actions}>
+            <button className={styles.secondary} type="button" onClick={onRetry}>Analyze Again</button>
+            <button className={styles.tertiary} type="button" onClick={onDismiss}>Dismiss</button>
+          </div>
+        </section>
+      )
+    }
+
+    const failure = jobFailures[job.failure ?? 'engine_failed']
+    return (
+      <section className={styles.panel} aria-label="Game analysis" data-tone="error">
+        <div role="alert">
+          <h3>Analysis failed</h3>
+          <p>{failure.text}</p>
         </div>
         <div className={styles.actions}>
-          <button className={styles.secondary} type="button" onClick={onRetry}>Analyze Again</button>
+          <button className={styles.secondary} type="button" onClick={onRetry}>Try Again</button>
+          {failure.admin && <a className={styles.secondary} href="#/admin">Open Admin</a>}
           <button className={styles.tertiary} type="button" onClick={onDismiss}>Dismiss</button>
         </div>
       </section>
     )
   }
-
-  const failure = jobFailures[job.failure ?? 'engine_failed']
-  return (
-    <section className={styles.panel} aria-label="Game analysis" data-tone="error">
-      <div role="alert">
-        <h3>Analysis failed</h3>
-        <p>{failure.text}</p>
-      </div>
-      <div className={styles.actions}>
-        <button className={styles.secondary} type="button" onClick={onRetry}>Try Again</button>
-        {failure.admin && <a className={styles.secondary} href="#/admin">Open Admin</a>}
-        <button className={styles.tertiary} type="button" onClick={onDismiss}>Dismiss</button>
-      </div>
-    </section>
-  )
 }
 
-function runningStep(job: AnalysisJob) {
+function announcement(job: AnalysisJob | null, starting: boolean) {
+  if (job === null) return starting ? 'Starting analysis.' : ''
+  switch (job.state) {
+    case 'running':
+      switch (job.pass) {
+        case 'starting':
+          return 'Analysis started.'
+        case 'quick':
+          return 'First pass running.'
+        case 'deep':
+          return 'Second pass running.'
+        case 'saving':
+          return 'Saving results.'
+      }
+      break
+    case 'completed':
+      return 'Analysis saved.'
+    case 'canceled':
+      return 'Analysis canceled. Nothing was saved.'
+    case 'failed':
+      return ''
+  }
+}
+
+function runningStep(job: AnalysisJob, scope: string) {
   switch (job.pass) {
     case 'starting':
       return 'Starting Stockfish…'
     case 'quick':
-      return `First pass · ${job.judged} of ${job.total} moves`
+      return `First pass · ${job.judged} of ${job.total} moves${scope}`
     case 'deep':
       return job.total === 0
         ? 'Second pass · no moves need a deeper check'

@@ -24,7 +24,8 @@ export type GameAnalysisControls = {
 
 /**
  * Tracks the single local analysis. Only a running analysis is picked up on load; a finished one
- * is shown only when it finished while this view was watching it.
+ * is shown only when it finished while this view was watching it. While one runs, the current
+ * state is requested once per {@link POLL_INTERVAL_MS}.
  */
 export function useGameAnalysis({
   enabled,
@@ -39,6 +40,7 @@ export function useGameAnalysis({
   const [starting, setStarting] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [startFailure, setStartFailure] = useState<AnalysisRequestFailure | null>(null)
+  const [pollTick, setPollTick] = useState(0)
   const onCompletedRef = useRef(onCompleted)
   useEffect(() => {
     onCompletedRef.current = onCompleted
@@ -53,19 +55,29 @@ export function useGameAnalysis({
     return false
   }, [onSessionFailure])
 
+  /** Applies a fresh job snapshot, finishing up when it is no longer running. */
+  const receive = useCallback((current: AnalysisJob | null) => {
+    setJob(current)
+    if (current === null || current.state !== 'running') {
+      setCanceling(false)
+      if (current?.state === 'completed') onCompletedRef.current()
+    }
+  }, [])
+
+  const followRunning = useCallback((signal?: AbortSignal) =>
+    requestCurrentAnalysis(signal).then((current) => {
+      if (current?.state === 'running') setJob(current)
+    }), [])
+
   useEffect(() => {
     if (!enabled) return
     const controller = new AbortController()
-    requestCurrentAnalysis(controller.signal)
-      .then((current) => {
-        if (current?.state === 'running') setJob(current)
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        sessionFailure(error)
-      })
+    followRunning(controller.signal).catch((error: unknown) => {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      sessionFailure(error)
+    })
     return () => controller.abort()
-  }, [enabled, sessionFailure])
+  }, [enabled, followRunning, sessionFailure])
 
   const running = job?.state === 'running'
   useEffect(() => {
@@ -73,38 +85,35 @@ export function useGameAnalysis({
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
       requestCurrentAnalysis(controller.signal)
-        .then((current) => {
-          if (current === null) {
-            setJob(null)
-            return
-          }
-          setJob(current)
-          if (current.state !== 'running') {
-            setCanceling(false)
-            if (current.state === 'completed') onCompletedRef.current()
-          }
-        })
+        .then(receive)
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === 'AbortError') return
           if (sessionFailure(error)) return
-          // A missed poll is retried on the next tick by touching the job.
-          setJob((previous) => previous && { ...previous })
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setPollTick((tick) => tick + 1)
         })
     }, POLL_INTERVAL_MS)
     return () => {
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [enabled, running, job, sessionFailure])
+  }, [enabled, running, pollTick, receive, sessionFailure])
 
   const start = (gameId: string, perspective: AnalysisPerspective) => {
     setStarting(true)
+    setCanceling(false)
     setStartFailure(null)
     startAnalysis(gameId, perspective)
       .then((started) => setJob(started))
       .catch((error: unknown) => {
         if (sessionFailure(error)) return
-        setStartFailure(error instanceof AnalysisRequestError ? error.failure : 'analysis_unavailable')
+        const failure = error instanceof AnalysisRequestError ? error.failure : 'analysis_unavailable'
+        setStartFailure(failure)
+        // The analysis already running is shown so it can be followed or canceled.
+        if (failure === 'analysis_busy') {
+          followRunning().catch((followError: unknown) => sessionFailure(followError))
+        }
       })
       .finally(() => setStarting(false))
   }
@@ -112,7 +121,7 @@ export function useGameAnalysis({
   const cancel = () => {
     setCanceling(true)
     cancelAnalysis()
-      .then((current) => setJob(current))
+      .then(receive)
       .catch((error: unknown) => {
         if (sessionFailure(error)) return
         setCanceling(false)

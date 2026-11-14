@@ -44,6 +44,14 @@ class ReplayedGameTest {
     }
 
     @Test
+    void rejectsMovesOutsideTheGame() {
+        ReplayedGame game = ReplayedGame.fromSan("e4 e5");
+
+        assertThatThrownBy(() -> game.before(0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> game.after(3)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void acceptsAGameWithNoMoves() {
         ReplayedGame game = ReplayedGame.fromSan("  ");
 

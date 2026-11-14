@@ -55,7 +55,7 @@ Any failed search fails the whole analysis, so no partial result can be mistaken
 
 A move belongs to the phase of the position it was played from. Phases run in order (opening, middlegame, endgame) and never go back.
 
-- **Supplied:** Lichess's division is used when stored. A division with only an endgame start runs the opening straight into the endgame. A division with only a middlegame start never reaches the endgame.
+- **Supplied:** Lichess's division is used when stored. Its numbers are position indexes like ours: Lichess's divider counts over a board list that begins with the starting position (`CanPlay.playBoards` in scalachess), so a stored middlegame start of 14 makes move 15 the first middlegame move. A division with only an endgame start runs the opening straight into the endgame. A division with only a middlegame start never reaches the endgame.
 - **Inferred:** without a division, plies 1 through 20 are the opening. The endgame starts at the first later position with no queens and at most 20 points of combined non-pawn material (knight and bishop 3, rook 5, queen 9). Everything between is middlegame.
 
 The result records whether the phases were supplied or inferred. An empty division cannot be told apart from a missing one in storage, so it is treated as missing.
@@ -82,6 +82,15 @@ The result records whether the phases were supplied or inferred. An empty divisi
 | Untrusted engine output | Pass: evaluations reject WDL that does not sum to 1,000, out-of-range scores, more than three lines, malformed UCI moves, and variations over 64 moves. Part 4's parser must produce these types. |
 | Resource limits | Pass: each position is searched at most once per budget, and the deep pass touches only flagged moves. |
 | New endpoints, storage, or process execution | None in this part. |
+
+## Review
+
+The code review found no rule violations and no wrong perspective or sign handling. It removed unused helpers, bounded ply lookups, corrected the mate-score comment, and confirmed the Lichess division indexing from source. Two items are deliberately left for Part 4:
+
+- persist each finding's phase source and the centipawn or mate score with its WDL
+- the engine-output parser must turn Stockfish's `mate 0` (already checkmated) into a finished position, never a `Score.Mate`
+
+Losing a forced mate is a blunder even when the position stays clearly winning, as the plan requires. The deep pass re-checks every such move before it is labelled.
 
 ## Next
 

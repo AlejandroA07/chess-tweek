@@ -3,7 +3,9 @@ package com.chesstweek.gamereview.internal.analysis;
 import com.chesstweek.gamereview.CatalogGame;
 
 /**
- * Opening, middlegame, and endgame boundaries for one game, as position indexes. A move belongs
+ * Opening, middlegame, and endgame boundaries for one game, as position indexes. Lichess's
+ * division uses the same indexes: scalachess's {@code Divider} indexes a board list that starts
+ * with the initial position ({@code CanPlay.playBoards}). A move belongs
  * to the phase of the position it was played from, so move {@code ply} uses position
  * {@code ply - 1}. Phases are contiguous and never return to an earlier phase.
  *

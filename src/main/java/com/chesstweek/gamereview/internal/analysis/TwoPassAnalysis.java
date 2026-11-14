@@ -112,10 +112,6 @@ public final class TwoPassAnalysis {
         public SearchFailedException(String message) {
             super(message);
         }
-
-        public SearchFailedException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
 
     public enum Pass {

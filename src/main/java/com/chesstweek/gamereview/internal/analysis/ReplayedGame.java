@@ -12,8 +12,6 @@ import io.github.wolfraam.chessgame.board.Square;
 import io.github.wolfraam.chessgame.move.Move;
 import io.github.wolfraam.chessgame.notation.NotationType;
 
-import com.chesstweek.gamereview.CatalogGame;
-
 /**
  * A standard game replayed from its SAN moves into every position it passed through. Position
  * {@code i} is the board after {@code i} plies; move {@code i} (1-based) is played from position
@@ -71,12 +69,19 @@ public record ReplayedGame(List<Position> positions, List<PlayedMove> moves) {
 
     /** The position move {@code ply} was played from. */
     public Position before(int ply) {
-        return positions.get(ply - 1);
+        return positions.get(checkedPly(ply) - 1);
     }
 
     /** The position move {@code ply} produced. */
     public Position after(int ply) {
-        return positions.get(ply);
+        return positions.get(checkedPly(ply));
+    }
+
+    private int checkedPly(int ply) {
+        if (ply < 1 || ply > plyCount()) {
+            throw new IllegalArgumentException("No such move in this game");
+        }
+        return ply;
     }
 
     private static Position position(ChessGame game, int index, List<String> history) {
@@ -119,15 +124,7 @@ public record ReplayedGame(List<Position> positions, List<PlayedMove> moves) {
 
     public enum Color {
         WHITE,
-        BLACK;
-
-        public Color opponent() {
-            return this == WHITE ? BLACK : WHITE;
-        }
-
-        public static Color of(CatalogGame.Color color) {
-            return color == CatalogGame.Color.WHITE ? WHITE : BLACK;
-        }
+        BLACK
     }
 
     /** Whether the side to move has no legal moves, and why. */

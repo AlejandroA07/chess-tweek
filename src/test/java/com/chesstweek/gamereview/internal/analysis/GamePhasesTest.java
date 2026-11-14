@@ -128,7 +128,8 @@ class GamePhasesTest {
                     index, "fen-" + index, toMove, List.of(), material.queens(), material.nonPawn(),
                     ReplayedGame.Terminal.NONE));
             if (index > 0) {
-                moves.add(new ReplayedGame.PlayedMove(index, toMove.opponent(), "m", "a2a3"));
+                Color mover = toMove == Color.WHITE ? Color.BLACK : Color.WHITE;
+                moves.add(new ReplayedGame.PlayedMove(index, mover, "m", "a2a3"));
             }
         }
         return new ReplayedGame(positions, moves);

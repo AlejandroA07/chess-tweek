@@ -18,7 +18,8 @@ public sealed interface Score {
 
     /**
      * Moves to mate. Positive means the side to move mates; negative means it is mated. Zero is
-     * only valid for a side to move that is already checkmated, and is reported as negative.
+     * rejected: Stockfish reports it only for a position that is already checkmate, and such
+     * positions are judged on the board, never searched.
      */
     record Mate(int moves) implements Score {
 

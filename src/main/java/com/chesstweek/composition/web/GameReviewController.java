@@ -71,6 +71,9 @@ public final class GameReviewController {
             review = gameReviews.review(authorization.accountId(), gameId, side).orElse(null);
         } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "review_unavailable");
+        } catch (RuntimeException exception) {
+            // Any other failure reading stored evidence is reported the same safe way.
+            return error(HttpStatus.SERVICE_UNAVAILABLE, "review_unavailable");
         }
         if (review == null) {
             return error(HttpStatus.NOT_FOUND, "game_not_found");

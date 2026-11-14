@@ -115,6 +115,17 @@ class GameReviewControllerTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error").value("review_unavailable"))
                 .andExpect(content().string(not(containsString("private database detail"))));
+
+        failure = new IllegalStateException("Stored engine lines are invalid");
+        mockMvc(connected()).perform(get("/api/games/game0001/review").cookie(SESSION))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("review_unavailable"));
+
+        failure = new java.util.NoSuchElementException("library detail");
+        mockMvc(connected()).perform(get("/api/games/game0001/review").cookie(SESSION))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("review_unavailable"))
+                .andExpect(content().string(not(containsString("library detail"))));
     }
 
     private MockMvc mockMvc(LichessSessionAuthorizer authorizer) {
@@ -137,7 +148,7 @@ class GameReviewControllerTest {
         var move = new GameReviews.JudgedMove(1, "e4", "e2e4", "start-fen", "opening", "quick", "none", "none",
                 false, "d2d4", "d4", 1_050, 960, 90, "none", List.of(line), List.of(line));
         var statistics = new GameReviews.Statistics(1, 0, 0, 0, 4.5, 30.0, Map.of(
-                "opening", new GameReviews.PhaseStatistics(1, 0, 0, 0, 4.5)));
+                "opening", new GameReviews.PhaseStatistics(1, 0, 0, 0, 4.5, 30.0)));
         return new GameReviews.GameReview(
                 game(),
                 "start-fen",

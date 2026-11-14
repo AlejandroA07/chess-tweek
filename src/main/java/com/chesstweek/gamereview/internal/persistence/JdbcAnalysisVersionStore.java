@@ -52,6 +52,7 @@ public class JdbcAnalysisVersionStore
             """;
     private static final int MAX_STORED_LINES = 3;
     private static final int MAX_STORED_PV = 64;
+    private static final Pattern UCI_MOVE = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
 
     private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
     private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
@@ -197,42 +198,81 @@ public class JdbcAnalysisVersionStore
                         row.getInt("expected_after"),
                         row.getInt("loss"),
                         row.getString("after_terminal"),
-                        readLines(row.getString("before_lines_json")),
-                        readLines(row.getString("after_lines_json"))));
+                        readLines(row.getString("before_lines_json"), true),
+                        readLines(row.getString("after_lines_json"), false)));
     }
 
-    /** Stored JSON is our own output, but it is still re-validated before it leaves the store. */
-    private List<StoredLine> readLines(String json) {
+    /**
+     * Stored JSON is our own output, but it is still re-validated before it leaves the store:
+     * 1–3 lines, exactly one bounded centipawn or mate score, WDL that sums to 1000, and a UCI
+     * variation of 1–64 moves. Anything else is reported as {@link IllegalStateException}.
+     */
+    private List<StoredLine> readLines(String json, boolean required) {
         if (json == null) {
+            if (required) {
+                throw invalidLines();
+            }
             return List.of();
         }
-        JsonNode root = objectMapper.readTree(json);
-        if (!root.isArray() || root.size() > MAX_STORED_LINES) {
-            throw new IllegalStateException("Stored engine lines are invalid");
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(json);
+        } catch (RuntimeException exception) {
+            throw invalidLines();
+        }
+        if (root == null || !root.isArray() || root.isEmpty() || root.size() > MAX_STORED_LINES) {
+            throw invalidLines();
         }
         var lines = new ArrayList<StoredLine>();
         for (JsonNode node : root) {
+            JsonNode cp = node.get("cp");
+            JsonNode mate = node.get("mate");
             JsonNode wdl = node.get("wdl");
             JsonNode pv = node.get("pv");
-            boolean hasCp = node.hasNonNull("cp");
-            boolean hasMate = node.hasNonNull("mate");
-            if (!node.hasNonNull("move") || hasCp == hasMate || wdl == null || !wdl.isArray()
-                    || wdl.size() != 3 || pv == null || !pv.isArray() || pv.isEmpty()
-                    || pv.size() > MAX_STORED_PV) {
-                throw new IllegalStateException("Stored engine lines are invalid");
+            boolean hasCp = cp != null && !cp.isNull();
+            boolean hasMate = mate != null && !mate.isNull();
+            if (!node.isObject() || !isUci(node.get("move")) || hasCp == hasMate
+                    || (hasCp && !isInt(cp, -100_000, 100_000))
+                    || (hasMate && (!isInt(mate, -1_000, 1_000) || mate.asInt() == 0))
+                    || wdl == null || !wdl.isArray() || wdl.size() != 3
+                    || !isInt(wdl.get(0), 0, 1_000) || !isInt(wdl.get(1), 0, 1_000)
+                    || !isInt(wdl.get(2), 0, 1_000)
+                    || wdl.get(0).asInt() + wdl.get(1).asInt() + wdl.get(2).asInt() != 1_000
+                    || pv == null || !pv.isArray() || pv.isEmpty() || pv.size() > MAX_STORED_PV) {
+                throw invalidLines();
             }
             var moves = new ArrayList<String>();
-            pv.forEach(move -> moves.add(move.asString()));
+            for (JsonNode move : pv) {
+                if (!isUci(move)) {
+                    throw invalidLines();
+                }
+                moves.add(move.asString());
+            }
+            if (!moves.getFirst().equals(node.get("move").asString())) {
+                throw invalidLines();
+            }
             lines.add(new StoredLine(
                     node.get("move").asString(),
-                    hasCp ? node.get("cp").asInt() : null,
-                    hasMate ? node.get("mate").asInt() : null,
+                    hasCp ? cp.asInt() : null,
+                    hasMate ? mate.asInt() : null,
                     wdl.get(0).asInt(),
                     wdl.get(1).asInt(),
                     wdl.get(2).asInt(),
                     List.copyOf(moves)));
         }
         return List.copyOf(lines);
+    }
+
+    private static boolean isUci(JsonNode node) {
+        return node != null && node.isString() && UCI_MOVE.matcher(node.asString()).matches();
+    }
+
+    private static boolean isInt(JsonNode node, int min, int max) {
+        return node != null && node.isInt() && node.asInt() >= min && node.asInt() <= max;
+    }
+
+    private static IllegalStateException invalidLines() {
+        return new IllegalStateException("Stored engine lines are invalid");
     }
 
     @Override

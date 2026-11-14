@@ -76,9 +76,19 @@ public interface GameReviews {
             double averageCentipawnLoss,
             Map<String, PhaseStatistics> byPhase) {}
 
-    record PhaseStatistics(int moves, int inaccuracies, int mistakes, int blunders, double averageLoss) {}
+    record PhaseStatistics(
+            int moves,
+            int inaccuracies,
+            int mistakes,
+            int blunders,
+            double averageLoss,
+            double averageCentipawnLoss) {}
 
-    /** A position's value for White: expected score 0 to 2000, plus the engine score when searched. */
+    /**
+     * A position's value for White: expected score 0 to 2000, plus the engine score when searched.
+     * Only positions around the selected side's moves are present, so the start or final position
+     * can be missing.
+     */
     record PositionEvaluation(int index, int whiteExpected, Integer whiteCp, Integer whiteMate) {}
 
     record JudgedMove(

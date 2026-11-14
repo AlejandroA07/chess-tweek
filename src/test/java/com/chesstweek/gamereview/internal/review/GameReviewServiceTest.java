@@ -20,6 +20,7 @@ class GameReviewServiceTest {
         assertThat(GameReviewService.san(START, List.of("e2e4", "e2e4", "g1f3")))
                 .containsExactly("e4");
         assertThat(GameReviewService.san(START, List.of("e7e5"))).isEmpty();
+        assertThat(GameReviewService.san("not a position", List.of("e2e4"))).isEmpty();
     }
 
     @Test

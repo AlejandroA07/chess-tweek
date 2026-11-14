@@ -1,6 +1,7 @@
 package com.chesstweek.gamereview.internal.review;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -147,22 +148,24 @@ class GameReviewService implements GameReviews {
                 .toList();
     }
 
-    /** SAN for a UCI variation from {@code fen}, stopping at the first move that is not legal. */
+    /**
+     * SAN for a UCI variation from {@code fen}, stopping at the first move that is not legal.
+     * A position the library cannot read gives no SAN at all.
+     */
     static List<String> san(String fen, List<String> uciMoves) {
-        var game = new ChessGame(fen);
         var sans = new ArrayList<String>(uciMoves.size());
-        for (String uci : uciMoves) {
-            Move move;
-            try {
-                move = game.getMove(NotationType.UCI, uci);
-            } catch (RuntimeException exception) {
-                break;
+        try {
+            var game = new ChessGame(fen);
+            for (String uci : uciMoves) {
+                Move move = game.getMove(NotationType.UCI, uci);
+                if (move == null || !game.isLegalMove(move)) {
+                    break;
+                }
+                sans.add(game.getNotation(NotationType.SAN, move));
+                game.playMove(move);
             }
-            if (move == null || !game.isLegalMove(move)) {
-                break;
-            }
-            sans.add(game.getNotation(NotationType.SAN, move));
-            game.playMove(move);
+        } catch (RuntimeException exception) {
+            // Keep the moves converted so far; the UCI variation is still returned.
         }
         return List.copyOf(sans);
     }
@@ -172,10 +175,21 @@ class GameReviewService implements GameReviews {
         return sans.isEmpty() ? uci : sans.getFirst();
     }
 
+    /** The position after the stored move; a stored move that does not replay is invalid data. */
     private static String fenAfter(StoredMove move) {
-        var game = new ChessGame(move.fenBefore());
-        game.playMove(NotationType.UCI, move.uci());
-        return game.getFen();
+        try {
+            var game = new ChessGame(move.fenBefore());
+            Move played = game.getMove(NotationType.UCI, move.uci());
+            if (played == null || !game.isLegalMove(played)) {
+                throw new IllegalStateException("Stored move does not replay");
+            }
+            game.playMove(played);
+            return game.getFen();
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException("Stored move does not replay", exception);
+        }
     }
 
     static Statistics statistics(List<StoredMove> moves) {
@@ -187,20 +201,17 @@ class GameReviewService implements GameReviews {
                     count(inPhase, "inaccuracy"),
                     count(inPhase, "mistake"),
                     count(inPhase, "blunder"),
-                    averageLoss(inPhase)));
+                    averageLoss(inPhase),
+                    averageCentipawnLoss(inPhase)));
         }
-        double centipawnLoss = moves.isEmpty() ? 0 : round(moves.stream()
-                .mapToInt(GameReviewService::centipawnLoss)
-                .average()
-                .orElse(0));
         return new Statistics(
                 moves.size(),
                 count(moves, "inaccuracy"),
                 count(moves, "mistake"),
                 count(moves, "blunder"),
                 averageLoss(moves),
-                centipawnLoss,
-                java.util.Collections.unmodifiableMap(byPhase));
+                averageCentipawnLoss(moves),
+                Collections.unmodifiableMap(byPhase));
     }
 
     /** The mover's centipawn drop from the best line before to the best line after, capped. */
@@ -263,6 +274,10 @@ class GameReviewService implements GameReviews {
         }
         double units = moves.stream().mapToInt(StoredMove::loss).average().orElse(0);
         return round(units / ExpectedScore.UNITS_PER_PERCENTAGE_POINT);
+    }
+
+    private static double averageCentipawnLoss(List<StoredMove> moves) {
+        return round(moves.stream().mapToInt(GameReviewService::centipawnLoss).average().orElse(0));
     }
 
     private static double round(double value) {

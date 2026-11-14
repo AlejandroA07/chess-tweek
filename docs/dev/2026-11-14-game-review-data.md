@@ -26,9 +26,9 @@ The response contains:
 - statistics:
   - judged moves and Inaccuracy, Mistake, and Blunder counts
   - average expected-score loss in percentage points
-  - average centipawn loss, each move capped at 1,000 centipawns, with mates counted as 1,000
-  - the same counts and average loss per opening, middlegame, and endgame
-- evaluations: White's expected score (0–2000) and engine score for every position the analysis searched, which covers every position of the game. A position where the game ended on the board has an expected score but no engine score.
+  - average centipawn loss: each move's drop from Stockfish's best line before to the best line after, capped at 1,000 centipawns, with a mate counted as 1,000 and the engine's best move counted as 0
+  - the same counts, average loss, and average centipawn loss per opening, middlegame, and endgame
+- evaluations: White's expected score (0–2000) and engine score for the positions before and after each of the selected side's moves. Usually that is almost every position, but the start position is missing when only Black was analyzed, and the final position is missing when the other side made the last move. The graph should draw only the positions it has. A position where the game ended on the board has an expected score but no engine score.
 - every judged move:
   - SAN, UCI, and pre-move FEN
   - phase, the pass that decided it, label, mate event, and whether it was the best move
@@ -36,7 +36,14 @@ The response contains:
   - whether the move ended the game
   - Stockfish's lines before and after, each with its move, score, WDL, and variation in UCI and SAN
 
-Owner and opponent findings are never combined. Each request returns one side.
+Owner and opponent findings are never combined. Each request returns one side, so the evaluations and phase boundaries come from that side's version and can differ slightly between tabs. Each finding keeps the phase stored with its own version.
+
+Data the page takes from elsewhere:
+
+- the owner's name comes from the connected session
+- a running or failed analysis comes from `GET /api/analysis`
+
+"Newest" means the most recently stored version of a side, and `currentProfile` means it used the newest benchmark profile. When Stage 5 adds a separate low-heat profile, both definitions must become per-mode.
 
 ## How it is built
 
@@ -48,7 +55,14 @@ Owner and opponent findings are never combined. Each request returns one side.
 4. Reads every move of the selected version.
 5. Converts each stored variation to SAN from its own position with the chess library, stopping at the first move that is not legal. Bad stored data therefore never produces wrong notation.
 
-Stored line JSON is re-validated when read: at most 3 lines, exactly one of centipawn or mate, three WDL values, and 1–64 variation moves. Anything else fails the request as `review_unavailable`.
+Stored line JSON is re-validated when read:
+
+- 1–3 lines, with before-lines required
+- exactly one integer score: centipawns within ±100,000, or a non-zero mate within ±1,000
+- three integer WDL values that sum to 1,000
+- a variation of 1–64 UCI moves that starts with the line's move
+
+Malformed JSON, invalid lines, or a stored move that does not replay from its stored position fail the request as `review_unavailable`, never as a raw server error.
 
 ## Tests
 
@@ -61,7 +75,8 @@ Stored line JSON is re-validated when read: at most 3 lines, exactly one of cent
   - statistics and phase breakdowns are correct
   - unanalyzed and catalog-only games are handled
   - another account cannot read the game
-- **`GameReviewServiceTest`:** SAN conversion stopping at illegal moves, and centipawn-loss capping including mates and stalemate.
+- Corrupt stored evidence is reported as invalid. The cases are empty, non-JSON, non-array, impossible WDL, string scores, two scores, a variation not starting with the move, and a non-UCI variation move; a stored move that does not replay is also rejected.
+- **`GameReviewServiceTest`:** SAN conversion stopping at illegal moves or an unreadable position, and centipawn-loss capping including mates and stalemate.
 - **`GameReviewControllerTest`:**
   - the response shape
   - side selection
@@ -78,7 +93,7 @@ Stored line JSON is re-validated when read: at most 3 lines, exactly one of cent
 | Input validation | Pass: game id pattern and side allowlist before authorization. |
 | Cross-account access | Pass: the game lookup and every version query are scoped to the caller's account. |
 | Parameterized data access | Pass: constant SQL with named parameters. |
-| Untrusted stored data | Pass: stored JSON and variations are re-validated and replayed before they are returned. |
+| Untrusted stored data | Pass: stored JSON is strictly re-validated, variations are replayed before they are returned, and any failure is a safe `review_unavailable`. |
 | Safe errors | Pass: fixed codes; no database or parsing detail. |
 
 ## Next

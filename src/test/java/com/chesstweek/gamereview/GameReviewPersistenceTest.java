@@ -24,6 +24,7 @@ import com.chesstweek.gamereview.internal.persistence.EngineProfileStore;
 import com.chesstweek.gamereview.internal.persistence.GameCatalogStore;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GameReviewPersistenceTest {
 
@@ -105,7 +106,7 @@ class GameReviewPersistenceTest {
             assertThat(statistics.averageCentipawnLoss()).isEqualTo(333.3);
             assertThat(statistics.byPhase()).containsOnlyKeys("opening", "middlegame", "endgame");
             assertThat(statistics.byPhase().get("opening"))
-                    .isEqualTo(new GameReviews.PhaseStatistics(3, 0, 0, 1, 16.7));
+                    .isEqualTo(new GameReviews.PhaseStatistics(3, 0, 0, 1, 16.7, 333.3));
             assertThat(statistics.byPhase().get("endgame").moves()).isZero();
         }
     }
@@ -140,6 +141,67 @@ class GameReviewPersistenceTest {
             assertThat(variant.phases()).isNull();
             assertThat(variant.selected()).isNull();
         }
+    }
+
+    @Test
+    void reportsCorruptStoredEvidenceAsInvalidInsteadOfReturningIt(@TempDir Path directory) {
+        for (String lines : List.of(
+                "[]",
+                "not json",
+                "{\"move\":\"e2e4\"}",
+                "[{\"move\":\"e2e4\",\"cp\":10,\"wdl\":[500,500,1],\"pv\":[\"e2e4\"]}]",
+                "[{\"move\":\"e2e4\",\"cp\":\"10\",\"wdl\":[0,1000,0],\"pv\":[\"e2e4\"]}]",
+                "[{\"move\":\"e2e4\",\"cp\":10,\"mate\":3,\"wdl\":[0,1000,0],\"pv\":[\"e2e4\"]}]",
+                "[{\"move\":\"e2e4\",\"cp\":10,\"wdl\":[0,1000,0],\"pv\":[\"d2d4\"]}]",
+                "[{\"move\":\"e2e4\",\"cp\":10,\"wdl\":[0,1000,0],\"pv\":[\"e2e4\",\"x;quit\"]}]")) {
+            Path run = directory.resolve(Integer.toString(lines.hashCode()));
+            try (var application = start(run)) {
+                insertRawMove(application, lines, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+                assertThatThrownBy(() -> reviews(application).review(ACCOUNT, GAME_ID, null))
+                        .as(lines)
+                        .isInstanceOf(IllegalStateException.class);
+            }
+        }
+    }
+
+    @Test
+    void reportsAStoredMoveThatDoesNotReplayAsInvalid(@TempDir Path directory) {
+        try (var application = start(directory)) {
+            insertRawMove(application,
+                    "[{\"move\":\"e2e4\",\"cp\":10,\"wdl\":[0,1000,0],\"pv\":[\"e2e4\"]}]",
+                    "8/8/8/8/8/8/8/8 w - - 0 1 not-a-position");
+
+            assertThatThrownBy(() -> reviews(application).review(ACCOUNT, GAME_ID, null))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+    }
+
+    /** Writes one owner version and move directly, bypassing the store's own validation. */
+    private static void insertRawMove(ConfigurableApplicationContext application, String beforeLines, String fen) {
+        application.getBean(GameCatalogStore.class).save(ACCOUNT, List.of(game(GAME_ID, true)), STARTED);
+        long profileId = application.getBean(EngineProfileStore.class).save(new EngineProfile(
+                0, "Stockfish 19", 2, 256, 3, 6, 1_000_000, 1_180_000, 750, 3_000,
+                880_000, 3_540_000, STARTED)).id();
+        var jdbc = application.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        jdbc.update("""
+                INSERT INTO game_review_analysis_version (
+                    account_id, lichess_game_id, side, requested_perspective, analyzed_color,
+                    profile_id, rules_version, phase_source, middlegame_start, move_count,
+                    deep_move_count, inaccuracies, mistakes, blunders, total_loss,
+                    started_at_ms, completed_at_ms
+                ) VALUES (?, ?, 'owner', 'my_moves', 'white', ?, 1, 'inferred', 20, 1, 0, 0, 0, 0, 0, 0, 0)
+                """, ACCOUNT, GAME_ID, profileId);
+        long versionId = jdbc.queryForObject("SELECT MAX(id) FROM game_review_analysis_version", Long.class);
+        jdbc.update("""
+                INSERT INTO game_review_analysis_move (
+                    version_id, ply, san, uci, fen_before, phase, pass, label, mate_event,
+                    played_best, best_move, expected_before, expected_after, loss, after_terminal,
+                    before_lines_json, after_lines_json
+                ) VALUES (?, 1, 'e4', 'e2e4', ?, 'opening', 'quick', 'none', 'none', 0, 'd2d4',
+                          1000, 1000, 0, 'none', ?, ?)
+                """, versionId, fen, beforeLines,
+                "[{\"move\":\"e7e5\",\"cp\":0,\"wdl\":[0,1000,0],\"pv\":[\"e7e5\"]}]");
     }
 
     private static GameReviews reviews(ConfigurableApplicationContext application) {

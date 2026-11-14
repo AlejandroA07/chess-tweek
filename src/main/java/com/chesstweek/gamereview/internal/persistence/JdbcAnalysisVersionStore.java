@@ -1,10 +1,14 @@
 package com.chesstweek.gamereview.internal.persistence;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -16,13 +20,33 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.chesstweek.gamereview.GameAnalysisSummaries;
 import com.chesstweek.gamereview.internal.analysis.Evaluation;
 import com.chesstweek.gamereview.internal.analysis.MoveRules;
 import com.chesstweek.gamereview.internal.analysis.Score;
 import com.chesstweek.gamereview.internal.analysis.TwoPassAnalysis;
 
 @Repository
-public class JdbcAnalysisVersionStore implements AnalysisVersionStore {
+public class JdbcAnalysisVersionStore implements AnalysisVersionStore, GameAnalysisSummaries {
+
+    private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
+    private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
+    private static final String LATEST_BY_SIDE = """
+            SELECT v.lichess_game_id, v.side, v.id, v.completed_at_ms, v.move_count,
+                   v.inaccuracies, v.mistakes, v.blunders,
+                   v.profile_id = (SELECT MAX(p.id) FROM game_review_engine_profile p)
+                       AS current_profile
+            FROM game_review_analysis_version v
+            WHERE v.account_id = :accountId
+              AND v.lichess_game_id IN (:gameIds)
+              AND v.id = (
+                  SELECT MAX(w.id)
+                  FROM game_review_analysis_version w
+                  WHERE w.account_id = v.account_id
+                    AND w.lichess_game_id = v.lichess_game_id
+                    AND w.side = v.side
+              )
+            """;
 
     private static final String INSERT_VERSION = """
             INSERT INTO game_review_analysis_version (
@@ -95,6 +119,48 @@ public class JdbcAnalysisVersionStore implements AnalysisVersionStore {
         }
         namedJdbc.batchUpdate(INSERT_MOVE, moves);
         return versionId;
+    }
+
+    @Override
+    public Map<String, Summary> latest(String accountId, Collection<String> gameIds) {
+        if (accountId == null || !ACCOUNT_ID.matcher(accountId).matches()
+                || gameIds.size() > MAX_GAMES
+                || !gameIds.stream().allMatch(id -> id != null && GAME_ID.matcher(id).matches())) {
+            throw new IllegalArgumentException("Invalid analysis summary request");
+        }
+        if (gameIds.isEmpty()) {
+            return Map.of();
+        }
+        var owner = new HashMap<String, Version>();
+        var opponent = new HashMap<String, Version>();
+        namedJdbc.query(LATEST_BY_SIDE, new MapSqlParameterSource()
+                        .addValue("accountId", accountId)
+                        .addValue("gameIds", List.copyOf(gameIds)),
+                row -> {
+                    var version = new Version(
+                            row.getLong("id"),
+                            Instant.ofEpochMilli(row.getLong("completed_at_ms")),
+                            row.getInt("current_profile") == 1,
+                            row.getInt("move_count"),
+                            row.getInt("inaccuracies"),
+                            row.getInt("mistakes"),
+                            row.getInt("blunders"));
+                    String gameId = row.getString("lichess_game_id");
+                    if ("owner".equals(row.getString("side"))) {
+                        owner.put(gameId, version);
+                    } else {
+                        opponent.put(gameId, version);
+                    }
+                });
+        var summaries = new HashMap<String, Summary>();
+        for (String gameId : gameIds) {
+            Version mine = owner.get(gameId);
+            Version theirs = opponent.get(gameId);
+            if (mine != null || theirs != null) {
+                summaries.put(gameId, new Summary(mine, theirs));
+            }
+        }
+        return Map.copyOf(summaries);
     }
 
     private MapSqlParameterSource move(long versionId, TwoPassAnalysis.MoveFinding finding) {

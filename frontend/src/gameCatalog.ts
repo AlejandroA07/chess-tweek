@@ -24,8 +24,20 @@ export type CatalogGame = {
   opening: { eco: string; name: string } | null
   analysis: {
     eligible: boolean
-    status: 'not_analyzed' | 'unsupported_variant'
+    status: 'not_analyzed' | 'analyzed' | 'unsupported_variant'
+    myMoves: AnalysisVersionSummary | null
+    opponentMoves: AnalysisVersionSummary | null
   }
+}
+
+export type AnalysisVersionSummary = {
+  id: number
+  completedAt: string
+  currentProfile: boolean
+  moves: number
+  inaccuracies: number
+  mistakes: number
+  blunders: number
 }
 
 export type CatalogPage = {
@@ -70,7 +82,8 @@ export class CatalogRequestError extends Error {
   }
 }
 
-const PAGE_SIZE = 50
+export const CATALOG_PAGE_SIZE = 50
+const PAGE_SIZE = CATALOG_PAGE_SIZE
 
 export async function requestCatalog(
   offset: number,
@@ -180,13 +193,31 @@ function parseGame(value: unknown): CatalogGame {
     !isOpening(value.opening) ||
     !isRecord(value.analysis) ||
     typeof value.analysis.eligible !== 'boolean' ||
-    !isOneOf(value.analysis.status, ['not_analyzed', 'unsupported_variant']) ||
-    (value.analysis.eligible !== (value.analysis.status === 'not_analyzed'))
+    !isOneOf(value.analysis.status, ['not_analyzed', 'analyzed', 'unsupported_variant']) ||
+    (value.analysis.eligible !== (value.analysis.status !== 'unsupported_variant')) ||
+    !isVersionSummary(value.analysis.myMoves) ||
+    !isVersionSummary(value.analysis.opponentMoves) ||
+    ((value.analysis.status === 'analyzed')
+      !== (value.analysis.myMoves !== null || value.analysis.opponentMoves !== null))
   ) {
     throw new Error('Invalid game card')
   }
 
   return value as CatalogGame
+}
+
+function isVersionSummary(value: unknown) {
+  return value === null || (
+    isRecord(value) &&
+    isSafeInteger(value.id, 1, Number.MAX_SAFE_INTEGER) &&
+    isDate(value.completedAt) &&
+    typeof value.currentProfile === 'boolean' &&
+    isSafeInteger(value.moves, 0, 600) &&
+    isSafeInteger(value.inaccuracies, 0, value.moves) &&
+    isSafeInteger(value.mistakes, 0, value.moves) &&
+    isSafeInteger(value.blunders, 0, value.moves) &&
+    value.inaccuracies + value.mistakes + value.blunders <= value.moves
+  )
 }
 
 function isOpening(value: unknown) {

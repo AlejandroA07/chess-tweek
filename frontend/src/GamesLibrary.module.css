@@ -438,3 +438,114 @@
     flex: 1 1 100%;
   }
 }
+
+.analysis[data-analysis='analyzed'] {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.analysis[data-analysis='failed'] {
+  border-color: var(--color-error);
+}
+
+.analysisFailure,
+.analysisProfile {
+  display: block;
+  margin-top: var(--space-1);
+  font-weight: 500;
+}
+
+.analysisFailure {
+  color: var(--color-error);
+}
+
+.analysisProfile {
+  color: var(--color-warning);
+}
+
+.analysis[data-analysis='running'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.analysisCounts {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysisActions {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.analysisButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.analyzeButton,
+.moreButton,
+.moreOptions button {
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.analyzeButton {
+  flex: 1 1 10rem;
+  border: 1px solid var(--color-primary);
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+.analyzeButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.moreButton,
+.moreOptions button {
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.moreButton:hover:not(:disabled),
+.moreOptions button:hover {
+  background: var(--color-surface-subtle);
+}
+
+.analyzeButton:disabled,
+.moreButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.analyzeButton:focus-visible,
+.moreButton:focus-visible,
+.moreOptions button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.moreOptions {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+}
+
+.analysisNote {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}

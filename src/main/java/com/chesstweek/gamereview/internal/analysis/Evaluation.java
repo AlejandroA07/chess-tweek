@@ -28,7 +28,7 @@ public record Evaluation(List<Line> lines) {
     public record Line(String move, Score score, Wdl wdl, List<String> pv) {
 
         private static final Pattern UCI_MOVE = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
-        private static final int MAX_PV_LENGTH = 64;
+        public static final int MAX_PV_LENGTH = 64;
 
         public Line {
             Objects.requireNonNull(score);

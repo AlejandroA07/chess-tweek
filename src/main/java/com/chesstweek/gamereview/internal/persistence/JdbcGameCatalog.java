@@ -7,6 +7,7 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import tools.jackson.core.type.TypeReference;
@@ -26,7 +27,7 @@ import com.chesstweek.gamereview.GameCatalogQuery;
 import com.chesstweek.gamereview.GameCatalogWriteResult;
 
 @Repository
-public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
+public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLookup {
 
     private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
     private static final TypeReference<List<Integer>> INTEGER_LIST = new TypeReference<>() {};
@@ -95,6 +96,12 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
             WHERE account_id = :accountId
               AND lichess_game_id IN (:gameIds)
             """;
+    private static final String FIND_ONE = """
+            SELECT *
+            FROM game_review_game
+            WHERE account_id = :accountId AND lichess_game_id = :gameId
+            """;
+    private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
     private static final String NEWEST_FIRST =
             " ORDER BY played_at_ms DESC, lichess_game_id LIMIT :limit OFFSET :offset";
     private static final String OLDEST_FIRST =
@@ -140,6 +147,19 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore {
             existing.put(game.id(), game);
         }
         return new GameCatalogWriteResult(created, updated, unchanged);
+    }
+
+    @Override
+    public Optional<CatalogGame> find(String accountId, String gameId) {
+        requireAccountId(accountId);
+        if (gameId == null || !GAME_ID.matcher(gameId).matches()) {
+            return Optional.empty();
+        }
+        return namedJdbc.query(FIND_ONE, new MapSqlParameterSource()
+                        .addValue("accountId", accountId)
+                        .addValue("gameId", gameId), this::mapGame)
+                .stream()
+                .findFirst();
     }
 
     @Override

@@ -302,5 +302,5 @@ Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed
 
 **Next immediate action (2026-11-14):**
 
-1. The owner reviews and merges the Stage 4 Part 3 analysis-rules PR. It adds no visible change, so there is nothing to live-check.
-2. Start Stage 4 Part 4 on a new `feature/<topic>` branch from the updated `main`: single-game analysis. Parse Stockfish search output into evaluations, run the two passes for My moves, Opponent moves, or Both, and store an immutable analysis version linked to its engine profile.
+1. The owner reviews and merges the Stage 4 Part 4a single-game analysis PR. It adds API endpoints only, so the Games page does not change yet.
+2. Start Stage 4 Part 4b on a new `feature/<topic>` branch from the updated `main`: Games controls (Analyze My Moves, and Analyze Opponent and Analyze Both in More), analysis progress with Cancel, recoverable failure messages, and analysis status badges built from stored versions. Then live-check a real analysis from the Games page.

@@ -19,6 +19,9 @@ import java.util.Objects;
  */
 public final class MoveRules {
 
+    /** Stored with every analysis version; increase it whenever these rules change. */
+    public static final int RULES_VERSION = 1;
+
     public static final int INACCURACY_LOSS = 8 * ExpectedScore.UNITS_PER_PERCENTAGE_POINT;
     public static final int MISTAKE_LOSS = 18 * ExpectedScore.UNITS_PER_PERCENTAGE_POINT;
     public static final int BLUNDER_LOSS = 35 * ExpectedScore.UNITS_PER_PERCENTAGE_POINT;

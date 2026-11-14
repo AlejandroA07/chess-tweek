@@ -55,6 +55,19 @@ Measured WCAG contrast ratios for core pairings:
 
 Do not use the pale pattern, border, or container colors as text colors.
 
+Chessboard and evaluation tokens (added 2026-11-14 for game review):
+
+| Token | Value | Role |
+|---|---:|---|
+| `--color-board-light` | `#F3DCC6` | Light board squares (maple). |
+| `--color-board-dark` | `#B98563` | Dark board squares (mahogany). |
+| `--color-board-marked` | `rgb(108 47 0 / 30%)` | Overlay for the from and to squares of the shown move. |
+| `--color-board-arrow` | `rgb(62 76 49 / 85%)` | The single engine best-move arrow and the engine-line banner rule. |
+| `--color-eval-white` | `#F3DCC6` | White's share of the evaluation bar. |
+| `--color-eval-black` | `#54433A` | Black's share of the evaluation bar. |
+
+Pieces use filled chess glyphs from the system symbol font: white pieces are surface-white with a primary-text outline, black pieces are primary text. Square coordinates use the technical typeface on every board edge square.
+
 ## Shared chessboard background
 
 The checkerboard background is mandatory on every page workspace, including first run, Dashboard, Games, Reports, Puzzles, and Admin. It is decorative and must be hidden from assistive technology.

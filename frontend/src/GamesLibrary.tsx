@@ -655,6 +655,13 @@ function GameCard({
           <dd>{opponentType(game)}</dd>
         </div>
       </dl>
+      <a
+        className={styles.openGame}
+        href={`#/games/${encodeURIComponent(game.id)}`}
+        aria-label={`Open game against ${game.opponent.name}`}
+      >
+        Open Game
+      </a>
       {game.analysis.eligible ? (
         <>
           <div className={styles.analysisGroup} aria-label="Analysis status">

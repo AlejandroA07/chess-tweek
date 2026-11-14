@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import styles from './App.module.css'
 import { AdminEngine } from './AdminEngine'
 import { DashboardRatingContext } from './DashboardRatingContext'
+import { GameReview } from './GameReview'
+import { GAME_ID_PATTERN } from './reviewData'
 import { GamesLibrary } from './GamesLibrary'
 
 type HealthState = 'checking' | 'ready' | 'offline'
@@ -82,6 +84,7 @@ const navigation: Route[] = [
 export function App() {
   const [health, setHealth] = useState<HealthState>('checking')
   const [route, setRoute] = useState(currentRoute)
+  const [reviewGameId, setReviewGameId] = useState(currentReviewGameId)
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [session, setSession] = useState<SessionState>({ kind: 'checking' })
   const [accountAction, setAccountAction] = useState<'idle' | 'connecting' | 'logging-out'>('idle')
@@ -123,6 +126,7 @@ export function App() {
   useEffect(() => {
     const updateRoute = () => {
       setRoute(currentRoute())
+      setReviewGameId(currentReviewGameId())
       setNavigationOpen(false)
     }
     window.addEventListener('hashchange', updateRoute)
@@ -251,7 +255,7 @@ export function App() {
         <header className={styles.topBar}>
           <div>
             <p>Local workspace</p>
-            <h1>{route.label}</h1>
+            <h1>{reviewGameId !== null ? 'Game Review' : route.label}</h1>
           </div>
           <p className={styles.status} data-state={health} role="status">
             <span aria-hidden="true" />
@@ -260,7 +264,7 @@ export function App() {
         </header>
 
         <main className={styles.workspace}>
-          <div className={styles.workspaceStack}>
+          <div className={styles.workspaceStack} data-wide={reviewGameId !== null}>
             {route.href === '#/dashboard' && callbackNotice && (
               <CallbackBanner notice={callbackNotice} onDismiss={() => setCallbackNotice(null)} />
             )}
@@ -281,7 +285,13 @@ export function App() {
                 onSessionFailure={handleCatalogSessionFailure}
               />
             )}
-            {route.href === '#/games' ? (
+            {reviewGameId !== null && session.kind === 'connected' ? (
+              <GameReview
+                key={`${session.account.id}:${reviewGameId}`}
+                gameId={reviewGameId}
+                onSessionFailure={handleCatalogSessionFailure}
+              />
+            ) : route.href === '#/games' ? (
               <GamesLibrary
                 accountId={session.kind === 'connected' ? session.account.id : null}
                 accountUsername={session.kind === 'connected' ? session.account.username : null}
@@ -466,7 +476,14 @@ function readCallbackNotice(): CallbackNotice | null {
 
 function currentRoute() {
   const hash = window.location.hash || '#/dashboard'
+  if (currentReviewGameId() !== null) return navigation[1]
   return navigation.find((item) => item.href === hash) ?? navigation[0]
+}
+
+/** The game id of a `#/games/{id}` review link, or null for any other route. */
+function currentReviewGameId() {
+  const match = /^#\/games\/([^/]+)$/.exec(window.location.hash)
+  return match !== null && GAME_ID_PATTERN.test(match[1]) ? match[1] : null
 }
 
 function NavIcon({ name }: { name: IconName }) {

@@ -549,3 +549,18 @@
   color: var(--color-text-muted);
   font-size: 0.875rem;
 }
+
+.openGame {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 2.75rem;
+  color: var(--color-primary);
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
+.openGame:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

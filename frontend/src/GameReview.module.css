@@ -1,0 +1,684 @@
+.review {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.notice,
+.header,
+.boardColumn,
+.movesColumn,
+.analysisColumn {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.notice {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: clamp(var(--space-4), 4vw, var(--space-5));
+}
+
+.notice h2,
+.analysisColumn h2,
+.movesColumn h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+}
+
+.notice p {
+  color: var(--color-text-muted);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--color-primary);
+  font-weight: 700;
+  text-underline-offset: 0.2em;
+}
+
+.backLink::before {
+  content: '\2190\00a0';
+}
+
+.header {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) clamp(var(--space-4), 4vw, var(--space-5));
+  border-top: 3px solid var(--color-primary);
+}
+
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 2.5rem;
+  font-weight: 600;
+}
+
+.versus {
+  color: var(--color-text-muted);
+  font-family: var(--font-interface);
+  font-size: 1rem;
+  font-weight: 400;
+  align-self: center;
+}
+
+.meta {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.result {
+  color: var(--color-success);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.result[data-result='loss'] {
+  color: var(--color-error);
+}
+
+.result[data-result='draw'] {
+  color: var(--color-warning);
+}
+
+.workspace {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(18rem, 30rem) minmax(22rem, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+}
+
+.boardColumn {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.movesColumn {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.analysisColumn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.statistics dd,
+.findingFacts dd {
+  margin: 0;
+}
+
+.boardColumn,
+.movesColumn,
+.analysisColumn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.boardPanel {
+  display: flex;
+  gap: var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.boardPanel > [role='img']:last-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.evalBar {
+  position: relative;
+  display: flex;
+  flex: 0 0 1.75rem;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-eval-black);
+}
+
+.evalBar[data-orientation='black'] {
+  justify-content: flex-start;
+}
+
+.evalWhite {
+  width: 100%;
+  background: var(--color-eval-white);
+}
+
+.evalScore {
+  position: absolute;
+  left: 0;
+  right: 0;
+  font-family: var(--font-technical);
+  font-size: 0.625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+}
+
+.evalScore[data-position='bottom'] {
+  bottom: var(--space-1);
+}
+
+.evalScore[data-position='top'] {
+  top: var(--space-1);
+}
+
+.evalScore[data-side='white'] {
+  color: var(--color-text);
+}
+
+.evalScore[data-side='black'] {
+  color: var(--color-surface);
+}
+
+.boardPanel:focus-visible,
+.workspace button:focus-visible,
+.backLink:focus-visible,
+.notice button:focus-visible,
+.engineLine summary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.positionText {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.findingCaption {
+  display: grid;
+  gap: var(--space-2);
+  font-size: 0.875rem;
+}
+
+.captionActions,
+.findingActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.lineBanner {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-left: 4px solid var(--color-board-arrow);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  font-size: 0.875rem;
+}
+
+.lineMoves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.lineMoves button {
+  min-height: 2.75rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  background: var(--color-surface);
+  font-family: var(--font-technical);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.lineMoves button:hover {
+  background: var(--color-surface-warm);
+}
+
+.lineMoves button[aria-current='step'] {
+  border-color: var(--color-primary);
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+.lineMoves button:focus-visible,
+.lineBanner button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.lineTitle {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.notation {
+  font-family: var(--font-technical);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.boardControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.boardControls button,
+.primaryButton,
+.secondaryButton,
+.tabs button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.boardControls button {
+  font-family: var(--font-technical);
+}
+
+.boardControls .flipButton {
+  margin-left: auto;
+  font-family: var(--font-interface);
+}
+
+.primaryButton {
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.boardControls button:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled),
+.tabs button:hover:not(:disabled) {
+  background: var(--color-surface-subtle);
+}
+
+.workspace button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.textButton {
+  padding: 0;
+  border: 0;
+  color: var(--color-primary);
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.orientation,
+.note {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.moveList {
+  display: grid;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.moveRow {
+  display: grid;
+  grid-template-columns: 2.25rem 1fr 1fr;
+  align-items: center;
+}
+
+.moveRow:nth-child(odd) {
+  background: var(--color-surface-subtle);
+}
+
+.phaseMarker {
+  grid-column: 1 / -1;
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.moveNumber {
+  padding-left: var(--space-2);
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.8125rem;
+}
+
+.moveButton {
+  min-height: 2.75rem;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  background: none;
+  font-family: var(--font-technical);
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.moveButton:hover {
+  background: var(--color-surface-warm);
+}
+
+.moveButton[aria-current='step'] {
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+.moveButton[data-severity='inaccuracy'] .symbol {
+  color: var(--color-warning);
+}
+
+.moveButton[data-severity='mistake'] .symbol,
+.moveButton[data-severity='blunder'] .symbol {
+  color: var(--color-error);
+}
+
+.moveButton[aria-current='step'] .symbol {
+  color: inherit;
+}
+
+.symbol {
+  margin-left: 0.15em;
+  font-weight: 700;
+}
+
+.sideControls {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tabs button[aria-selected='true'] {
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+.tabNote {
+  font-weight: 400;
+}
+
+.analyzeActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.emptyAnalysis {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.emptyAnalysis p,
+.emptyFindings {
+  color: var(--color-text-muted);
+}
+
+.summary {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.version {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.statistics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--space-2);
+}
+
+.statistics div {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+}
+
+.statistics dt {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.statistics dd {
+  font-family: var(--font-technical);
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.statistics div[data-severity='inaccuracy'] dd {
+  color: var(--color-warning);
+}
+
+.statistics div[data-severity='mistake'] dd,
+.statistics div[data-severity='blunder'] dd {
+  color: var(--color-error);
+}
+
+.phaseTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.phaseTable caption {
+  padding-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+.phaseTable th,
+.phaseTable td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  text-align: right;
+}
+
+.phaseTable th[scope='row'],
+.phaseTable thead th:first-child {
+  text-align: left;
+}
+
+.phaseTable abbr {
+  text-decoration: none;
+}
+
+.findingsTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.875rem;
+}
+
+.findings {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.finding {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-warning);
+  border-radius: var(--radius-control);
+}
+
+.finding[data-severity='mistake'],
+.finding[data-severity='blunder'] {
+  border-left-color: var(--color-error);
+}
+
+.finding[data-selected='true'] {
+  background: var(--color-surface-subtle);
+  outline: 2px solid var(--color-primary);
+}
+
+.findingHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.severity {
+  font-weight: 800;
+  color: var(--color-warning);
+}
+
+.finding[data-severity='mistake'] .severity,
+.finding[data-severity='blunder'] .severity {
+  color: var(--color-error);
+}
+
+.phase {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.findingFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--space-1) var(--space-3);
+  font-size: 0.8125rem;
+}
+
+.findingFacts dt {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.mateEvent {
+  color: var(--color-error);
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.engineLine summary {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  color: var(--color-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.engineLine p {
+  overflow-wrap: anywhere;
+}
+
+.refutation {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 1023px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace {
+    grid-template-rows: none;
+  }
+
+  .boardColumn,
+  .movesColumn,
+  .analysisColumn {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .boardPanel {
+    justify-self: center;
+    width: min(100%, 30rem);
+  }
+}
+
+@media (max-width: 767px) {
+
+  .title {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  .moveList {
+    max-height: 16rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .evalWhite {
+    transition: height 180ms ease;
+  }
+
+  .moveButton,
+  .boardControls button,
+  .tabs button {
+    transition: background-color 150ms ease;
+  }
+}

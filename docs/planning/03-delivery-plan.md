@@ -369,5 +369,6 @@ Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed
 
 **Next immediate action (2026-11-14):**
 
-1. The owner reviews and merges the Stage 4 Part 5a game review data PR. It adds an endpoint only, so nothing visible changes.
-2. Start Stage 4 Part 5b on a new `feature/<topic>` branch from the updated `main`: the game review page (board drawn with project styles and no new dependency, move list, evaluation progression, My Moves and Opponent Moves tabs, statistics and phase breakdowns, every finding with View Position and a collapsible engine line), opened from Games with Open Game.
+1. The owner reviews and merges the Stage 4 Part 5b game review page PR and checks it against real analyzed games.
+2. Start the remaining Stage 4 part on a new `feature/<topic>` branch from the updated `main`: conservative tactic labels and the deterministic coach cards, plus the owner's "what I was thinking" note on findings.
+3. Then the re-scoped Stage 5 (chess.com games).

@@ -167,7 +167,7 @@ function parseCatalog(value: unknown): CatalogPage {
   return { total: value.total, offset: value.offset, limit: value.limit, games }
 }
 
-function parseGame(value: unknown): CatalogGame {
+export function parseGame(value: unknown): CatalogGame {
   if (
     !isRecord(value) ||
     !isBoundedText(value.id, 32) ||

@@ -135,7 +135,62 @@
 }
 
 .boardPanel {
+  display: flex;
+  gap: var(--space-2);
   border-radius: var(--radius-control);
+}
+
+.boardPanel > [role='img']:last-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.evalBar {
+  position: relative;
+  display: flex;
+  flex: 0 0 1.75rem;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-eval-black);
+}
+
+.evalBar[data-orientation='black'] {
+  justify-content: flex-start;
+}
+
+.evalWhite {
+  width: 100%;
+  background: var(--color-eval-white);
+}
+
+.evalScore {
+  position: absolute;
+  left: 0;
+  right: 0;
+  font-family: var(--font-technical);
+  font-size: 0.625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+}
+
+.evalScore[data-position='bottom'] {
+  bottom: var(--space-1);
+}
+
+.evalScore[data-position='top'] {
+  top: var(--space-1);
+}
+
+.evalScore[data-side='white'] {
+  color: var(--color-text);
+}
+
+.evalScore[data-side='black'] {
+  color: var(--color-surface);
 }
 
 .boardPanel:focus-visible,
@@ -602,6 +657,10 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .evalWhite {
+    transition: height 180ms ease;
+  }
+
   .moveButton,
   .boardControls button,
   .tabs button {

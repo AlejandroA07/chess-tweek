@@ -273,6 +273,7 @@ function ReviewWorkspace({
               onKeyDown={onBoardKey}
               aria-label="Board navigation. Use the arrow keys, Home, and End to move through the game."
             >
+              <EvaluationBar review={review} index={index} orientation={orientation} />
               <ChessBoard
                 fen={fen}
                 orientation={orientation}
@@ -609,6 +610,55 @@ function EvaluationGraph({ review, index }: { review: Review; index: number }) {
       </figcaption>
     </figure>
   )
+}
+
+/**
+ * A vertical bar beside the board, filled with White's share of the expected score at the shown
+ * position. The bottom of the bar is the side at the bottom of the board. A position without its
+ * own evaluation (the start or final position, depending on the analyzed side) uses the nearest
+ * evaluated position before it, or after it at the start of the game.
+ */
+function EvaluationBar({
+  review,
+  index,
+  orientation,
+}: {
+  review: Review
+  index: number
+  orientation: BoardOrientation
+}) {
+  const evaluations = review.selected?.evaluations ?? []
+  if (evaluations.length === 0) return null
+  const sorted = [...evaluations].sort((a, b) => a.index - b.index)
+  const evaluation = [...sorted].reverse().find((candidate) => candidate.index <= index) ?? sorted[0]
+  const whitePercent = evaluation.whiteExpected / 20
+  const score = barScore(evaluation)
+  const whiteAhead = evaluation.whiteExpected >= 1000
+  // The score sits at the end of the bar belonging to the side it favors.
+  const scoreAtBottom = whiteAhead === (orientation === 'white')
+  return (
+    <div
+      className={styles.evalBar}
+      data-orientation={orientation}
+      role="img"
+      aria-label={`Evaluation bar: ${score} for White, White's expected score ${Math.round(whitePercent)} percent.`}
+      data-testid="evaluation-bar"
+    >
+      <div className={styles.evalWhite} style={{ height: `${whitePercent}%` }} />
+      <span className={styles.evalScore} data-position={scoreAtBottom ? 'bottom' : 'top'} data-side={whiteAhead ? 'white' : 'black'}>
+        {score}
+      </span>
+    </div>
+  )
+}
+
+function barScore(evaluation: NonNullable<Review['selected']>['evaluations'][number]) {
+  const engine = formatEngineScore(evaluation.whiteCp, evaluation.whiteMate)
+  if (engine !== null) return engine
+  // The game ended on the board: no engine score, only the result.
+  if (evaluation.whiteExpected === 2_000) return '1-0'
+  if (evaluation.whiteExpected === 0) return '0-1'
+  return '½-½'
 }
 
 function FindingCard({

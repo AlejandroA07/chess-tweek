@@ -125,7 +125,7 @@ function review(options: { my?: boolean; opponent?: boolean } = {}) {
           },
           evaluations: [1, 2, 3, 4, 5, 6, 7].map((index) => ({
             index,
-            whiteExpected: index === 6 ? 2000 : 1000,
+            whiteExpected: index >= 6 ? 2000 : 1000,
             whiteCp: index === 7 ? null : index === 6 ? null : 20,
             whiteMate: index === 6 ? 1 : null,
           })),
@@ -284,6 +284,35 @@ describe('Game review', () => {
     expect(screen.getByText('White at the bottom')).toBeInTheDocument()
     expect(container.querySelector('[data-square]')).toHaveAttribute('data-square', 'a8')
     expect(board).toBeDefined()
+  })
+
+  it('shows an evaluation bar beside the board that follows the shown position', async () => {
+    render(<App />)
+    const bar = await screen.findByTestId('evaluation-bar')
+    // The start position has no evaluation of its own, so the first evaluated position is used.
+    expect(bar).toHaveAccessibleName('Evaluation bar: +0.2 for White, White\'s expected score 50 percent.')
+    expect(bar).toHaveAttribute('data-orientation', 'black')
+    expect(bar.firstElementChild).toHaveStyle({ height: '50%' })
+
+    fireEvent.click(screen.getByRole('button', { name: '3… Nf6, Blunder' }))
+    expect(bar).toHaveAccessibleName('Evaluation bar: #1 for White, White\'s expected score 100 percent.')
+    expect(bar.firstElementChild).toHaveStyle({ height: '100%' })
+    // White is winning and sits at the top when Black is at the bottom.
+    expect(within(bar).getByText('#1')).toHaveAttribute('data-position', 'top')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Last position' }))
+    expect(within(bar).getByText('1-0')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Flip Board' }))
+    expect(bar).toHaveAttribute('data-orientation', 'white')
+    expect(within(bar).getByText('1-0')).toHaveAttribute('data-position', 'bottom')
+  })
+
+  it('hides the evaluation bar when the side has no analysis', async () => {
+    reviews[''] = { status: 200, body: review({ my: false }) }
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Not analyzed yet' })
+    expect(screen.queryByTestId('evaluation-bar')).not.toBeInTheDocument()
   })
 
   it('disables the unanalyzed side and starts its analysis from the review', async () => {

@@ -213,7 +213,7 @@ public final class GameCatalogController {
         }
     }
 
-    private static GameCardResponse toCard(
+    static GameCardResponse toCard(
             CatalogGame game, GameAnalysisSummaries.Summary summary) {
         return new GameCardResponse(
                 game.id(),

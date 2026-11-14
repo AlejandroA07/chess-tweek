@@ -8,8 +8,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -27,7 +29,29 @@ import com.chesstweek.gamereview.internal.analysis.Score;
 import com.chesstweek.gamereview.internal.analysis.TwoPassAnalysis;
 
 @Repository
-public class JdbcAnalysisVersionStore implements AnalysisVersionStore, GameAnalysisSummaries {
+public class JdbcAnalysisVersionStore
+        implements AnalysisVersionStore, AnalysisVersionReader, GameAnalysisSummaries {
+
+    private static final String NEWEST_VERSION = """
+            SELECT v.*, p.engine_name, p.quick_nodes, p.deep_nodes,
+                   v.profile_id = (SELECT MAX(q.id) FROM game_review_engine_profile q)
+                       AS current_profile
+            FROM game_review_analysis_version v
+            JOIN game_review_engine_profile p ON p.id = v.profile_id
+            WHERE v.account_id = :accountId
+              AND v.lichess_game_id = :gameId
+              AND v.side = :side
+            ORDER BY v.id DESC
+            LIMIT 1
+            """;
+    private static final String VERSION_MOVES = """
+            SELECT *
+            FROM game_review_analysis_move
+            WHERE version_id = :versionId
+            ORDER BY ply
+            """;
+    private static final int MAX_STORED_LINES = 3;
+    private static final int MAX_STORED_PV = 64;
 
     private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
     private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
@@ -119,6 +143,96 @@ public class JdbcAnalysisVersionStore implements AnalysisVersionStore, GameAnaly
         }
         namedJdbc.batchUpdate(INSERT_MOVE, moves);
         return versionId;
+    }
+
+    @Override
+    public Optional<StoredVersion> newest(String accountId, String gameId, Side side) {
+        if (accountId == null || !ACCOUNT_ID.matcher(accountId).matches()
+                || gameId == null || !GAME_ID.matcher(gameId).matches()) {
+            throw new IllegalArgumentException("Invalid analysis version request");
+        }
+        return namedJdbc.query(NEWEST_VERSION, new MapSqlParameterSource()
+                        .addValue("accountId", accountId)
+                        .addValue("gameId", gameId)
+                        .addValue("side", lower(side)),
+                (row, rowNumber) -> {
+                    int endgame = row.getInt("endgame_start");
+                    Integer endgameStart = row.wasNull() ? null : endgame;
+                    return new StoredVersion(
+                            row.getLong("id"),
+                            side,
+                            row.getString("analyzed_color"),
+                            row.getString("phase_source"),
+                            row.getInt("middlegame_start"),
+                            endgameStart,
+                            Instant.ofEpochMilli(row.getLong("completed_at_ms")),
+                            row.getInt("current_profile") == 1,
+                            row.getString("engine_name"),
+                            row.getLong("quick_nodes"),
+                            row.getLong("deep_nodes"),
+                            row.getInt("move_count"),
+                            row.getInt("inaccuracies"),
+                            row.getInt("mistakes"),
+                            row.getInt("blunders"));
+                })
+                .stream()
+                .findFirst();
+    }
+
+    @Override
+    public List<StoredMove> moves(long versionId) {
+        return namedJdbc.query(VERSION_MOVES, new MapSqlParameterSource("versionId", versionId),
+                (row, rowNumber) -> new StoredMove(
+                        row.getInt("ply"),
+                        row.getString("san"),
+                        row.getString("uci"),
+                        row.getString("fen_before"),
+                        row.getString("phase"),
+                        row.getString("pass"),
+                        row.getString("label"),
+                        row.getString("mate_event"),
+                        row.getInt("played_best") == 1,
+                        row.getString("best_move"),
+                        row.getInt("expected_before"),
+                        row.getInt("expected_after"),
+                        row.getInt("loss"),
+                        row.getString("after_terminal"),
+                        readLines(row.getString("before_lines_json")),
+                        readLines(row.getString("after_lines_json"))));
+    }
+
+    /** Stored JSON is our own output, but it is still re-validated before it leaves the store. */
+    private List<StoredLine> readLines(String json) {
+        if (json == null) {
+            return List.of();
+        }
+        JsonNode root = objectMapper.readTree(json);
+        if (!root.isArray() || root.size() > MAX_STORED_LINES) {
+            throw new IllegalStateException("Stored engine lines are invalid");
+        }
+        var lines = new ArrayList<StoredLine>();
+        for (JsonNode node : root) {
+            JsonNode wdl = node.get("wdl");
+            JsonNode pv = node.get("pv");
+            boolean hasCp = node.hasNonNull("cp");
+            boolean hasMate = node.hasNonNull("mate");
+            if (!node.hasNonNull("move") || hasCp == hasMate || wdl == null || !wdl.isArray()
+                    || wdl.size() != 3 || pv == null || !pv.isArray() || pv.isEmpty()
+                    || pv.size() > MAX_STORED_PV) {
+                throw new IllegalStateException("Stored engine lines are invalid");
+            }
+            var moves = new ArrayList<String>();
+            pv.forEach(move -> moves.add(move.asString()));
+            lines.add(new StoredLine(
+                    node.get("move").asString(),
+                    hasCp ? node.get("cp").asInt() : null,
+                    hasMate ? node.get("mate").asInt() : null,
+                    wdl.get(0).asInt(),
+                    wdl.get(1).asInt(),
+                    wdl.get(2).asInt(),
+                    List.copyOf(moves)));
+        }
+        return List.copyOf(lines);
     }
 
     @Override

@@ -112,8 +112,8 @@ class StockfishHealthServiceTest {
             }
             return command.equals("isready") ? List.of("readyok") : List.of();
         });
-        var service = new StockfishHealthService(
-                locator(directory), executable -> slowEngine, Duration.ofSeconds(5));
+        var service = new StockfishHealthService(new StockfishEngineAccess(
+                locator(directory), executable -> slowEngine, Duration.ofSeconds(5)));
         var first = new AtomicReference<EngineStatus>();
         Thread checker = Thread.ofVirtual().start(() -> first.set(service.check()));
 
@@ -128,7 +128,7 @@ class StockfishHealthServiceTest {
     @Test
     void reportsAMissingBinaryWithoutLaunching(@TempDir Path directory) {
         var launches = new int[1];
-        var service = new StockfishHealthService(
+        var service = new StockfishHealthService(new StockfishEngineAccess(
                 new StockfishLocator(
                         null,
                         directory.resolve("bin/stockfish"),
@@ -137,7 +137,7 @@ class StockfishHealthServiceTest {
                     launches[0]++;
                     throw new IOException("unexpected");
                 },
-                SHORT);
+                SHORT));
 
         assertThat(service.status().state()).isEqualTo(EngineStatus.State.NOT_INSTALLED);
         assertThat(service.check().state()).isEqualTo(EngineStatus.State.NOT_INSTALLED);
@@ -146,7 +146,8 @@ class StockfishHealthServiceTest {
 
     private static StockfishHealthService service(Path directory, EngineProcessLauncher launcher)
             throws IOException {
-        return new StockfishHealthService(locator(directory), launcher, SHORT);
+        return new StockfishHealthService(
+                new StockfishEngineAccess(locator(directory), launcher, SHORT));
     }
 
     static StockfishLocator locator(Path directory) throws IOException {

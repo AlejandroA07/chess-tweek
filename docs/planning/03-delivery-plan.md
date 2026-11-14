@@ -141,6 +141,8 @@ Deliver:
 - Persist queued, running, paused, completed, failed, and canceled states.
 - Pause, Resume, Cancel Current, Cancel Remaining, and Retry Failed.
 - Reconcile interrupted work safely after restart.
+- Thermal-aware pausing: read macOS thermal pressure without administrator rights. Pause between searches with a visible "Paused: Mac is hot" reason while macOS limits the CPU, and resume on its own when it clears.
+- Low-heat mode: an owner-selectable 1-thread analysis mode with its own benchmarked profile, recorded on every analysis version that uses it.
 
 Acceptance:
 
@@ -149,6 +151,8 @@ Acceptance:
 - Cancel stops Stockfish cleanly without removing completed results.
 - Ten-game and twenty-game batches are exercised through the real interface.
 - Storage-cap checks run before work and during persistence.
+- A simulated thermal limit pauses the queue after the current search and resumes it when cleared, without losing or duplicating work.
+- Low-heat mode runs with 1 thread, uses its own profile, and is recorded on the analysis version.
 
 ## Stage 6 — Overall Games Analysis core
 
@@ -295,3 +299,13 @@ Acceptance:
 ## Current stopping point
 
 Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed parts. Parts 1 through 9 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record. Stage 3 is complete, including the owner's live check. Stage 4 is delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards.
+
+**Next immediate action (2026-11-14):**
+
+1. The owner live-checks Stage 4 Part 2 on `feature/engine-benchmark-profile` (PR #25):
+   - run `./scripts/start.sh`
+   - on Admin, click Run Benchmark
+   - confirm the speed (about 1.1 million nodes/s), the quick and deep budgets, and "measured with Stockfish 19"
+   - click Run Benchmark Again and confirm a new profile replaces the shown one
+2. The owner merges PR #25.
+3. Start Stage 4 Part 3 on a new `feature/<topic>` branch from the updated `main`: the analysis rules (expected score from WDL, inaccuracy/mistake/blunder thresholds, forced-mate rules, the second deep pass, and game phases), tested with a fake engine.

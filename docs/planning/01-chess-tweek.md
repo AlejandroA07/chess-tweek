@@ -149,6 +149,8 @@ Versioning and queue behavior:
 - A game has a current analysis version per perspective and profile, while reports retain exact older versions.
 - Queue states are queued, running, paused, completed, failed, and canceled.
 - Provide Pause, Resume, Cancel Current, Cancel Remaining, and Retry Failed.
+- Thermal-aware pausing (owner decision, 2026-11-14): the owner's Mac is a fanless MacBook Air, so heat slows the chip rather than risking damage. Before each queued game and between searches, the queue reads macOS thermal pressure, which is available without administrator rights. When macOS reports that it is limiting the CPU, the queue finishes the current search, pauses with a visible "Paused: Mac is hot" reason, and resumes on its own once the limit clears. The owner can still resume manually. Exact temperatures are not read.
+- Low-heat mode (owner decision, 2026-11-14): an owner-selectable mode analyzes with 1 thread instead of 2, roughly halving heat at about twice the duration. It uses its own benchmarked profile, so its node budgets and every analysis version it produces stay reproducible and record that they used low-heat mode.
 - On restart, reconcile a previously running item into a safe resumable state.
 - Persist completed position work transactionally so a crash cannot manufacture a completed analysis.
 

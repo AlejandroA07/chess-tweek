@@ -302,5 +302,9 @@ Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed
 
 **Next immediate action (2026-11-14):**
 
-1. The owner reviews and merges the Stage 4 Part 4a single-game analysis PR. It adds API endpoints only, so the Games page does not change yet.
-2. Start Stage 4 Part 4b on a new `feature/<topic>` branch from the updated `main`: Games controls (Analyze My Moves, and Analyze Opponent and Analyze Both in More), analysis progress with Cancel, recoverable failure messages, and analysis status badges built from stored versions. Then live-check a real analysis from the Games page.
+1. The owner live-checks Stage 4 Part 4b on `feature/games-analysis-controls`:
+   - run `./scripts/start.sh` and open Games
+   - on a standard game, click Analyze My Moves
+   - confirm the progress panel moves through the first and second passes, that Cancel stops a second analysis with "Nothing was saved", and that a completed analysis shows "My moves · Analyzed" with its counts
+2. The owner merges the Part 4b PR.
+3. Start Stage 4 Part 5 on a new `feature/<topic>` branch from the updated `main`: the game review view (board, move list, phases and opening, selected-side statistics, every error position with principal variations).

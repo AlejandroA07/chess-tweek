@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.chesstweek.gamereview.CatalogGame;
+import com.chesstweek.gamereview.GameAnalysisSummaries;
 import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogPage;
 import com.chesstweek.gamereview.GameCatalogQuery;
@@ -29,6 +30,42 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class GameCatalogControllerTest {
 
+    private static final GameAnalysisSummaries NO_ANALYSES = (accountId, gameIds) -> java.util.Map.of();
+
+    @Test
+    void includesTheNewestStoredAnalysisOfEachSideForTheAccountsGames() throws Exception {
+        LichessSessionAuthorizer authorizer = sealedSession ->
+                LichessSessionAuthorization.connected("owner-id", "ChessOwner", "liu_token");
+        GameCatalog catalog = (accountId, query) -> new GameCatalogPage(List.of(game()), 1);
+        var requested = new AtomicReference<String>();
+        GameAnalysisSummaries summaries = (accountId, gameIds) -> {
+            requested.set(accountId + " " + gameIds);
+            return java.util.Map.of("game0001", new GameAnalysisSummaries.Summary(
+                    new GameAnalysisSummaries.Version(
+                            12, Instant.parse("2026-11-14T13:00:00Z"), 40, 3, 1, 2),
+                    null));
+        };
+
+        MockMvcBuilders
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, summaries))
+                .build()
+                .perform(get("/api/games").cookie(new jakarta.servlet.http.Cookie(
+                        "__Host-chess_tweek_session", "sealed-session")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.games[0].analysis.eligible").value(true))
+                .andExpect(jsonPath("$.games[0].analysis.status").value("analyzed"))
+                .andExpect(jsonPath("$.games[0].analysis.myMoves.id").value(12))
+                .andExpect(jsonPath("$.games[0].analysis.myMoves.completedAt")
+                        .value("2026-11-14T13:00:00Z"))
+                .andExpect(jsonPath("$.games[0].analysis.myMoves.moves").value(40))
+                .andExpect(jsonPath("$.games[0].analysis.myMoves.inaccuracies").value(3))
+                .andExpect(jsonPath("$.games[0].analysis.myMoves.mistakes").value(1))
+                .andExpect(jsonPath("$.games[0].analysis.myMoves.blunders").value(2))
+                .andExpect(jsonPath("$.games[0].analysis.opponentMoves").isEmpty());
+
+        assertThat(requested).hasValue("owner-id [game0001]");
+    }
+
     @Test
     void returnsOnlySafeCardDataForTheAuthorizedAccount() throws Exception {
         LichessSessionAuthorizer authorizer = sealedSession ->
@@ -40,7 +77,7 @@ class GameCatalogControllerTest {
             return new GameCatalogPage(List.of(game()), 1);
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games")
@@ -78,7 +115,7 @@ class GameCatalogControllerTest {
             throw new DataAccessResourceFailureException("private database detail");
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games")
@@ -99,7 +136,7 @@ class GameCatalogControllerTest {
             return new GameCatalogPage(List.of(game()), 1);
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games"))
@@ -121,7 +158,7 @@ class GameCatalogControllerTest {
             return new GameCatalogPage(List.of(game()), 120);
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games").queryParam("offset", "50").queryParam("limit", "25"))
@@ -144,7 +181,7 @@ class GameCatalogControllerTest {
             return new GameCatalogPage(List.of(game()), 1);
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games")
@@ -188,7 +225,7 @@ class GameCatalogControllerTest {
             throw new AssertionError("Invalid input must not read the catalog");
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games").queryParam("offset", "-1").queryParam("limit", "51"))
@@ -209,7 +246,7 @@ class GameCatalogControllerTest {
             throw new AssertionError("Invalid filters must not read the catalog");
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games")
@@ -233,7 +270,7 @@ class GameCatalogControllerTest {
             throw new AssertionError("Invalid filters must not read the catalog");
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameCatalogController(authorizer, catalog))
+                .standaloneSetup(new GameCatalogController(authorizer, catalog, NO_ANALYSES))
                 .build();
 
         mockMvc.perform(get("/api/games")

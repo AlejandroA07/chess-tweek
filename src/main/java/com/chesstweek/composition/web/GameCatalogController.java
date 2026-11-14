@@ -3,6 +3,7 @@ package com.chesstweek.composition.web;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.CacheControl;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.chesstweek.gamereview.CatalogGame;
+import com.chesstweek.gamereview.GameAnalysisSummaries;
 import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogQuery;
 import com.chesstweek.identity.LichessSessionAuthorizer;
@@ -25,12 +27,15 @@ public final class GameCatalogController {
 
     private final LichessSessionAuthorizer sessionAuthorizer;
     private final GameCatalog gameCatalog;
+    private final GameAnalysisSummaries analysisSummaries;
 
     GameCatalogController(
             LichessSessionAuthorizer sessionAuthorizer,
-            GameCatalog gameCatalog) {
+            GameCatalog gameCatalog,
+            GameAnalysisSummaries analysisSummaries) {
         this.sessionAuthorizer = sessionAuthorizer;
         this.gameCatalog = gameCatalog;
+        this.analysisSummaries = analysisSummaries;
     }
 
     @GetMapping("/api/games")
@@ -180,8 +185,10 @@ public final class GameCatalogController {
     private ResponseEntity<?> connected(String accountId, GameCatalogQuery query) {
         try {
             var page = gameCatalog.games(accountId, query);
+            Map<String, GameAnalysisSummaries.Summary> analyses = analysisSummaries.latest(
+                    accountId, page.games().stream().map(CatalogGame::id).toList());
             List<GameCardResponse> games = page.games().stream()
-                    .map(GameCatalogController::toCard)
+                    .map(game -> toCard(game, analyses.get(game.id())))
                     .toList();
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
@@ -206,7 +213,8 @@ public final class GameCatalogController {
         }
     }
 
-    private static GameCardResponse toCard(CatalogGame game) {
+    private static GameCardResponse toCard(
+            CatalogGame game, GameAnalysisSummaries.Summary summary) {
         return new GameCardResponse(
                 game.id(),
                 game.playedAt().toString(),
@@ -220,9 +228,29 @@ public final class GameCatalogController {
                 game.variant().value(),
                 timeControl(game.timeControl()),
                 opening(game.opening()),
-                new AnalysisResponse(
-                        game.analysisEligible(),
-                        game.analysisEligible() ? "not_analyzed" : "unsupported_variant"));
+                analysis(game, summary));
+    }
+
+    private static AnalysisResponse analysis(
+            CatalogGame game, GameAnalysisSummaries.Summary summary) {
+        if (!game.analysisEligible()) {
+            return new AnalysisResponse(false, "unsupported_variant", null, null);
+        }
+        if (summary == null) {
+            return new AnalysisResponse(true, "not_analyzed", null, null);
+        }
+        return new AnalysisResponse(
+                true, "analyzed", version(summary.myMoves()), version(summary.opponentMoves()));
+    }
+
+    private static VersionResponse version(GameAnalysisSummaries.Version version) {
+        return version == null ? null : new VersionResponse(
+                version.id(),
+                version.completedAt().toString(),
+                version.moves(),
+                version.inaccuracies(),
+                version.mistakes(),
+                version.blunders());
     }
 
     private static OpponentResponse opponent(CatalogGame.Opponent opponent) {
@@ -313,7 +341,19 @@ public final class GameCatalogController {
 
     public record OpeningResponse(String eco, String name) {}
 
-    public record AnalysisResponse(boolean eligible, String status) {}
+    public record AnalysisResponse(
+            boolean eligible,
+            String status,
+            VersionResponse myMoves,
+            VersionResponse opponentMoves) {}
+
+    public record VersionResponse(
+            long id,
+            String completedAt,
+            int moves,
+            int inaccuracies,
+            int mistakes,
+            int blunders) {}
 
     public record CatalogError(String error) {}
 }

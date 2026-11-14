@@ -116,7 +116,7 @@ describe('App', () => {
                   label: '5+3',
                 },
                 opening: { eco: 'C20', name: "King's Pawn Game" },
-                analysis: { eligible: true, status: 'not_analyzed' },
+                analysis: { eligible: true, status: 'not_analyzed', myMoves: null, opponentMoves: null },
               },
               {
                 id: 'game0002',
@@ -142,7 +142,7 @@ describe('App', () => {
                   label: '10+5',
                 },
                 opening: null,
-                analysis: { eligible: false, status: 'unsupported_variant' },
+                analysis: { eligible: false, status: 'unsupported_variant', myMoves: null, opponentMoves: null },
               },
             ],
           }),
@@ -195,7 +195,7 @@ describe('App', () => {
     const unsupported = {
       ...catalogCard('game0002', 'VariantPlayer', '2026-11-10T00:00:00Z'),
       variant: 'crazyhouse',
-      analysis: { eligible: false, status: 'unsupported_variant' as const },
+      analysis: { eligible: false, status: 'unsupported_variant' as const, myMoves: null, opponentMoves: null },
     }
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString()
@@ -252,7 +252,7 @@ describe('App', () => {
     const unsupported = {
       ...catalogCard('game0002', 'VariantPlayer', '2026-11-10T00:00:00Z'),
       variant: 'crazyhouse',
-      analysis: { eligible: false, status: 'unsupported_variant' as const },
+      analysis: { eligible: false, status: 'unsupported_variant' as const, myMoves: null, opponentMoves: null },
     }
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString()
@@ -1040,6 +1040,6 @@ function catalogCard(id: string, opponentName: string, playedAt: string) {
       label: '5+3',
     },
     opening: { eco: 'C20', name: "King's Pawn Game" },
-    analysis: { eligible: true, status: 'not_analyzed' },
+    analysis: { eligible: true, status: 'not_analyzed', myMoves: null, opponentMoves: null },
   }
 }

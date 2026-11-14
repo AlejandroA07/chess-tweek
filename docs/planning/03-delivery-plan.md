@@ -16,7 +16,7 @@ Every handoff lists changed files, commands run, manual checks, and known limita
 
 ## Re-scoped plan (owner decision, 2026-11-14)
 
-The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, the wishes, the tool research, and the decisions. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12. The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
+The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, the wishes, the tool research, and the decisions. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12. Puzzles come before openings: Stages 6 to 8 precede Stages 9 to 11 (owner decision, 2026-11-14). The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
 
 New views (Train, Patterns, Openings) have no Stitch prompt yet. They implement `docs/app-material/DESIGN.md` with project tokens and CSS Modules and follow the existing shell; no second visual system is introduced.
 
@@ -47,7 +47,7 @@ New views (Train, Patterns, Openings) have no Stitch prompt yet. They implement 
 
 ### Stage 8 — Pattern library
 
-**Branch:** `feature/pattern-library` · **Needs:** Stage 6 and the owner's answers on themes and import mechanism.
+**Branch:** `feature/pattern-library` · **Needs:** Stage 6. Themes, rating range, and import through Homebrew `zstd` are decided (owner, 2026-11-14).
 
 - Themed decks from the CC0 Lichess puzzle database, rating about 1200 to 1700, plus Caro-Kann and London opening decks.
 - Mastery percentage per deck, Practice weakest, fixed-set repetition sessions, and custom positions.

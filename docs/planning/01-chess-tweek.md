@@ -131,7 +131,8 @@ Failure behavior:
 
 - Themed puzzles come from the CC0 Lichess puzzle database, filtered to the owner's chosen themes and a rating range of about 1200 to 1700.
 - Each chosen theme is a deck. Opening-tagged puzzles for the Caro-Kann Defense and the London System form two extra decks.
-- The first theme list and the import mechanism are open owner questions in `04-training-goals.md` section 10.
+- The first library is the 22 starter themes in `04-training-goals.md` section 9: fork, pin, skewer, discoveredAttack, doubleCheck, hangingPiece, trappedPiece, capturingDefender, intermezzo, deflection, attraction, interference, exposedKing, kingsideAttack, mateIn2, backRankMate, smotheredMate, arabianMate, hookMate, anastasiaMate, pawnEndgame, and rookEndgame. Owner decision, 2026-11-14.
+- Import is manual: the owner downloads or points to the official `lichess_db_puzzle.csv.zst`; the app streams it through the Homebrew `zstd` binary (a system prerequisite discovered like Stockfish, never bundled) and keeps only matching themes and ratings. Missing `zstd` yields a recoverable state with install instructions.
 - Each deck shows mastery percentage. "Practice weakest" draws due items from the weakest decks first. A fixed-set repetition session (Woodpecker style) is available.
 - The owner can add a custom position with its solution to any deck.
 - Results stay local and are never submitted to Lichess.

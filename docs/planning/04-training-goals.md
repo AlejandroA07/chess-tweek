@@ -240,12 +240,13 @@ The 22 themes marked **(start)** plus the two opening collections, at puzzle rat
 - A puzzle is **Mastered** when its next review is at least 21 days away. A failed mastered puzzle becomes **Lapsed** and returns soon.
 - Each theme shows its mastery percentage, and "Practice weakest" picks due puzzles from the weakest themes first. Woodpecker-style "repeat this set faster" sessions are also possible.
 
-## 10. Open questions (remaining)
+## 10. Owner decisions on the pattern library (2026-11-14)
 
-1. Which first library: the recommended start set from section 9, or a different list?
-2. **Getting the Lichess puzzles.** Recommended: download the free Lichess puzzle file once and keep only the chosen themes and ratings (a few tens of thousands of puzzles). The file is compressed with zstd, so this needs either the Homebrew `zstd` tool installed like Stockfish, or a Java decompression dependency. The alternative is fetching puzzles one at a time from the Lichess API by theme, which cannot filter by rating and is slow.
-3. Do you want starter notes for London and Caro-Kann written into the project, or only your own notes and imported PGNs?
-4. Order of the next stages: puzzles first (as proposed in `03-delivery-plan.md`) or openings first?
+1. **Themes.** The first library is the 22 starter themes marked **(start)** in section 9, plus the Caro-Kann and London opening decks, at puzzle ratings about 1200 to 1700.
+2. **Import.** Download the CC0 Lichess puzzle file once and keep only the chosen themes and ratings. Decompression uses the Homebrew `zstd` tool, a system prerequisite like Stockfish (installed on the owner's Mac: zstd 1.5.7 at `/opt/homebrew/bin/zstd`). No Java decompression dependency is added.
+3. **Order.** Puzzles first: training core, My Mistakes, and the pattern library (Stages 6 to 8) come before the opening stages (9 to 11).
+
+Still open: whether the project ships starter notes for the London and Caro-Kann plans, or only the owner's own notes and imported PGN comments. Decide before Stage 10.
 
 ## Sources
 

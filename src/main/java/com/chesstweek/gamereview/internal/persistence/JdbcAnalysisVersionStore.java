@@ -26,11 +26,11 @@ public class JdbcAnalysisVersionStore implements AnalysisVersionStore {
 
     private static final String INSERT_VERSION = """
             INSERT INTO game_review_analysis_version (
-                account_id, lichess_game_id, side, analyzed_color, profile_id, rules_version,
+                account_id, lichess_game_id, side, requested_perspective, analyzed_color, profile_id, rules_version,
                 phase_source, middlegame_start, endgame_start, move_count, deep_move_count,
                 inaccuracies, mistakes, blunders, total_loss, started_at_ms, completed_at_ms
             ) VALUES (
-                :accountId, :gameId, :side, :color, :profileId, :rulesVersion,
+                :accountId, :gameId, :side, :perspective, :color, :profileId, :rulesVersion,
                 :phaseSource, :middlegameStart, :endgameStart, :moveCount, :deepMoveCount,
                 :inaccuracies, :mistakes, :blunders, :totalLoss, :startedAt, :completedAt
             )
@@ -71,6 +71,7 @@ public class JdbcAnalysisVersionStore implements AnalysisVersionStore {
                 .addValue("accountId", version.accountId())
                 .addValue("gameId", version.gameId())
                 .addValue("side", lower(version.side()))
+                .addValue("perspective", lower(version.requestedPerspective()))
                 .addValue("color", version.analyzedColor().value())
                 .addValue("profileId", version.profileId())
                 .addValue("rulesVersion", version.rulesVersion())

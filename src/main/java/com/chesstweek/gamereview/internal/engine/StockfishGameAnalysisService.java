@@ -101,7 +101,11 @@ class StockfishGameAnalysisService implements GameAnalysis {
             job = new RunningJob(accountId, game.id(), perspective, now());
             latest = job;
         }
-        executor.execute(() -> run(job, game, replay, profile));
+        try {
+            executor.execute(() -> run(job, game, replay, profile));
+        } catch (RuntimeException exception) {
+            job.fail(Failure.ENGINE_FAILED, now());
+        }
         return new StartResult(StartResult.Outcome.STARTED, job.snapshot());
     }
 
@@ -131,6 +135,10 @@ class StockfishGameAnalysisService implements GameAnalysis {
             Set<ReplayedGame.Color> sides = sides(job.perspective, color(game.ownerColor()));
             var outcome = engine.withReadyEngine((connection, engineName) ->
                     analyze(connection, engineName, profile, replay, phases, sides, job));
+            if (outcome.status().state() == EngineStatus.State.BUSY) {
+                job.fail(Failure.ENGINE_BUSY, now());
+                return;
+            }
             if (outcome.status().state() != EngineStatus.State.READY) {
                 job.fail(Failure.ENGINE_UNAVAILABLE, now());
                 return;
@@ -148,6 +156,9 @@ class StockfishGameAnalysisService implements GameAnalysis {
             }
         } catch (RuntimeException exception) {
             job.fail(Failure.ENGINE_FAILED, now());
+        } finally {
+            // Whatever happened, the slot must never stay running and block later analyses.
+            job.failIfRunning(Failure.ENGINE_FAILED, now());
         }
     }
 
@@ -213,6 +224,10 @@ class StockfishGameAnalysisService implements GameAnalysis {
             EngineProfile profile,
             GamePhases phases,
             List<TwoPassAnalysis.MoveFinding> findings) {
+        if (job.cancelRequested) {
+            job.finish(State.CANCELED, null, List.of(), now());
+            return;
+        }
         job.saving();
         ReplayedGame.Color owner = color(game.ownerColor());
         Instant completedAt = now();
@@ -228,6 +243,7 @@ class StockfishGameAnalysisService implements GameAnalysis {
                     job.accountId,
                     game.id(),
                     ownerSide ? AnalysisVersionStore.Side.OWNER : AnalysisVersionStore.Side.OPPONENT,
+                    job.perspective,
                     side == ReplayedGame.Color.WHITE ? CatalogGame.Color.WHITE : CatalogGame.Color.BLACK,
                     profile.id(),
                     MoveRules.RULES_VERSION,
@@ -280,7 +296,11 @@ class StockfishGameAnalysisService implements GameAnalysis {
         }
     }
 
-    /** Mutable progress of the analysis in flight; read only through {@link #snapshot()}. */
+    /**
+     * Mutable progress of the analysis in flight; read only through {@link #snapshot()}. Its own
+     * monitor guards its fields. The service's {@code jobLock} only guards which job is latest,
+     * and is always taken before this monitor, never after.
+     */
     private static final class RunningJob implements TwoPassAnalysis.Progress {
 
         private final String accountId;
@@ -323,6 +343,12 @@ class StockfishGameAnalysisService implements GameAnalysis {
 
         synchronized void fail(Failure reason, Instant at) {
             finish(State.FAILED, reason, List.of(), at);
+        }
+
+        synchronized void failIfRunning(Failure reason, Instant at) {
+            if (state == State.RUNNING) {
+                fail(reason, at);
+            }
         }
 
         synchronized void finish(State ending, Failure reason, List<Long> ids, Instant at) {

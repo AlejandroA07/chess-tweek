@@ -31,11 +31,30 @@ class UciSearchOutputTest {
     }
 
     @Test
-    void ignoresBoundStringAndIncompleteLines() {
+    void keepsTheBoundLineStockfishReportsLastWhenTheNodeLimitEndsTheSearch() {
+        // Real Stockfish 19 output: the node limit stopped depth 19 with rank 1 as a lowerbound
+        // whose move is the one Stockfish plays.
+        var output = new UciSearchOutput();
+        output.accept("info depth 18 seldepth 29 multipv 1 score cp 23 wdl 31 965 4 nodes 755091 nps 1066512 hashfull 15 tbhits 0 time 708 pv g1h1 e7g5 a2a3 g5c1");
+        output.accept("info depth 18 seldepth 28 multipv 2 score cp 22 wdl 29 967 4 nodes 755091 nps 1066512 hashfull 15 tbhits 0 time 708 pv a2a3 e7g5 g1h1 g5c1");
+        output.accept("info depth 18 seldepth 23 multipv 3 score cp 17 wdl 24 971 5 nodes 755091 nps 1066512 hashfull 15 tbhits 0 time 708 pv a1b1 b7b6 b2b4 e7g5");
+        output.accept("info depth 19 seldepth 28 multipv 1 score cp 27 lowerbound wdl 36 961 3 nodes 881038 nps 1055135 hashfull 17 tbhits 0 time 835 pv a2a3 e7g5");
+        output.accept("info depth 19 seldepth 28 multipv 2 score cp 23 wdl 31 965 4 nodes 881038 nps 1055135 hashfull 17 tbhits 0 time 835 pv g1h1 e7g5 a2a3 g5c1");
+        output.accept("info depth 18 seldepth 25 multipv 3 score cp 17 wdl 24 971 5 nodes 881038 nps 1055135 hashfull 17 tbhits 0 time 835 pv a1b1 e7g5 b2b4 b7b6");
+
+        Evaluation evaluation = output.finish("bestmove a2a3 ponder e7g5");
+
+        assertThat(evaluation.best().move()).isEqualTo("a2a3");
+        assertThat(evaluation.best().score()).isEqualTo(new Score.Centipawns(27));
+        assertThat(evaluation.best().wdl()).isEqualTo(new Wdl(36, 961, 3));
+        assertThat(evaluation.lines()).extracting(Evaluation.Line::move)
+                .containsExactly("a2a3", "g1h1", "a1b1");
+    }
+
+    @Test
+    void ignoresStringAndIncompleteLines() {
         var output = new UciSearchOutput();
         output.accept("info depth 18 multipv 1 score cp 25 wdl 60 930 10 nodes 1 pv e2e4");
-        output.accept("info depth 19 multipv 1 score cp 90 lowerbound wdl 200 790 10 nodes 2 pv d2d4");
-        output.accept("info depth 19 multipv 1 score cp 90 upperbound wdl 200 790 10 nodes 2 pv d2d4");
         output.accept("info string NNUE evaluation using nn-1111.nnue");
         output.accept("info depth 19 multipv 1 score cp 40 nodes 3 pv d2d4");
         output.accept("info depth 19 multipv 1 score cp 40 wdl 60 930 10 nodes 3");

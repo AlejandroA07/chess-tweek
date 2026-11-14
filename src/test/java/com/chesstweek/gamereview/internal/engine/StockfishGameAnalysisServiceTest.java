@@ -63,6 +63,7 @@ class StockfishGameAnalysisServiceTest {
 
         AnalysisVersionStore.NewVersion version = versions.saved.getFirst();
         assertThat(version.side()).isEqualTo(AnalysisVersionStore.Side.OWNER);
+        assertThat(version.requestedPerspective()).isEqualTo(Perspective.MY_MOVES);
         assertThat(version.analyzedColor()).isEqualTo(CatalogGame.Color.WHITE);
         assertThat(version.profileId()).isEqualTo(7);
         assertThat(version.rulesVersion()).isEqualTo(MoveRules.RULES_VERSION);
@@ -234,6 +235,92 @@ class StockfishGameAnalysisServiceTest {
     }
 
     @Test
+    void aCancelAfterTheLastSearchStillStoresNothing(@TempDir Path directory) throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        StockfishGameAnalysisService[] service = new StockfishGameAnalysisService[1];
+        var searches = new int[1];
+        var engine = engine("Stockfish 19", position -> {
+            // White's only move needs two searches; cancel during the last one.
+            if (++searches[0] == 2) {
+                service[0].cancel(ACCOUNT);
+            }
+            return level(position);
+        });
+        service[0] = service(directory, engine);
+
+        service[0].start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
+        runPending();
+
+        assertThat(searches[0]).isEqualTo(2);
+        assertThat(service[0].current(ACCOUNT).orElseThrow().state()).isEqualTo(State.CANCELED);
+        assertThat(versions.saved).isEmpty();
+    }
+
+    @Test
+    void anEngineHeldByAHealthCheckIsReportedAsBusy(@TempDir Path directory) throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        var access = new StockfishEngineAccess(
+                StockfishHealthServiceTest.locator(directory),
+                executable -> levelEngine("Stockfish 19"),
+                Duration.ofMillis(300));
+        var service = new StockfishGameAnalysisService(
+                access, catalog, profiles, versions, pending::add, clock());
+        service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
+
+        // Another engine operation holds the single engine slot while the analysis runs.
+        access.withReadyEngine((connection, name) -> {
+            Thread worker = Thread.ofVirtual().start(this::runPending);
+            try {
+                worker.join();
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+            return null;
+        });
+
+        assertThat(service.current(ACCOUNT).orElseThrow().failure()).isEqualTo(Failure.ENGINE_BUSY);
+        assertThat(versions.saved).isEmpty();
+    }
+
+    @Test
+    void anUnexpectedErrorNeverLeavesTheAnalysisRunning(@TempDir Path directory) throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        versions.error = true;
+        var service = service(directory, levelEngine("Stockfish 19"));
+
+        service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
+        try {
+            runPending();
+        } catch (AssertionError expected) {
+            // The error still surfaces; the job must not stay running.
+        }
+
+        assertThat(service.current(ACCOUNT).orElseThrow().state()).isEqualTo(State.FAILED);
+        versions.error = false;
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES).outcome())
+                .isEqualTo(Outcome.STARTED);
+    }
+
+    @Test
+    void aRejectedBackgroundStartFailsInsteadOfBlockingLaterAnalyses(@TempDir Path directory)
+            throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        var access = new StockfishEngineAccess(
+                StockfishHealthServiceTest.locator(directory),
+                executable -> levelEngine("Stockfish 19"),
+                Duration.ofMillis(300));
+        var service = new StockfishGameAnalysisService(access, catalog, profiles, versions, task -> {
+            throw new java.util.concurrent.RejectedExecutionException("no threads");
+        }, clock());
+
+        GameAnalysis.StartResult result = service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
+
+        assertThat(result.job().state()).isEqualTo(State.FAILED);
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES).job().state())
+                .isEqualTo(State.FAILED);
+    }
+
+    @Test
     void aStorageFailureIsReportedAndLeavesNothingBehind(@TempDir Path directory) throws Exception {
         catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
         versions.fail = true;
@@ -363,9 +450,13 @@ class StockfishGameAnalysisServiceTest {
 
         final List<NewVersion> saved = new ArrayList<>();
         boolean fail;
+        boolean error;
 
         @Override
         public List<Long> saveAll(List<NewVersion> versions) {
+            if (error) {
+                throw new AssertionError("unexpected");
+            }
             if (fail) {
                 throw new IllegalStateException("disk full");
             }

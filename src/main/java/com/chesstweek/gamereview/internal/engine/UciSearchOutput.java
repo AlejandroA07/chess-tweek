@@ -11,9 +11,8 @@ import com.chesstweek.gamereview.internal.analysis.Wdl;
 
 /**
  * Collects one search's {@code info} lines and turns the final ones into an {@link Evaluation}.
- * Engine output is untrusted: every number is bounded, every move must be UCI, partial
- * (lowerbound/upperbound) lines and lines without WDL or a variation are ignored, and the result
- * must agree with Stockfish's {@code bestmove}.
+ * Engine output is untrusted: every number is bounded, every move must be UCI, lines without
+ * WDL or a variation are ignored, and the result must agree with Stockfish's {@code bestmove}.
  */
 final class UciSearchOutput {
 
@@ -47,7 +46,12 @@ final class UciSearchOutput {
                             return;
                         }
                     }
-                    case "lowerbound", "upperbound", "string", "currmove" -> {
+                    case "lowerbound", "upperbound" -> {
+                        // When the node limit ends a search mid-iteration, Stockfish's final
+                        // report for the move it plays can be a bound. Its score is within the
+                        // narrow aspiration window, so it is kept like an exact line.
+                    }
+                    case "string", "currmove" -> {
                         return;
                     }
                     case "wdl" -> wdl = new Wdl(

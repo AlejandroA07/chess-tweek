@@ -54,6 +54,7 @@ class AnalysisVersionPersistenceTest {
             Map<String, Object> owner = jdbc.queryForMap(
                     "SELECT * FROM game_review_analysis_version WHERE id = ?", ids.get(0));
             assertThat(owner).containsEntry("side", "owner")
+                    .containsEntry("requested_perspective", "both")
                     .containsEntry("analyzed_color", "white")
                     .containsEntry("phase_source", "inferred")
                     .containsEntry("move_count", 4)
@@ -89,6 +90,16 @@ class AnalysisVersionPersistenceTest {
                     "UPDATE game_review_analysis_move SET label = 'blunder' WHERE version_id = ?",
                     ids.get(0)))
                     .hasMessageContaining("analysis moves are immutable");
+            assertThatThrownBy(() -> jdbc.update("""
+                    INSERT INTO game_review_analysis_version (
+                        account_id, lichess_game_id, side, requested_perspective, analyzed_color,
+                        profile_id, rules_version, phase_source, middlegame_start, move_count,
+                        deep_move_count, inaccuracies, mistakes, blunders, total_loss,
+                        started_at_ms, completed_at_ms
+                    ) VALUES ('owner', 'abcd1234', 'owner', 'opponent_moves', 'white', ?, 1,
+                              'inferred', 20, 0, 0, 0, 0, 0, 0, 0, 0)
+                    """, profileId))
+                    .hasMessageContaining("CHECK constraint failed");
             assertThatThrownBy(() -> jdbc.update(
                     "DELETE FROM game_review_game WHERE lichess_game_id = ?", GAME_ID))
                     .hasMessageContaining("FOREIGN KEY constraint failed");
@@ -155,7 +166,8 @@ class AnalysisVersionPersistenceTest {
             ReplayedGame.Color mover) {
         ReplayedGame game = ReplayedGame.fromSan(MOVES);
         return new AnalysisVersionStore.NewVersion(
-                ACCOUNT, GAME_ID, side, color, profileId, 1, GamePhases.of(null, game),
+                ACCOUNT, GAME_ID, side, GameAnalysis.Perspective.BOTH, color, profileId, 1,
+                GamePhases.of(null, game),
                 findings.stream().filter(finding -> finding.move().mover() == mover).toList(),
                 STARTED, COMPLETED);
     }

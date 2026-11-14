@@ -24,7 +24,8 @@ Stage 4 Part 4 is split in two. Part 4a, recorded here, runs a real Stockfish an
 `UciSearchOutput` treats engine output as untrusted:
 
 - It keeps the latest complete line for each `multipv` rank.
-- It ignores bound lines, `info string`, and lines without WDL or a variation.
+- It keeps bound (`lowerbound`/`upperbound`) lines. When the node limit stops a search partway through an iteration, Stockfish's final line for the move it plays is often a bound. Ignoring bounds made about one search in 30 fail during the live check, because the kept best line then disagreed with `bestmove`. A bound score lies within Stockfish's narrow aspiration window. The test uses the real output that failed.
+- It ignores `info string` and lines without WDL or a variation.
 - Every number is bounded and every move must be UCI.
 - Variations are cut to 64 moves.
 - `mate 0` is never accepted. Positions that are already over are judged on the board and never searched.
@@ -36,12 +37,13 @@ Every failure is recoverable by fixing the cause and starting again. Nothing par
 
 | Failure | Cause |
 |---|---|
-| `engine_unavailable` | Stockfish is missing, not executable, not Stockfish, not responding, or busy with a health check or benchmark. |
+| `engine_busy` | A health check or benchmark held the engine when the analysis began. |
+| `engine_unavailable` | Stockfish is missing, not executable, not Stockfish, or not responding. |
 | `engine_failed` | A search timed out, the process died, or the output was unusable. |
 | `profile_outdated` | The installed Stockfish is not the one the profile measured. |
 | `storage_failed` | The database rejected the results; the transaction leaves no version behind. |
 
-Canceling stops before the next search, which is at most one deep search (about 3 seconds) later, and stores nothing.
+Canceling stops before the next search, which is at most one deep search (about 3 seconds) later, and stores nothing. A cancel that arrives during the last search is still honored. If the background work ends in any unexpected way, the job is marked failed, so it can never block later analyses.
 
 Only one analysis exists in memory at a time. It is lost when the app restarts. The persistent queue, restart recovery, and thermal pausing are Stage 5.
 
@@ -51,13 +53,13 @@ Migration `V5__game_review_analysis_version.sql` adds two tables.
 
 `game_review_analysis_version` holds one row per analyzed side:
 
-- the account and game, side (`owner` or `opponent`), and analyzed color
+- the account and game, side (`owner` or `opponent`), the perspective the owner requested, and analyzed color
 - the profile, and a rules version (`MoveRules.RULES_VERSION`, now 1)
 - the phase source and boundaries
 - totals: moves, deep-passed moves, inaccuracies, mistakes, blunders, and expected-score loss
 - start and completion times
 
-The game and profile references are `RESTRICT`, so a game or profile with analyses cannot be deleted silently.
+The game and profile references are `RESTRICT`, so a game or profile with analyses cannot be deleted silently. A game's current version for a side and profile is the newest one, served by the index on account, game, side, profile, and id. Deleting a version is not offered yet. Admin data management (Stage 10) adds guarded deletion once reports reference versions.
 
 `game_review_analysis_move` holds every judged move of a version:
 
@@ -81,11 +83,23 @@ A job reports its state, current pass (`starting`, `quick`, `deep`, `saving`), m
 
 ## Live check
 
-A real Stockfish 19 analysis of a 14-move game, both sides, at the owner's budgets (880,000 and 3,540,000 nodes), took 36 seconds:
+Real Stockfish 19 runs at the owner's budgets (880,000 and 3,540,000 nodes) on this Mac.
+
+A 14-move miniature, both sides, took 36 seconds:
 
 - every position returned three lines
 - 4 moves were checked again in the deep pass
 - `...Nd4` was a mistake, `Nxe5` and `Nxf7` were blunders, and `Be2` allowed mate in one
+
+An 80-ply game played by Stockfish at about 1600 strength:
+
+| Perspective | Moves judged | Deep-passed | Time |
+|---|---|---|---|
+| My moves | 40 | 9 | 126 s |
+| Opponent moves | 40 | 5 | 103 s |
+| Both | 80 | 13 | 150 s |
+
+Both sides is well inside the 2–4 minute target. One side is at the top of the 1–2 minute target, because judging one side still searches nearly every position of the game once. Each deep-passed move adds about 6 seconds. A game with many errors will take longer, and Stage 5's progress display should show measured progress rather than promise a time.
 
 ## Security review
 

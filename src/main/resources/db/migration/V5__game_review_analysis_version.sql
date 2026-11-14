@@ -1,10 +1,13 @@
 -- One immutable analysis of one side of one game. Owner and opponent findings are always
--- separate versions; reanalysis inserts a new version and never changes an old one.
+-- separate versions; reanalysis inserts a new version and never changes an old one. A game's
+-- current version for a side and profile is the newest one (see the index below).
 CREATE TABLE game_review_analysis_version (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id TEXT NOT NULL CHECK (length(account_id) BETWEEN 1 AND 32),
     lichess_game_id TEXT NOT NULL CHECK (length(lichess_game_id) BETWEEN 8 AND 32),
     side TEXT NOT NULL CHECK (side IN ('owner', 'opponent')),
+    requested_perspective TEXT NOT NULL
+        CHECK (requested_perspective IN ('my_moves', 'opponent_moves', 'both')),
     analyzed_color TEXT NOT NULL CHECK (analyzed_color IN ('white', 'black')),
     profile_id INTEGER NOT NULL,
     rules_version INTEGER NOT NULL CHECK (rules_version BETWEEN 1 AND 1000),
@@ -20,14 +23,16 @@ CREATE TABLE game_review_analysis_version (
     started_at_ms INTEGER NOT NULL CHECK (started_at_ms >= 0),
     completed_at_ms INTEGER NOT NULL CHECK (completed_at_ms >= started_at_ms),
     CHECK (inaccuracies + mistakes + blunders <= move_count),
+    CHECK ((side = 'owner' AND requested_perspective IN ('my_moves', 'both'))
+        OR (side = 'opponent' AND requested_perspective IN ('opponent_moves', 'both'))),
     FOREIGN KEY (account_id, lichess_game_id)
         REFERENCES game_review_game (account_id, lichess_game_id) ON DELETE RESTRICT,
     FOREIGN KEY (profile_id)
         REFERENCES game_review_engine_profile (id) ON DELETE RESTRICT
 );
 
-CREATE INDEX game_review_analysis_version_game
-    ON game_review_analysis_version (account_id, lichess_game_id, side, id DESC);
+CREATE INDEX game_review_analysis_version_current
+    ON game_review_analysis_version (account_id, lichess_game_id, side, profile_id, id DESC);
 
 CREATE INDEX game_review_analysis_version_profile
     ON game_review_analysis_version (profile_id);

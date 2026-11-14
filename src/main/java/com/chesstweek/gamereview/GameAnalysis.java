@@ -73,6 +73,7 @@ public interface GameAnalysis {
 
     /** Why an analysis failed; each is recoverable by fixing the cause and starting again. */
     enum Failure {
+        ENGINE_BUSY,
         ENGINE_UNAVAILABLE,
         ENGINE_FAILED,
         PROFILE_OUTDATED,

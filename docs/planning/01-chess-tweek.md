@@ -2,7 +2,9 @@
 
 ## Goal
 
-Chess Tweek is a local-first desktop chess training application for one active Lichess account. It imports completed Lichess games, optionally analyzes selected sides with local Stockfish, summarizes the owner's patterns across chosen games, and turns those findings into practice material. The supported platform is macOS on Apple Silicon.
+Chess Tweek is a local-first desktop chess training application for one active Lichess account. It imports completed Lichess and chess.com games, optionally analyzes selected sides with local Stockfish, and turns the owner's own mistakes, a themed pattern library, and an opening repertoire into practice material repeated with spaced repetition until it is mastered. The supported platform is macOS on Apple Silicon.
+
+The owner's chess goal (about 1300 to 2000 rapid on chess.com), training wishes, tool research, and the 2026-11-14 re-scope are recorded in `04-training-goals.md`.
 
 The first success milestone is not the whole product. It is one verified vertical slice at a time, beginning only after the owner supplies approved Google Stitch designs.
 
@@ -19,7 +21,7 @@ The first success milestone is not the whole product. It is one verified vertica
 - The product is a local web application and will not be deployed in v1.
 - macOS on Apple Silicon is the only supported platform.
 - One Lichess account is active at a time. All persisted records remain scoped by the Lichess account ID.
-- The owner plays games on Lichess, not inside Chess Tweek.
+- The owner plays games on Lichess and chess.com, not inside Chess Tweek. Owner decision, 2026-11-14: both sites are in scope.
 - There is no live-game monitoring, engine assistance, or Board API integration.
 - Expensive or destructive work is always manually initiated.
 - Work is delivered as small feature branches. The full gate and a real manual drive are required before handoff.
@@ -98,11 +100,63 @@ Failure behavior:
 - Show win/draw/loss against Lichess AI and accounts titled `BOT`, grouped by displayed opponent rating.
 - Casual bot games can contribute to bot records even when they do not alter an official rating.
 
+### Getting chess.com games (owner decision, 2026-11-14)
+
+- The owner enters a chess.com username once; it is stored under the active Lichess account ID and can be changed.
+- Use the public, read-only chess.com Published-Data API (`https://api.chess.com/pub/`). It needs no login or token. Send a generic, descriptive User-Agent without personal details.
+- The user-facing action is **Get Chess.com Games**. It is never automatic and follows the same bounds as Lichess: 1 to 50 finished games per request, newest first, with an optional before-date, walking monthly archives.
+- Games join the same catalog with a visible source (Lichess or Chess.com), are keyed by source plus the site's game ID, and are idempotent.
+- Chess.com supplies no phase division, so phases are always inferred. Ratings and rating history are shown per site and never mixed.
+- Standard chess games are analysis-eligible exactly like Lichess games.
+- Failure behavior matches Lichess retrieval: one request at a time, 429 handling, per-game rejection of malformed or oversized data, and Retry on network failure.
+
+### Training core (owner decision, 2026-11-14)
+
+- An interactive board drawn with project styles. The owner moves pieces by click or drag; the backend validates every move with the already approved `chessgame` library, so no frontend chess dependency is added.
+- One spaced-repetition scheduler serves every drill type (My Mistakes, pattern puzzles, repertoire moves). It is written in the project without a new dependency.
+- The attempt sets the review rating: a wrong move or giving up is Again, solved with a hint is Hard, solved on the first try is Good, and solved on the first try within a short time is Easy.
+- Each item is New, Learning, Mastered (next review at least 21 days away), or Lapsed (failed after being mastered).
+- Hints keep the existing two levels: piece, then destination.
+- Solutions stay server-side until validation or an authorized hint.
+
+### My Mistakes deck (owner decision, 2026-11-14)
+
+- Every owner mistake and blunder in any completed owner analysis becomes a drill immediately; no report is needed.
+- The drill starts immediately before the error and keeps the five-ply rule, alternative-line acceptance within three expected-score percentage points, and the stored engine line.
+- Drills are grouped by phase, opening, and the conservative tactic labels, and show the source game.
+- The owner may add a short "what I was thinking" note to any error in game review; it is shown with the drill.
+- Reanalysis adds drills for new versions without deleting attempt history.
+
+### Pattern library (owner decision, 2026-11-14)
+
+- Themed puzzles come from the CC0 Lichess puzzle database, filtered to the owner's chosen themes and a rating range of about 1200 to 1700.
+- Each chosen theme is a deck. Opening-tagged puzzles for the Caro-Kann Defense and the London System form two extra decks.
+- The first library is the 22 starter themes in `04-training-goals.md` section 9: fork, pin, skewer, discoveredAttack, doubleCheck, hangingPiece, trappedPiece, capturingDefender, intermezzo, deflection, attraction, interference, exposedKing, kingsideAttack, mateIn2, backRankMate, smotheredMate, arabianMate, hookMate, anastasiaMate, pawnEndgame, and rookEndgame. Owner decision, 2026-11-14.
+- Import is manual: the owner downloads or points to the official `lichess_db_puzzle.csv.zst`; the app streams it through the Homebrew `zstd` binary (a system prerequisite discovered like Stockfish, never bundled) and keeps only matching themes and ratings. Missing `zstd` yields a recoverable state with install instructions.
+- Each deck shows mastery percentage. "Practice weakest" draws due items from the weakest decks first. A fixed-set repetition session (Woodpecker style) is available.
+- The owner can add a custom position with its solution to any deck.
+- Results stay local and are never submitted to Lichess.
+
+### Opening explorer (owner decision, 2026-11-14)
+
+- For any position, show the most common next moves with game counts and win/draw/loss percentages.
+- Sources: Lichess Masters, Lichess games filtered by rating band and speed, and **My games** computed locally from the owner's stored Lichess and chess.com games.
+- The Lichess explorer requires a Lichess token; requests use the existing sealed session server-side. Responses are cached locally and requests are rate-limited and failure-isolated.
+
+### Repertoire builder and trainer (owner decision, 2026-11-14)
+
+- Modeled on En Croissant's Build and Train modes and reimplemented; no GPL code is copied.
+- A repertoire is a tree of moves for one color from a chosen start position; the owner starts with the London System (White) and the Caro-Kann Defense (Black).
+- Build mode shows explorer moves for the current position with coverage, "Go to next gap", and "Go to biggest gap". A line is covered when it reaches a position with fewer games than an owner-set target. Transpositions count as covered.
+- Every position can hold an owner note for plans and objectives. PGN import and export keep comments as notes.
+- Train mode presents due repertoire positions, opponent replies weighted by popularity, and the owner's note after each move. A wrong move shows the prepared move and counts as Again.
+- Session statistics show moves practiced, correct, incorrect, and accuracy.
+
 ### Stockfish analysis
 
 - Analysis happens only after a finished game is stored and the owner requests it.
 - Single-game analysis offers three perspectives: My moves, Opponent moves, or Both.
-- Bulk analysis accepts 2 through 20 games and always analyzes My moves only.
+- Bulk analysis accepts 2 through 20 games and always analyzes My moves only. Maybe later: the bulk queue, thermal-aware pausing, and low-heat mode below are postponed (owner decision, 2026-11-14).
 - Only one game is processed at a time.
 - Default engine settings are two threads, 256 MB hash, `MultiPV=3`, and WDL output.
 - A benchmark on the owner's M4 derives fixed-node quick and deep budgets. The engine version, settings, benchmark, and node budgets are stored with every analysis version.
@@ -160,10 +214,13 @@ Versioning and queue behavior:
 - Show the move list, evaluation progression, opening identity, phase boundaries, and selected-side statistics.
 - When Both is available, show separate My Moves and Opponent Moves tabs. Never combine their counts.
 - Show every classified position with the exact pre-move FEN, played move, best move, before/after evaluation, expected-score loss, severity, phase, verified theme, and principal variations.
+- The owner can add a short "what I was thinking" note to any error position (owner decision, 2026-11-14).
 - Coach cards are deterministic and offer preset follow-ups: Why?, What was the threat?, and What should I train?
 - No free-text imitation and no LLM calls.
 
 ### Overall Games Analysis
+
+**Status: Maybe later.** Postponed by owner decision on 2026-11-14 (see `04-training-goals.md`). Kept for reference; not scheduled.
 
 - The UI name is **Overall Games Analysis**.
 - Generation is always manual.
@@ -187,6 +244,8 @@ Report content:
 
 ### Report package 1: Mistake/Blunder Puzzles
 
+**Status: Maybe later.** Postponed by owner decision on 2026-11-14 (see `04-training-goals.md`). Kept for reference; not scheduled.
+
 - Every report owns one Mistake/Blunder Puzzles package.
 - Include one exercise for every owner mistake and blunder in the report; inaccuracies do not create exercises.
 - Start immediately before the error and ask the owner to replace it with a better line.
@@ -196,6 +255,8 @@ Report content:
 - Record attempts, incorrect moves, both hint levels, give-up, solved state, and local difficulty.
 
 ### Report package 2: Related Lichess Puzzles
+
+**Status: Maybe later.** Postponed by owner decision on 2026-11-14 (see `04-training-goals.md`). Kept for reference; not scheduled.
 
 - Every report owns a separate Related Lichess Puzzles package containing at most 20 normal Lichess puzzles.
 - Use owner mistakes and blunders only.
@@ -210,6 +271,8 @@ Report content:
 - Puzzle results remain local and are never submitted to Lichess.
 
 ### Normal Lichess puzzles
+
+**Status: Maybe later.** Postponed by owner decision on 2026-11-14 (see `04-training-goals.md`). Kept for reference; not scheduled.
 
 - Daily and Mixed are independent from report-owned packages.
 - Fetch with read-only puzzle permission.
@@ -229,6 +292,8 @@ Hints:
 - Hint 2 reveals the destination square.
 
 ### Report and game deletion
+
+**Status: Maybe later.** Postponed by owner decision on 2026-11-14 (see `04-training-goals.md`). Kept for reference; not scheduled.
 
 - Reports retain restrictive references to their exact game and analysis versions.
 - A referenced game or analysis version cannot be deleted.
@@ -255,6 +320,8 @@ Admin exposes every project operation that exists in v1:
 - Safe diagnostics without tokens, raw cookies, secrets, or internal stack traces.
 
 ### Storage and maintenance
+
+**Status: Maybe later.** Postponed by owner decision on 2026-11-14 (see `04-training-goals.md`). Kept for reference; not scheduled.
 
 - Store the database, local secret material, and backups under ignored `var/` paths.
 - Default combined SQLite/database-journal cap is 5 GB.
@@ -285,7 +352,6 @@ Admin exposes every project operation that exists in v1:
 - In-app Lichess play, Board API, bot-play API, live-game monitoring, or live assistance.
 - Automatic game retrieval, automatic analysis, and automatic report generation.
 - Puzzle result write-back to Lichess.
-- Chess.com integration.
 - Analysis of variants other than standard chess.
 - Opponent findings in multi-game reports or report-owned packages.
 - A separate improvement report or a Chess Tweek-created Elo.
@@ -325,15 +391,17 @@ Admin exposes every project operation that exists in v1:
 - [x] **1. Application foundation** — implement the approved `DESIGN.md`, scaffold the verified Spring Boot/React/SQLite application and shared shell, complete the harness, CI, architecture tests, and `scripts/verify.mjs`. Needs 0 and the approved canonical design direction.
 - [x] **2. Lichess connection** — deliver PKCE login, secure local session, account/rating display, reconnect, and logout end to end. Needs 1.
 - [x] **3. Lichess game catalog** — deliver Get Lichess Games, durable idempotent catalog, filters/cards, and bot/rating context. Needs 2.
-- [ ] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review, and coach cards. Needs 3.
-- [ ] **5. Bulk analysis queue** — deliver owner-only 2–20 game jobs, persistent states, pause/resume/cancel/retry, and restart recovery. Needs 4.
-- [ ] **6. Overall Games Analysis** — deliver exact-ten report builder, immutable owner-only aggregation, saved report library/detail, and deletion restrictions. Needs 5.
-- [ ] **7. Mistake/Blunder Puzzles** — deliver report-owned five-ply exercises, alternative-line validation, hints, and attempts. Needs 6.
-- [ ] **8. Related Lichess Puzzles** — deliver weighted mapping, at-most-20 related puzzles, deduplication, failure isolation, and Retry. Needs 6.
-- [ ] **9. Normal puzzles** — deliver independent Daily/Mixed practice and local history. Needs 2; follow 8 to reuse proven puzzle infrastructure.
-- [ ] **10. Admin dependency management** — deliver side-by-side references and guarded transactional deletion. Needs 6–9.
-- [ ] **11. Database maintenance** — deliver 5 GB cap, disk reserve, backup, restore, and compaction. Needs 10.
-- [ ] **12. Product hardening** — complete security, accessibility, visual QA, real Lichess/Stockfish drive, operations docs, and full verification. Needs all prior slices.
+- [ ] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review with "what I was thinking" notes, and coach cards. Needs 3.
+- [ ] **5. Chess.com games** — deliver Get Chess.com Games, the shared catalog with a source, per-site ratings, and analysis eligibility. Needs 3.
+- [ ] **6. Training core** — deliver the interactive board with backend move validation, the shared spaced-repetition scheduler, mastery states, hints, and attempts. Needs 4.
+- [ ] **7. My Mistakes deck** — deliver drills from every owner mistake and blunder, grouped by phase, opening, and tactic label. Needs 6.
+- [ ] **8. Pattern library** — deliver themed decks from the Lichess puzzle database at about 1200 to 1700, opening decks, mastery per theme, Practice weakest, and custom positions. Needs 6.
+- [ ] **9. Opening explorer** — deliver Masters, Lichess by rating and speed, and My games move statistics. Needs 5 and 6.
+- [ ] **10. Repertoire builder** — deliver London and Caro-Kann trees, coverage and gaps, notes, and PGN import/export. Needs 9.
+- [ ] **11. Repertoire trainer** — deliver spaced-repetition drilling of repertoire moves with popularity-weighted replies and notes. Needs 10.
+- [ ] **12. Backup and hardening** — deliver a simple local backup and restore, then security, accessibility, visual QA, a real drive, and full verification. Needs all prior slices.
+
+Maybe later (postponed by owner decision on 2026-11-14, not scheduled): bulk analysis queue with thermal pausing and low-heat mode; Overall Games Analysis exact-ten reports; report-owned Related Lichess Puzzles; Lichess Daily and Mixed puzzles; dependency-aware Admin deletion; the 5 GB storage cap and compaction.
 
 ## Branch and handoff rules
 

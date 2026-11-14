@@ -1,0 +1,95 @@
+.frame {
+  width: 100%;
+  max-width: 34rem;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  aspect-ratio: 1;
+}
+
+.square {
+  position: relative;
+  display: grid;
+  place-items: center;
+  container-type: size;
+}
+
+.square[data-shade='light'] {
+  background: var(--color-board-light);
+}
+
+.square[data-shade='dark'] {
+  background: var(--color-board-dark);
+}
+
+.square[data-marked='true'] {
+  box-shadow: inset 0 0 0 100cqh var(--color-board-marked);
+}
+
+.piece {
+  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'DejaVu Sans', serif;
+  font-size: 78cqh;
+  line-height: 1;
+  user-select: none;
+}
+
+.piece[data-color='white'] {
+  color: var(--color-surface);
+  -webkit-text-stroke: 1.5px var(--color-text);
+  paint-order: stroke fill;
+}
+
+.piece[data-color='black'] {
+  color: var(--color-text);
+}
+
+.rankLabel,
+.fileLabel {
+  position: absolute;
+  font-family: var(--font-technical);
+  font-size: max(9px, 18cqh);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.rankLabel {
+  top: 4%;
+  left: 5%;
+}
+
+.fileLabel {
+  right: 6%;
+  bottom: 4%;
+}
+
+.arrow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.arrow line {
+  stroke: var(--color-board-arrow);
+  stroke-width: 0.16;
+  stroke-linecap: round;
+}
+
+.arrow marker path {
+  fill: var(--color-board-arrow);
+}
+
+.unreadable {
+  padding: var(--space-3);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  color: var(--color-error);
+}

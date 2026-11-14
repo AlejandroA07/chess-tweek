@@ -13,6 +13,12 @@
   --color-success: #3e4c31;
   --color-warning: #765b18;
   --color-error: #ba1a1a;
+  --color-board-light: #f3dcc6;
+  --color-board-dark: #b98563;
+  --color-board-marked: rgb(108 47 0 / 30%);
+  --color-board-arrow: rgb(62 76 49 / 85%);
+  --color-eval-white: #f3dcc6;
+  --color-eval-black: #54433a;
   --font-display: 'Playfair Display Variable', Georgia, 'Times New Roman', serif;
   --font-interface: 'Manrope Variable', 'Avenir Next', Avenir, ui-sans-serif, system-ui,
     sans-serif;

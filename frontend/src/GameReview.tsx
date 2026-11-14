@@ -11,6 +11,7 @@ import {
 import styles from './GameReview.module.css'
 import { ChessBoard, type BoardOrientation } from './ChessBoard'
 import { playUci } from './boardPosition'
+import { coachCard, tacticLabel, type CoachCard } from './coach'
 import { GameAnalysisPanel } from './GameAnalysisPanel'
 import type { AnalysisPerspective } from './analysis'
 import {
@@ -394,10 +395,14 @@ function ReviewWorkspace({
                   </button>
                   {focused.after[0] && focused.after[0].pvSan.length > 0 && (
                     <button type="button" className={styles.secondaryButton} onClick={() => openLine(focused, 'reply', 1)}>
-                      Why It Was a {SEVERITY_TEXT[focused.label as Exclude<Severity, 'none'>]}
+                      Show Their Best Reply
                     </button>
                   )}
                 </div>
+                <CoachPanel
+                  key={focused.ply}
+                  card={coachCard(focused, plies, selected?.side === 'my_moves')}
+                />
               </div>
             )}
             <div className={styles.boardControls} role="group" aria-label={line === null ? 'Move navigation' : 'Engine line navigation'}>
@@ -480,6 +485,42 @@ function lineEvaluation(line: ResolvedLine): BarEvaluation {
     whiteCp: line.line.cp === null ? null : line.line.cp * sign,
     whiteMate: line.line.mate === null ? null : line.line.mate * sign,
   }
+}
+
+const COACH_QUESTIONS = [
+  { key: 'why', label: 'Why?' },
+  { key: 'threat', label: 'What was the threat?' },
+  { key: 'train', label: 'What should I train?' },
+] as const
+
+/** Three fixed questions about the shown mistake, answered from the stored analysis. */
+function CoachPanel({ card }: { card: CoachCard }) {
+  const [question, setQuestion] = useState<(typeof COACH_QUESTIONS)[number]['key']>('why')
+  return (
+    <section className={styles.coach} aria-label="Coach">
+      <div className={styles.coachQuestions} role="group" aria-label="Coach questions">
+        {COACH_QUESTIONS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            aria-pressed={question === item.key}
+            onClick={() => setQuestion(item.key)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className={styles.coachAnswer} aria-live="polite">
+        {question === 'train' ? (
+          <ul>
+            {card.train.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        ) : (
+          <p>{card[question]}</p>
+        )}
+      </div>
+    </section>
+  )
 }
 
 /** The numbered moves of an engine line as buttons; step k shows the position after move k. */
@@ -815,6 +856,13 @@ function FindingCard({
         <span className={styles.notation}>{moveLabel(finding.ply, finding.san)}</span>
         <span className={styles.phase}>{PHASE_TEXT[finding.phase]}</span>
       </div>
+      {finding.tactics.length > 0 && (
+        <ul className={styles.tactics} aria-label="Tactic labels">
+          {finding.tactics.map((tactic) => (
+            <li key={`${tactic.theme}-${tactic.kind}`}>{tacticLabel(tactic)}</li>
+          ))}
+        </ul>
+      )}
       <dl className={styles.findingFacts}>
         <div>
           <dt>Played</dt>

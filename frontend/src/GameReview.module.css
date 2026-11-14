@@ -268,6 +268,72 @@
   outline-offset: 2px;
 }
 
+.coach {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.coachQuestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.coachQuestions button {
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-control);
+  color: var(--color-primary);
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coachQuestions button[aria-pressed='true'] {
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+.coachQuestions button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.coachAnswer {
+  line-height: 1.5;
+}
+
+.coachAnswer ul {
+  display: grid;
+  gap: var(--space-1);
+  padding-left: var(--space-4);
+}
+
+.tactics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.tactics li {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  font-family: var(--font-technical);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
 .lineTitle {
   margin-top: var(--space-2);
   color: var(--color-text-muted);

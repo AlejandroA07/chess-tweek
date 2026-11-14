@@ -127,7 +127,14 @@ class GameReviewService implements GameReviews {
                 move.loss(),
                 move.afterTerminal(),
                 lines(move.fenBefore(), move.before()),
-                move.after().isEmpty() ? List.of() : lines(fenAfter(move), move.after()));
+                move.after().isEmpty() ? List.of() : lines(fenAfter(move), move.after()),
+                TacticDetector.detect(
+                        move.fenBefore(),
+                        move.uci(),
+                        move.label(),
+                        move.mateEvent(),
+                        move.before().isEmpty() ? List.of() : move.before().getFirst().pv(),
+                        move.after().isEmpty() ? List.of() : move.after().getFirst().pv()));
     }
 
     private static List<Line> lines(String fen, List<StoredLine> stored) {

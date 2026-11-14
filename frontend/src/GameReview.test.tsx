@@ -221,8 +221,9 @@ describe('Game review', () => {
       .toHaveTextContent('333.3')
     expect(within(analysisRegion).getByRole('table', { name: 'By phase (inferred)' })).toBeInTheDocument()
 
-    const findings = within(analysisRegion).getAllByRole('listitem')
-    expect(findings).toHaveLength(1)
+    const views = within(analysisRegion).getAllByRole('button', { name: /^View mistake/ })
+    expect(views).toHaveLength(1)
+    const findings = views.map((view) => view.closest('li') as HTMLElement)
     expect(findings[0]).toHaveTextContent('Blunder')
     expect(findings[0]).toHaveTextContent('3… Nf6')
     expect(findings[0]).toHaveTextContent('Allowed a forced mate.')
@@ -233,28 +234,68 @@ describe('Game review', () => {
     expect(screen.getByRole('button', { name: '3… Nf6, Blunder' })).toBeInTheDocument()
   })
 
-  it('shows a finding position with the best-move arrow and a collapsible engine line', async () => {
+  it('shows the mistake first, then the best move and the reply as playable engine lines', async () => {
     const { container } = render(<App />)
-    const view = await screen.findByRole('button', { name: 'View position before 3… Nf6' })
-    expect(container.querySelector('[data-testid="best-move-arrow"]')).toBeNull()
-
+    const view = await screen.findByRole('button', { name: 'View mistake 3… Nf6' })
     fireEvent.click(view)
+
+    // The board shows the mistake itself: the position after it, with the played move marked.
     expect(view).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('img', { name: /Position before 3… Nf6\. Best move Qe7\. Black at the bottom\./ }))
-      .toBeInTheDocument()
-    expect(container.querySelector('[data-testid="best-move-arrow"]')).not.toBeNull()
-    expect(screen.getByText(/Played/, { selector: 'p' })).toHaveTextContent('Played Nf6 · Best Qe7')
-
-    const details = screen.getByText('Show Engine Line').closest('details')
-    expect(details).not.toHaveAttribute('open')
-    fireEvent.click(screen.getByText('Show Engine Line'))
-    expect(details).toHaveAttribute('open')
-    expect(within(details as HTMLElement).getByText('3… Qe7 4. Nf3 Nf6')).toBeInTheDocument()
-    expect(within(details as HTMLElement).getByText('4. Qxf7#')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show the played move' }))
-    expect(screen.getByRole('img', { name: /Position after 3… Nf6\./ })).toBeInTheDocument()
+    expect(screen.getByRole('img', {
+      name: /Position after your blunder 3… Nf6\. Best was 3… Qe7\. Black at the bottom\./,
+    })).toBeInTheDocument()
+    expect(container.querySelector('[data-square="g8"]')).toHaveAttribute('data-marked', 'true')
+    expect(container.querySelector('[data-square="f6"]')).toHaveAttribute('data-marked', 'true')
     expect(container.querySelector('[data-testid="best-move-arrow"]')).toBeNull()
+    expect(screen.getByText(/You played/)).toHaveTextContent('You played 3… Nf6 · Blunder · 45.0 pts lost')
+
+    // The best move is a button that plays it on the board.
+    fireEvent.click(screen.getByRole('button', { name: 'Show Best Move: 3… Qe7' }))
+    expect(screen.getByText('Best line', { selector: 'strong' }).closest('[role="status"]'))
+      .toHaveTextContent('Best line · engine line, not played in the game')
+    expect(screen.getByRole('img', { name: /Engine line, not played in the game: 3… Qe7\./ })).toBeInTheDocument()
+    expect(container.querySelector('[data-square="d8"]')).toHaveAttribute('data-marked', 'true')
+    expect(container.querySelector('[data-square="e7"] span')).toHaveTextContent('\u265B')
+    // The bar shows the line's evaluation: +0.4 for White, 60% for White from WDL 100/600/300 for Black.
+    expect(screen.getByTestId('evaluation-bar')).toHaveAccessibleName(
+      'Evaluation bar: +0.4 for White, White\'s expected score 60 percent.',
+    )
+
+    // The line can be stepped through with the buttons, its moves, and the keyboard.
+    fireEvent.click(screen.getByRole('button', { name: 'Next line move' }))
+    expect(screen.getByRole('img', { name: /Engine line, not played in the game: 3… Qe7 4\. Nf3\./ })).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByLabelText(/Board navigation/), { key: 'End' })
+    expect(screen.getByRole('img', { name: /3… Qe7 4\. Nf3 Nf6\./ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'End of the line' })).toBeDisabled()
+    fireEvent.click(within(screen.getByRole('list', { name: 'Best line moves' })).getByRole('button', { name: '3… Qe7' }))
+    expect(screen.getByRole('img', { name: /Engine line, not played in the game: 3… Qe7\./ })).toBeInTheDocument()
+
+    // Back to the game returns to the mistake.
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the Game' }))
+    expect(screen.getByRole('img', { name: /Position after your blunder 3… Nf6\./ })).toBeInTheDocument()
+
+    // The reply line shows why it was a blunder.
+    fireEvent.click(screen.getByRole('button', { name: 'Why It Was a Blunder' }))
+    expect(screen.getByRole('img', { name: /Engine line, not played in the game: 4\. Qxf7#\./ })).toBeInTheDocument()
+    expect(container.querySelector('[data-square="f7"] span')).toHaveTextContent('\u265B')
+
+    // Moving in the game leaves the line.
+    fireEvent.click(screen.getByRole('button', { name: '1. e4' }))
+    expect(screen.queryByText('Back to the Game')).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Position after 1\. e4\./ })).toBeInTheDocument()
+  })
+
+  it('opens engine lines from the finding card', async () => {
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Show best move 3… Qe7' }))
+    expect(screen.getByRole('img', { name: /Engine line, not played in the game: 3… Qe7\./ })).toBeInTheDocument()
+    const card = screen.getByRole('button', { name: 'View mistake 3… Nf6' }).closest('li') as HTMLElement
+    const details = card.querySelector('details') as HTMLElement
+    expect(details).toHaveAttribute('open')
+    fireEvent.click(within(within(card).getByRole('list', { name: 'Best line for 3… Nf6' })).getByRole('button', { name: '4. Nf3' }))
+    expect(screen.getByRole('img', { name: /3… Qe7 4\. Nf3\./ })).toBeInTheDocument()
+    fireEvent.click(within(within(card).getByRole('list', { name: 'Reply line after 3… Nf6' })).getByRole('button', { name: '4. Qxf7#' }))
+    expect(screen.getByRole('img', { name: /Engine line, not played in the game: 4\. Qxf7#\./ })).toBeInTheDocument()
   })
 
   it('navigates moves with buttons, the move list, and the keyboard, and flips the board', async () => {
@@ -356,7 +397,6 @@ describe('Game review', () => {
     expect(await screen.findByRole('heading', { name: 'Not analyzed yet' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Analyze My Moves' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Analyze Both Sides' })).toBeEnabled()
-    expect(screen.queryByRole('figure')).not.toBeInTheDocument()
   })
 
   it('explains that catalog-only games have no moves to replay', async () => {
@@ -391,7 +431,7 @@ describe('Game review', () => {
     expect(await screen.findByRole('heading', { name: 'This review could not be loaded' })).toBeInTheDocument()
     reviews[''] = { status: 200, body: review() }
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByRole('button', { name: 'View position before 3… Nf6' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'View mistake 3… Nf6' })).toBeInTheDocument()
   })
 
   it('treats a malformed review as unavailable instead of showing part of it', async () => {

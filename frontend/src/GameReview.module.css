@@ -208,7 +208,70 @@
 }
 
 .findingCaption {
+  display: grid;
+  gap: var(--space-2);
   font-size: 0.875rem;
+}
+
+.captionActions,
+.findingActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.lineBanner {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-left: 4px solid var(--color-board-arrow);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  font-size: 0.875rem;
+}
+
+.lineMoves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.lineMoves button {
+  min-height: 2.75rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  background: var(--color-surface);
+  font-family: var(--font-technical);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.lineMoves button:hover {
+  background: var(--color-surface-warm);
+}
+
+.lineMoves button[aria-current='step'] {
+  border-color: var(--color-primary);
+  color: var(--color-surface);
+  background: var(--color-primary);
+}
+
+.lineMoves button:focus-visible,
+.lineBanner button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.lineTitle {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
 }
 
 .notation {
@@ -360,54 +423,6 @@
 .symbol {
   margin-left: 0.15em;
   font-weight: 700;
-}
-
-.graph {
-  margin: 0;
-  display: grid;
-  gap: var(--space-2);
-}
-
-.graph svg {
-  width: 100%;
-  height: 6rem;
-  border: 1px solid var(--color-border);
-}
-
-.graph figcaption {
-  color: var(--color-text-muted);
-  font-family: var(--font-technical);
-  font-size: 0.75rem;
-}
-
-.graphBlack {
-  fill: var(--color-eval-black);
-}
-
-.graphWhite {
-  fill: var(--color-eval-white);
-}
-
-.graphMidline,
-.graphPhase,
-.graphCursor {
-  vector-effect: non-scaling-stroke;
-}
-
-.graphMidline {
-  stroke: var(--color-border-strong);
-  stroke-width: 1;
-}
-
-.graphPhase {
-  stroke: var(--color-text-muted);
-  stroke-width: 1;
-  stroke-dasharray: 3 3;
-}
-
-.graphCursor {
-  stroke: var(--color-primary);
-  stroke-width: 2;
 }
 
 .sideControls {

@@ -62,9 +62,9 @@ Chessboard and evaluation tokens (added 2026-11-14 for game review):
 | `--color-board-light` | `#F3DCC6` | Light board squares (maple). |
 | `--color-board-dark` | `#B98563` | Dark board squares (mahogany). |
 | `--color-board-marked` | `rgb(108 47 0 / 30%)` | Overlay for the from and to squares of the shown move. |
-| `--color-board-arrow` | `rgb(62 76 49 / 85%)` | The single engine best-move arrow. |
-| `--color-eval-white` | `#F3DCC6` | White's share of the evaluation graph. |
-| `--color-eval-black` | `#54433A` | Black's share of the evaluation graph. |
+| `--color-board-arrow` | `rgb(62 76 49 / 85%)` | The single engine best-move arrow and the engine-line banner rule. |
+| `--color-eval-white` | `#F3DCC6` | White's share of the evaluation bar. |
+| `--color-eval-black` | `#54433A` | Black's share of the evaluation bar. |
 
 Pieces use filled chess glyphs from the system symbol font: white pieces are surface-white with a primary-text outline, black pieces are primary text. Square coordinates use the technical typeface on every board edge square.
 

@@ -10,6 +10,7 @@ import {
 } from 'react'
 import styles from './GameReview.module.css'
 import { ChessBoard, type BoardOrientation } from './ChessBoard'
+import { playUci } from './boardPosition'
 import { GameAnalysisPanel } from './GameAnalysisPanel'
 import type { AnalysisPerspective } from './analysis'
 import {
@@ -117,9 +118,9 @@ export function GameReview({
       onFlip={() => setFlipped((value) => !value)}
       focusedPly={focusedPly}
       onViewFinding={(move) => {
-        setIndex(move.ply - 1)
+        // The board shows the position after the mistake, with the played move marked.
+        setIndex(move.ply)
         setFocusedPly(move.ply)
-        boardPanel.current?.focus()
       }}
       onSelectSide={(next) => {
         setSide(next)
@@ -190,6 +191,46 @@ function ReviewFailureNotice({
   )
 }
 
+/** An engine line being stepped through on the board instead of the game. */
+type LineView = { ply: number; source: 'best' | 'reply'; step: number }
+
+type ResolvedLine = {
+  view: LineView
+  finding: JudgedMove
+  line: EngineLine
+  firstPly: number
+  moves: string[]
+  fens: string[]
+}
+
+/**
+ * The engine line of a finding as playable positions: the best line from the position before the
+ * mistake, or the opponent's best reply line from the position after it. Only the moves the server
+ * could replay ({@code pvSan}) are used.
+ */
+function resolveLine(view: LineView, finding: JudgedMove, plies: Review['plies']): ResolvedLine | null {
+  const line = view.source === 'best' ? finding.before[0] : finding.after[0]
+  if (!line || line.pvSan.length === 0) return null
+  const start = view.source === 'best' ? finding.fenBefore : plies[finding.ply - 1]?.fen
+  if (!start) return null
+  const fens = [start]
+  const moves: string[] = []
+  for (const uci of line.pv.slice(0, line.pvSan.length)) {
+    const next = playUci(fens[fens.length - 1], uci)
+    if (next === null) break
+    fens.push(next)
+    moves.push(uci)
+  }
+  return {
+    view: { ...view, step: Math.max(0, Math.min(moves.length, view.step)) },
+    finding,
+    line,
+    firstPly: view.source === 'best' ? finding.ply : finding.ply + 1,
+    moves,
+    fens,
+  }
+}
+
 function ReviewWorkspace({
   review,
   index,
@@ -217,6 +258,7 @@ function ReviewWorkspace({
   analysisLocked: boolean
   onAnalyze: (perspective: AnalysisPerspective) => void
 }) {
+  const [lineView, setLineView] = useState<LineView | null>(null)
   const { game, plies, selected } = review
   const baseOrientation: BoardOrientation = selected?.analyzedColor ?? game.ownerColor
   const orientation: BoardOrientation = flipped
@@ -228,17 +270,56 @@ function ReviewWorkspace({
   )
   const findings = (selected?.moves ?? []).filter((move) => move.label !== 'none')
   const focused = focusedPly === null ? null : judgedByPly.get(focusedPly) ?? null
-  const showingFinding = focused !== null && index === focused.ply - 1
-  const fen = index === 0 ? review.initialFen : plies[index - 1].fen
-  const lastPly = index === 0 ? null : plies[index - 1]
+  const lineFinding = lineView === null ? null : judgedByPly.get(lineView.ply) ?? null
+  const line = lineView !== null && lineFinding !== null ? resolveLine(lineView, lineFinding, plies) : null
+  const showingFinding = line === null && focused !== null && index === focused.ply
 
-  const move = (next: number) => onIndexChange(Math.max(0, Math.min(plies.length, next)))
+  const lastPly = index === 0 ? null : plies[index - 1]
+  let fen = index === 0 ? review.initialFen : plies[index - 1].fen
+  let highlight: string | null = lastPly?.uci ?? null
+  let arrow: string | null = null
+  let positionText = lastPly === null ? 'Starting position.' : `Position after ${moveLabel(lastPly.ply, lastPly.san)}.`
+  if (line !== null) {
+    const { step } = line.view
+    fen = line.fens[step]
+    highlight = step === 0 ? null : line.moves[step - 1]
+    arrow = step === 0 ? line.moves[0] : null
+    positionText = step === 0
+      ? `Engine line, not played in the game: starts from the position ${line.view.source === 'best' ? 'before' : 'after'} ${moveLabel(line.finding.ply, line.finding.san)}.`
+      : `Engine line, not played in the game: ${formatVariation(line.firstPly, line.line.pvSan.slice(0, step))}.`
+  } else if (showingFinding && focused) {
+    positionText = `Position after your ${SEVERITY_TEXT[focused.label as Exclude<Severity, 'none'>].toLowerCase()} ${moveLabel(focused.ply, focused.san)}. Best was ${moveLabel(focused.ply, focused.bestMoveSan ?? focused.bestMove)}.`
+  }
+
+  const goTo = (next: number) => {
+    setLineView(null)
+    onIndexChange(Math.max(0, Math.min(plies.length, next)))
+  }
+  const stepTo = (next: number) => {
+    if (line === null) return
+    setLineView({ ...line.view, step: Math.max(0, Math.min(line.moves.length, next)) })
+  }
+  const openLine = (finding: JudgedMove, source: LineView['source'], step: number) => {
+    onViewFinding(finding)
+    setLineView({ ply: finding.ply, source, step })
+    boardPanel.current?.focus()
+  }
+  const viewFinding = (finding: JudgedMove) => {
+    setLineView(null)
+    onViewFinding(finding)
+    boardPanel.current?.focus()
+  }
+
+  const position = line === null ? index : line.view.step
+  const last = line === null ? plies.length : line.moves.length
+  const move = line === null ? goTo : stepTo
   const onBoardKey = (event: KeyboardEvent<HTMLDivElement>) => {
     const keys: Record<string, () => void> = {
-      ArrowLeft: () => move(index - 1),
-      ArrowRight: () => move(index + 1),
+      ArrowLeft: () => move(position - 1),
+      ArrowRight: () => move(position + 1),
       Home: () => move(0),
-      End: () => move(plies.length),
+      End: () => move(last),
+      Escape: () => setLineView(null),
     }
     const action = keys[event.key]
     if (action) {
@@ -246,12 +327,6 @@ function ReviewWorkspace({
       action()
     }
   }
-
-  const positionText = showingFinding && focused
-    ? `Position before ${moveLabel(focused.ply, focused.san)}. Best move ${focused.bestMoveSan ?? focused.bestMove}.`
-    : lastPly === null
-      ? 'Starting position.'
-      : `Position after ${moveLabel(lastPly.ply, lastPly.san)}.`
 
   return (
     <div className={styles.review}>
@@ -266,54 +341,85 @@ function ReviewWorkspace({
       ) : (
         <div className={styles.workspace}>
           <section className={styles.boardColumn} aria-label="Board">
+            {line !== null && (
+              <div className={styles.lineBanner} role="status">
+                <p>
+                  <strong>{line.view.source === 'best' ? 'Best line' : 'After your move'}</strong>
+                  {' · '}engine line, not played in the game
+                </p>
+                <LineMoves
+                  firstPly={line.firstPly}
+                  sans={line.line.pvSan.slice(0, line.moves.length)}
+                  step={line.view.step}
+                  onSelect={stepTo}
+                  label={line.view.source === 'best' ? 'Best line moves' : 'Reply line moves'}
+                />
+                <button type="button" className={styles.secondaryButton} onClick={() => setLineView(null)}>
+                  Back to the Game
+                </button>
+              </div>
+            )}
             <div
               ref={boardPanel}
               className={styles.boardPanel}
               tabIndex={0}
               onKeyDown={onBoardKey}
-              aria-label="Board navigation. Use the arrow keys, Home, and End to move through the game."
+              aria-label="Board navigation. Use the arrow keys, Home, and End to move through the game or the shown engine line."
             >
-              <EvaluationBar review={review} index={index} orientation={orientation} />
+              <EvaluationBar
+                review={review}
+                index={index}
+                orientation={orientation}
+                override={line === null ? null : lineEvaluation(line)}
+              />
               <ChessBoard
                 fen={fen}
                 orientation={orientation}
                 label={`${positionText} ${orientation === 'white' ? 'White' : 'Black'} at the bottom.`}
-                highlight={showingFinding ? null : lastPly?.uci ?? null}
-                arrow={showingFinding && focused ? focused.bestMove : null}
+                highlight={highlight}
+                arrow={arrow}
               />
             </div>
             <p className={styles.positionText} aria-live="polite">{positionText}</p>
             {showingFinding && focused && (
-              <p className={styles.findingCaption}>
-                Played <span className={styles.notation}>{focused.san}</span>
-                {' · '}Best <span className={styles.notation}>{focused.bestMoveSan ?? focused.bestMove}</span>
-                {' · '}
-                <button className={styles.textButton} type="button" onClick={() => move(focused.ply)}>
-                  Show the played move
-                </button>
-              </p>
+              <div className={styles.findingCaption}>
+                <p>
+                  You played <span className={styles.notation}>{moveLabel(focused.ply, focused.san)}</span>
+                  {' · '}{SEVERITY_TEXT[focused.label as Exclude<Severity, 'none'>]}
+                  {' · '}{(focused.loss / 20).toFixed(1)} pts lost
+                </p>
+                <div className={styles.captionActions}>
+                  <button type="button" className={styles.primaryButton} onClick={() => openLine(focused, 'best', 1)}>
+                    Show Best Move: {moveLabel(focused.ply, focused.bestMoveSan ?? focused.bestMove)}
+                  </button>
+                  {focused.after[0] && focused.after[0].pvSan.length > 0 && (
+                    <button type="button" className={styles.secondaryButton} onClick={() => openLine(focused, 'reply', 1)}>
+                      Why It Was a {SEVERITY_TEXT[focused.label as Exclude<Severity, 'none'>]}
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
-            <div className={styles.boardControls} role="group" aria-label="Move navigation">
-              <button type="button" onClick={() => move(0)} disabled={index === 0} aria-label="First position">|&lt;</button>
-              <button type="button" onClick={() => move(index - 1)} disabled={index === 0} aria-label="Previous move">&lt;</button>
-              <button type="button" onClick={() => move(index + 1)} disabled={index === plies.length} aria-label="Next move">&gt;</button>
-              <button type="button" onClick={() => move(plies.length)} disabled={index === plies.length} aria-label="Last position">&gt;|</button>
+            <div className={styles.boardControls} role="group" aria-label={line === null ? 'Move navigation' : 'Engine line navigation'}>
+              <button type="button" onClick={() => move(0)} disabled={position === 0} aria-label={line === null ? 'First position' : 'Start of the line'}>|&lt;</button>
+              <button type="button" onClick={() => move(position - 1)} disabled={position === 0} aria-label={line === null ? 'Previous move' : 'Previous line move'}>&lt;</button>
+              <button type="button" onClick={() => move(position + 1)} disabled={position === last} aria-label={line === null ? 'Next move' : 'Next line move'}>&gt;</button>
+              <button type="button" onClick={() => move(last)} disabled={position === last} aria-label={line === null ? 'Last position' : 'End of the line'}>&gt;|</button>
               <button type="button" className={styles.flipButton} onClick={onFlip}>Flip Board</button>
             </div>
             <p className={styles.orientation}>
               {orientation === 'white' ? 'White' : 'Black'} at the bottom
             </p>
-            <EvaluationGraph review={review} index={index} />
           </section>
 
           <section className={styles.movesColumn} aria-label="Moves">
             <h2>Moves</h2>
             <MoveList
               plies={plies}
-              index={index}
+              index={line === null ? index : -1}
               judgedByPly={judgedByPly}
               phases={review.phases}
-              onSelect={move}
+              onSelect={goTo}
             />
           </section>
 
@@ -321,7 +427,10 @@ function ReviewWorkspace({
             <SideTabs
               review={review}
               locked={analysisLocked}
-              onSelect={onSelectSide}
+              onSelect={(next) => {
+                setLineView(null)
+                onSelectSide(next)
+              }}
               onAnalyze={onAnalyze}
             />
             {selected === null ? (
@@ -343,8 +452,10 @@ function ReviewWorkspace({
                       <FindingCard
                         key={finding.ply}
                         finding={finding}
-                        selected={showingFinding && focused?.ply === finding.ply}
-                        onView={() => onViewFinding(finding)}
+                        selected={(showingFinding && focused?.ply === finding.ply) || line?.finding.ply === finding.ply}
+                        activeLine={line?.finding.ply === finding.ply ? line.view : null}
+                        onView={() => viewFinding(finding)}
+                        onOpenLine={(source, step) => openLine(finding, source, step)}
                       />
                     ))}
                   </ol>
@@ -355,6 +466,58 @@ function ReviewWorkspace({
         </div>
       )}
     </div>
+  )
+}
+
+/** White's expected score and engine score at the end of an engine line, for the evaluation bar. */
+function lineEvaluation(line: ResolvedLine): BarEvaluation {
+  // Line scores are from the side to move at the line's start position.
+  const startsWithWhite = line.firstPly % 2 === 1
+  const sideToMove = 2 * line.line.win + line.line.draw
+  const sign = startsWithWhite ? 1 : -1
+  return {
+    whiteExpected: startsWithWhite ? sideToMove : 2_000 - sideToMove,
+    whiteCp: line.line.cp === null ? null : line.line.cp * sign,
+    whiteMate: line.line.mate === null ? null : line.line.mate * sign,
+  }
+}
+
+/** The numbered moves of an engine line as buttons; step k shows the position after move k. */
+function LineMoves({
+  firstPly,
+  sans,
+  step,
+  onSelect,
+  label,
+  limit,
+}: {
+  firstPly: number
+  sans: string[]
+  step: number | null
+  onSelect: (step: number) => void
+  label: string
+  limit?: number
+}) {
+  const shown = limit === undefined ? sans : sans.slice(0, limit)
+  return (
+    <ol className={styles.lineMoves} aria-label={label}>
+      {shown.map((san, offset) => {
+        const ply = firstPly + offset
+        const number = ply % 2 === 1 ? `${Math.ceil(ply / 2)}. ` : offset === 0 ? `${Math.ceil(ply / 2)}… ` : ''
+        return (
+          <li key={offset}>
+            <button
+              type="button"
+              aria-current={step === offset + 1 ? 'step' : undefined}
+              onClick={() => onSelect(offset + 1)}
+              aria-label={moveLabel(ply, san)}
+            >
+              {number}{san}
+            </button>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
@@ -571,66 +734,32 @@ function MoveList({
   )
 }
 
-function EvaluationGraph({ review, index }: { review: Review; index: number }) {
-  const evaluations = review.selected?.evaluations ?? []
-  if (evaluations.length < 2) return null
-  const width = Math.max(1, review.plies.length)
-  const points = [...evaluations]
-    .sort((a, b) => a.index - b.index)
-    .map((evaluation) => `${evaluation.index},${(2_000 - evaluation.whiteExpected) / 20}`)
-  const current = evaluations.find((evaluation) => evaluation.index === index)
-  const phases = review.phases
-  return (
-    <figure className={styles.graph}>
-      <svg
-        viewBox={`0 0 ${width} 100`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Evaluation progression over ${evaluations.length} positions. ${
-          current ? `White's expected score here: ${Math.round(current.whiteExpected / 20)} percent.` : 'No evaluation for this position.'
-        }`}
-      >
-        <rect className={styles.graphBlack} x="0" y="0" width={width} height="100" />
-        <polygon
-          className={styles.graphWhite}
-          points={`${points[0].split(',')[0]},100 ${points.join(' ')} ${points[points.length - 1].split(',')[0]},100`}
-        />
-        <line className={styles.graphMidline} x1="0" x2={width} y1="50" y2="50" />
-        {phases && phases.middlegameStart > 0 && (
-          <line className={styles.graphPhase} x1={phases.middlegameStart} x2={phases.middlegameStart} y1="0" y2="100" />
-        )}
-        {phases && phases.endgameStart !== null && (
-          <line className={styles.graphPhase} x1={phases.endgameStart} x2={phases.endgameStart} y1="0" y2="100" />
-        )}
-        <line className={styles.graphCursor} x1={index} x2={index} y1="0" y2="100" />
-      </svg>
-      <figcaption>
-        Evaluation for White · {current ? `${Math.round(current.whiteExpected / 20)}% here` : 'not evaluated here'}
-        {current && formatEngineScore(current.whiteCp, current.whiteMate) !== null && ` · ${formatEngineScore(current.whiteCp, current.whiteMate)}`}
-      </figcaption>
-    </figure>
-  )
-}
-
 /**
  * A vertical bar beside the board, filled with White's share of the expected score at the shown
  * position. The bottom of the bar is the side at the bottom of the board. A position without its
  * own evaluation (the start or final position, depending on the analyzed side) uses the nearest
  * evaluated position before it, or after it at the start of the game.
  */
+type BarEvaluation = { whiteExpected: number; whiteCp: number | null; whiteMate: number | null }
+
 function EvaluationBar({
   review,
   index,
   orientation,
+  override,
 }: {
   review: Review
   index: number
   orientation: BoardOrientation
+  /** Shown instead of the game's evaluation, for an engine line. */
+  override: BarEvaluation | null
 }) {
   const evaluations = review.selected?.evaluations ?? []
   if (evaluations.length === 0) return null
   const sorted = [...evaluations].sort((a, b) => a.index - b.index)
-  const evaluation = [...sorted].reverse().find((candidate) => candidate.index <= index) ?? sorted[0]
+  const evaluation: BarEvaluation = override
+    ?? [...sorted].reverse().find((candidate) => candidate.index <= index)
+    ?? sorted[0]
   const whitePercent = evaluation.whiteExpected / 20
   const score = barScore(evaluation)
   const whiteAhead = evaluation.whiteExpected >= 1000
@@ -652,7 +781,7 @@ function EvaluationBar({
   )
 }
 
-function barScore(evaluation: NonNullable<Review['selected']>['evaluations'][number]) {
+function barScore(evaluation: BarEvaluation) {
   const engine = formatEngineScore(evaluation.whiteCp, evaluation.whiteMate)
   if (engine !== null) return engine
   // The game ended on the board: no engine score, only the result.
@@ -664,15 +793,21 @@ function barScore(evaluation: NonNullable<Review['selected']>['evaluations'][num
 function FindingCard({
   finding,
   selected,
+  activeLine,
   onView,
+  onOpenLine,
 }: {
   finding: JudgedMove
   selected: boolean
+  activeLine: LineView | null
   onView: () => void
+  onOpenLine: (source: LineView['source'], step: number) => void
 }) {
   const severity = finding.label as Exclude<Severity, 'none'>
   const mover = finding.ply % 2 === 1 ? 'white' : 'black'
   const best = finding.before[0]
+  const reply = finding.after[0]
+  const bestSan = finding.bestMoveSan ?? finding.bestMove
   return (
     <li className={styles.finding} data-severity={severity} data-selected={selected}>
       <div className={styles.findingHeading}>
@@ -687,7 +822,7 @@ function FindingCard({
         </div>
         <div>
           <dt>Best</dt>
-          <dd className={styles.notation}>{finding.bestMoveSan ?? finding.bestMove}</dd>
+          <dd className={styles.notation}>{bestSan}</dd>
         </div>
         <div>
           <dt>Loss</dt>
@@ -715,21 +850,48 @@ function FindingCard({
         <button
           type="button"
           className={styles.secondaryButton}
-          aria-pressed={selected}
+          aria-pressed={selected && activeLine === null}
           onClick={onView}
-          aria-label={`View position before ${moveLabel(finding.ply, finding.san)}`}
+          aria-label={`View mistake ${moveLabel(finding.ply, finding.san)}`}
         >
-          View Position
+          View Mistake
         </button>
+        {best && best.pvSan.length > 0 && (
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            aria-pressed={activeLine?.source === 'best'}
+            onClick={() => onOpenLine('best', 1)}
+            aria-label={`Show best move ${moveLabel(finding.ply, bestSan)}`}
+          >
+            Best Move: <span className={styles.notation}>{bestSan}</span>
+          </button>
+        )}
       </div>
       {best && best.pvSan.length > 0 && (
-        <details className={styles.engineLine}>
-          <summary>Show Engine Line</summary>
-          <p className={styles.notation}>{formatVariation(finding.ply, best.pvSan)}</p>
-          {finding.after[0] && finding.after[0].pvSan.length > 0 && (
-            <p className={styles.refutation}>
-              After {finding.san}: <span className={styles.notation}>{formatVariation(finding.ply + 1, finding.after[0].pvSan)}</span>
-            </p>
+        <details className={styles.engineLine} open={activeLine !== null || undefined}>
+          <summary>Show Engine Lines</summary>
+          <p className={styles.lineTitle}>Best line</p>
+          <LineMoves
+            firstPly={finding.ply}
+            sans={best.pvSan}
+            step={activeLine?.source === 'best' ? activeLine.step : null}
+            onSelect={(step) => onOpenLine('best', step)}
+            label={`Best line for ${moveLabel(finding.ply, finding.san)}`}
+            limit={16}
+          />
+          {reply && reply.pvSan.length > 0 && (
+            <>
+              <p className={styles.lineTitle}>After {finding.san}: the opponent’s best reply</p>
+              <LineMoves
+                firstPly={finding.ply + 1}
+                sans={reply.pvSan}
+                step={activeLine?.source === 'reply' ? activeLine.step : null}
+                onSelect={(step) => onOpenLine('reply', step)}
+                label={`Reply line after ${moveLabel(finding.ply, finding.san)}`}
+                limit={16}
+              />
+            </>
           )}
         </details>
       )}

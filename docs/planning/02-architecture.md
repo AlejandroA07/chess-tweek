@@ -7,8 +7,8 @@ This document records the boundaries that are expensive to reverse. Stage 1 must
 | Area | Responsibility | What the boundary protects |
 |---|---|---|
 | `identity` | Lichess PKCE, sealed session, current account, and authorization context. | Tokens and account identity from feature-specific persistence or accidental client exposure. |
-| `game-review` | Lichess game catalog, Stockfish jobs and findings, individual reviews, Overall Games Analysis, and both report-owned packages. | Versioned evidence and report immutability from unrelated training workflows. |
-| `training` | Normal Lichess Daily/Mixed puzzles and local attempt history. | Independent practice history from report-owned evidence and deletion lifecycles. |
+| `game-review` | Lichess and chess.com game catalog, Stockfish jobs and findings, individual reviews, and (maybe later) Overall Games Analysis and report-owned packages. | Versioned evidence and report immutability from unrelated training workflows. |
+| `training` | Spaced-repetition scheduler and attempts, My Mistakes drills (built from `game-review`'s public findings query), the pattern library, the opening explorer cache, and repertoires (re-scope of 2026-11-14). | Independent practice history from report-owned evidence and deletion lifecycles. |
 | `shared` | Configuration, database connection, safe HTTP errors, correlation IDs, clocks, and narrow primitives. | Cross-cutting mechanics without becoming a dumping ground for feature rules. |
 | composition | Spring MVC controllers, application wiring, and delivery of the built React interface. | Keeps feature modules independent while allowing the application to assemble them. |
 

@@ -14,6 +14,73 @@ Chess Tweek is delivered as small, reviewable vertical slices. One stage equals 
 
 Every handoff lists changed files, commands run, manual checks, and known limitations. The agent commits verified work and may push only the explicit current feature branch to `origin`; the owner alone merges.
 
+## Re-scoped plan (owner decision, 2026-11-14)
+
+The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, the wishes, the tool research, and the decisions. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12. The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
+
+New views (Train, Patterns, Openings) have no Stitch prompt yet. They implement `docs/app-material/DESIGN.md` with project tokens and CSS Modules and follow the existing shell; no second visual system is introduced.
+
+### Stage 5 — Chess.com games
+
+**Branch:** `feature/chesscom-games` · **Needs:** Stage 3.
+
+- Owner-entered chess.com username stored under the active account.
+- Manual Get Chess.com Games through the public Published-Data API: 1 to 50 finished games, optional before-date, idempotent by source and game ID.
+- One catalog with a source filter and badge; ratings and history per site; standard games analysis-eligible.
+- Acceptance: re-fetching creates no duplicate; 404 username, 429, malformed data, and network failure are visible and recoverable; no personal data is sent in request headers.
+
+### Stage 6 — Training core
+
+**Branch:** `feature/training-core` · **Needs:** Stage 4.
+
+- Interactive board in project styles with click and drag moves, validated server-side with the approved `chessgame` library.
+- Shared spaced-repetition scheduler (Again, Hard, Good, Easy set from the attempt), mastery states New, Learning, Mastered, Lapsed, two-level hints, and attempt history.
+- Acceptance: illegal moves are rejected server-side; solutions never reach the browser before validation or a hint; scheduling is deterministic under a fixed clock in tests.
+
+### Stage 7 — My Mistakes deck
+
+**Branch:** `feature/my-mistakes` · **Needs:** Stage 6.
+
+- One five-ply drill for every owner mistake and blunder in any completed owner analysis, with alternative-line acceptance and the owner's "what I was thinking" note.
+- Groups by phase, opening, tactic label, and source site; links back to the game review.
+- Acceptance: every eligible error yields exactly one drill per analysis version; attempts survive reanalysis.
+
+### Stage 8 — Pattern library
+
+**Branch:** `feature/pattern-library` · **Needs:** Stage 6 and the owner's answers on themes and import mechanism.
+
+- Themed decks from the CC0 Lichess puzzle database, rating about 1200 to 1700, plus Caro-Kann and London opening decks.
+- Mastery percentage per deck, Practice weakest, fixed-set repetition sessions, and custom positions.
+- Acceptance: only chosen themes and ratings are stored; import is bounded and resumable; storage size is reported.
+
+### Stage 9 — Opening explorer
+
+**Branch:** `feature/opening-explorer` · **Needs:** Stages 5 and 6.
+
+- Move statistics for any position from Lichess Masters, Lichess by rating band and speed, and My games computed from stored games of both sites.
+- Acceptance: the Lichess token never reaches the browser; upstream failure and 429 leave My games usable; responses are cached.
+
+### Stage 10 — Repertoire builder
+
+**Branch:** `feature/repertoire-builder` · **Needs:** Stage 9.
+
+- White and Black repertoires starting with the London System and the Caro-Kann Defense; move tree, coverage target, next and biggest gap, transpositions, notes, PGN import and export.
+- Acceptance: imported PGN comments become notes; export round-trips; gaps match the coverage rule.
+
+### Stage 11 — Repertoire trainer
+
+**Branch:** `feature/repertoire-trainer` · **Needs:** Stage 10.
+
+- Due repertoire positions drilled with the shared scheduler, popularity-weighted opponent replies, notes after each move, and session statistics.
+- Acceptance: a wrong move shows the prepared move and is scheduled as Again; due counts are correct across restarts.
+
+### Stage 12 — Backup and hardening
+
+**Branch:** `feature/product-hardening` · **Needs:** Stages 5 to 11.
+
+- Simple timestamped local backup and guarded restore with a safety backup first.
+- The hardening checklist below.
+
 ## Stage 0 — Repository and planning
 
 **Branch:** `feature/project-planning`
@@ -129,7 +196,7 @@ Acceptance:
 - Reanalysis creates a new version without mutating old evidence.
 - Owner and opponent findings are never combined.
 
-## Stage 5 — Persistent bulk analysis queue
+## Maybe later — Persistent bulk analysis queue
 
 **Branch:** `feature/analysis-queue`
 **Needs:** Stage 4.
@@ -154,7 +221,7 @@ Acceptance:
 - A simulated thermal limit pauses the queue after the current search and resumes it when cleared, without losing or duplicating work.
 - Low-heat mode runs with 1 thread, uses its own profile, and is recorded on the analysis version.
 
-## Stage 6 — Overall Games Analysis core
+## Maybe later — Overall Games Analysis core
 
 **Branch:** `feature/overall-games-analysis`
 **Needs:** Stage 5.
@@ -176,7 +243,7 @@ Acceptance:
 - Deleting a referenced game is blocked with every blocking report returned.
 - All report queries are account-scoped.
 
-## Stage 7 — Mistake/Blunder Puzzle package
+## Maybe later — Report-owned Mistake/Blunder Puzzle package (replaced by the new Stage 7 My Mistakes deck)
 
 **Branch:** `feature/report-mistake-puzzles`
 **Needs:** Stage 6.
@@ -196,7 +263,7 @@ Acceptance:
 - Hint 1 identifies the piece and Hint 2 identifies the destination.
 - Deleting the report deletes this package and its attempts.
 
-## Stage 8 — Related Lichess Puzzle package
+## Maybe later — Related Lichess Puzzle package
 
 **Branch:** `feature/report-lichess-puzzles`
 **Needs:** Stage 6; follow Stage 7 to reuse the proven player.
@@ -218,7 +285,7 @@ Acceptance:
 - Results remain local and are never submitted to Lichess.
 - Report deletion cascades the package and attempts.
 
-## Stage 9 — Normal Daily and Mixed puzzles
+## Maybe later — Normal Daily and Mixed puzzles
 
 **Branch:** `feature/normal-puzzles`
 **Needs:** Stage 2 and the puzzle infrastructure proven through Stage 8.
@@ -236,7 +303,7 @@ Acceptance:
 - Normal and report-owned histories stay separate.
 - No puzzle-write permission or endpoint is used.
 
-## Stage 10 — Admin dependencies and deletion
+## Maybe later — Admin dependencies and deletion
 
 **Branch:** `feature/admin-data-management`
 **Needs:** Stages 6–9.
@@ -255,7 +322,7 @@ Acceptance:
 - Any partial failure rolls back the transaction.
 - Unrelated data remains untouched.
 
-## Stage 11 — Storage and database maintenance
+## Maybe later — Storage and database maintenance
 
 **Branch:** `feature/database-maintenance`
 **Needs:** Stage 10.
@@ -275,7 +342,7 @@ Acceptance:
 - A failed restore leaves the original database usable.
 - Compaction demonstrably reclaims deleted space.
 
-## Stage 12 — Final product hardening
+## Hardening checklist (used by the new Stage 12)
 
 **Branch:** `feature/product-hardening`
 **Needs:** Every prior stage.

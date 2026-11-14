@@ -107,7 +107,7 @@ These are widely used methods for players between 1200 and 2000. They are coachi
 | B. Fork En Croissant | Add the missing features (mistake puzzles with spaced repetition, mastery by theme) to its codebase. | Throws away about 19,000 lines of Chess Tweek code; a large Rust/Tauri codebase to learn; merges with upstream. |
 | C. Re-scope Chess Tweek (recommended) | Use En Croissant and Lichess today for openings and explorer. Keep Chess Tweek only for what no free tool combines: chess.com and Lichess games, your own mistakes as drills, a themed pattern library from the CC0 Lichess puzzle database, and one spaced-repetition "mastery" engine across all of them. | Small to medium. Reuses everything built so far. Drops most of stages 5, 6, 8, 10, and 11. |
 
-### Option C in detail (proposal for owner review)
+### Option C in detail (original proposal; section 8 records the owner's changes: openings and the explorer are built in Chess Tweek, not taken from free tools)
 
 Keep (already built or next):
 
@@ -136,13 +136,116 @@ Drop or defer from the current plan:
 - Stage 10 dependency-aware deletion and Stage 11 storage cap and compaction (a simple backup is enough for one user).
 - Opponent-only analysis has limited training value; keep what exists, build nothing more around it.
 
-## 8. Open questions for the owner
+## 8. Owner decisions (2026-11-14)
 
-1. Do you play mostly on chess.com, on Lichess, or both? This decides whether chess.com import comes first.
-2. Will you try En Croissant for openings before we build anything for openings?
-3. Do you agree to drop or defer stages 5, 6, 8, 10, and 11 as listed above?
-4. Which themes go into the first pattern library, and at which puzzle rating range?
-5. Is importing a filtered part of the Lichess puzzle CSV acceptable? It is a large download (several hundred MB compressed) and needs a decompression dependency, which requires owner approval.
+1. **Both sites.** The owner plays on chess.com and Lichess and wants both. Chess.com game import enters the plan.
+2. **Openings inside Chess Tweek.** Build what En Croissant does for openings in our own app instead of using En Croissant: an opening explorer, a repertoire builder, and a spaced-repetition repertoire trainer.
+3. **Postpone, not delete.** Old stages 5, 6, 8, 9, 10, and 11 move to a "Maybe later" list.
+4. **Puzzle level.** Pattern puzzles rated about 1200 to 1700. The owner asked for an explanation of the possible patterns before choosing; see section 9.
+
+Decisions in this section are copied into `01-chess-tweek.md` and `03-delivery-plan.md`.
+
+### How En Croissant does openings (the model we copy, without copying its code)
+
+En Croissant is GPL-3.0 licensed, so we reimplement its ideas in our own stack and never copy its code.
+
+- **Build mode.** Set a start position (for example 1.d4 ... 2.Bf4 for the London). For each position the app lists the most common moves from a reference database with their win rates and whether your repertoire already covers them. Click a move to add it. "Go to next gap" and "Go to biggest gap" jump to positions where an opponent reply has no prepared answer. A line counts as covered once it reaches a position played fewer times than a target you set. Transpositions (same position, different move order) count as covered.
+- **Train mode.** The app shows positions from the repertoire and you play your move on the board. You then rate how easily you remembered it (1 Again, 2 Hard, 3 Good, 4 Easy). A spaced-repetition scheduler called FSRS shows difficult moves more often. A session shows moves practiced, correct, incorrect, and accuracy, and files with moves due show a marker.
+- **Storage.** A repertoire is a normal PGN file, so annotated lines and comments can be imported and exported.
+
+### What we add on top for "objectives of the opening"
+
+Chess Tweek never calls an AI, so objectives come from text a person wrote:
+
+- A **note** on any position in the repertoire, written by the owner, shown during training (for example "Plan: Ne5, f4, kingside attack").
+- **PGN import**: bring in an annotated PGN (for example an exported Lichess study about the London or Caro-Kann) and keep its comments as notes.
+- Optional **starter notes** for the main London and Caro-Kann structures, written once into the project as plain text and editable by the owner.
+
+## 9. The patterns, explained (for choosing the first library)
+
+A "theme" is a label Lichess puts on each puzzle saying which idea solves it. Training by theme means solving many puzzles with the same idea until you spot it instantly. These are all the themes that exist, in plain words. Recommended starter themes are marked **(start)**.
+
+### Fundamental tactics (Lichess Practice: Fundamental Tactics)
+
+| Theme | What it means |
+|---|---|
+| fork **(start)** | One piece attacks two or more pieces at once. |
+| pin **(start)** | A piece cannot move without exposing a more valuable piece (or the king) behind it. |
+| skewer **(start)** | Attack a valuable piece; when it moves, take the piece behind it. The reverse of a pin. |
+| discoveredAttack **(start)** | Move one piece out of the way so the piece behind it attacks. |
+| discoveredCheck | A discovered attack where the uncovered piece gives check. |
+| doubleCheck **(start)** | Two pieces give check at once; only a king move helps. |
+| hangingPiece **(start)** | Win a piece that is undefended. The most common error at 1300. |
+| trappedPiece **(start)** | A piece has no safe square and can be won. |
+| capturingDefender **(start)** | Take the piece that defends something, then win what it defended. |
+| xRayAttack | A piece attacks or defends through another piece. |
+| intermezzo **(start)** | Instead of the expected recapture, first play a stronger in-between move (also called zwischenzug). Duolingo unit 23. |
+
+### Advanced tactics (Lichess Practice: Advanced Tactics)
+
+| Theme | What it means |
+|---|---|
+| deflection **(start)** | Force a defender away from the square or piece it guards. |
+| attraction **(start)** | Force an enemy piece (often the king) onto a bad square, usually with a sacrifice. |
+| interference **(start)** | Put a piece between an enemy piece and the square it defends, cutting the line. Duolingo unit 23. |
+| clearance | Move your own piece away to open a line or square for another piece. |
+| sacrifice | Give up material for a bigger gain. |
+| quietMove | A strong move that is not a check or capture, which is easy to overlook. |
+| defensiveMove | The only move that avoids losing. Trains defense. |
+| zugzwang | Every move the opponent has makes their position worse. |
+| exposedKing **(start)** | Attack a king with few defenders. |
+| kingsideAttack **(start)** | Attack the castled king on the kingside. Duolingo "attack on a castled king". |
+| queensideAttack | Attack a king castled on the queenside. |
+| attackingF2F7 | Attack the weak f2 or f7 pawn next to the uncastled king. |
+| advancedPawn, promotion, underPromotion | Pawn races, promoting, and promoting to a knight, rook, or bishop. |
+
+### Checkmate patterns (Lichess Practice: Checkmates)
+
+| Theme | What it means |
+|---|---|
+| mateIn1, mateIn2 **(start)**, mateIn3 | Find a forced mate in that many moves. |
+| backRankMate **(start)** | The king is trapped behind its own pawns and a rook or queen mates on the back rank. |
+| smotheredMate **(start)** | A knight mates a king that is surrounded by its own pieces. |
+| arabianMate **(start)** | Rook and knight in the corner: the knight protects the rook and covers the escape square. |
+| hookMate **(start)** | Rook next to the king, protected by a knight, which is protected by a pawn. Probably the Duolingo rook-and-knight mate. |
+| anastasiaMate **(start)** | Knight and rook (or queen) trap the king on the edge of the board. |
+| bodenMate | Two bishops on crossing diagonals mate a king blocked by its own pieces. |
+| doubleBishopMate | Two bishops on neighboring diagonals mate. |
+| dovetailMate | The queen mates next to the king, whose escape squares are blocked by its own pieces. |
+| epauletteMate | The king's own pieces on both sides block it while it is checked from the front. |
+| operaMate | A rook mates on the back rank protected by a bishop. |
+| cornerMate, killBoxMate, triangleMate, vukovicMate, swallowstailMate, balestraMate, blindSwineMate, morphysMate, pillsburysMate | Rarer named mates; worth adding after the start set. |
+
+### Endgames (Lichess Practice: Pawn and Rook Endgames)
+
+| Theme | What it means |
+|---|---|
+| pawnEndgame **(start)** | Only kings and pawns. Opposition and key squares decide. |
+| rookEndgame **(start)** | Rooks and pawns. The most common endgame in real games. |
+| bishopEndgame, knightEndgame, queenEndgame, queenRookEndgame | Other endgame types. |
+
+### Your own openings
+
+Every Lichess puzzle that starts before move 20 also carries an opening tag. Puzzles tagged with the Caro-Kann Defense or the London System are tactics that arise in **your own openings**. These are recommended as two extra starter collections.
+
+### Recommended first library
+
+The 22 themes marked **(start)** plus the two opening collections, at puzzle ratings 1200 to 1700. Each theme becomes a deck. The owner can add more themes at any time.
+
+### How "mastered" works (proposal)
+
+- Each puzzle is New, Learning, Mastered, or Lapsed.
+- The attempt sets the review rating automatically: wrong move or gave up means Again; solved with a hint means Hard; solved first try means Good; solved first try quickly means Easy.
+- The scheduler sets the next review date: Again brings it back today, Easy pushes it weeks away.
+- A puzzle is **Mastered** when its next review is at least 21 days away. A failed mastered puzzle becomes **Lapsed** and returns soon.
+- Each theme shows its mastery percentage, and "Practice weakest" picks due puzzles from the weakest themes first. Woodpecker-style "repeat this set faster" sessions are also possible.
+
+## 10. Open questions (remaining)
+
+1. Which first library: the recommended start set from section 9, or a different list?
+2. **Getting the Lichess puzzles.** Recommended: download the free Lichess puzzle file once and keep only the chosen themes and ratings (a few tens of thousands of puzzles). The file is compressed with zstd, so this needs either the Homebrew `zstd` tool installed like Stockfish, or a Java decompression dependency. The alternative is fetching puzzles one at a time from the Lichess API by theme, which cannot filter by rating and is slow.
+3. Do you want starter notes for London and Caro-Kann written into the project, or only your own notes and imported PGNs?
+4. Order of the next stages: puzzles first (as proposed in `03-delivery-plan.md`) or openings first?
 
 ## Sources
 

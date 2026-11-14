@@ -46,9 +46,12 @@ export function useGameAnalysis({
     onCompletedRef.current = onCompleted
   }, [onCompleted])
 
+  /**
+   * Only a lost connection affects the whole view. A temporarily unavailable session check is
+   * treated like any other missed request: polls retry on the next tick and actions report it.
+   */
   const sessionFailure = useCallback((error: unknown) => {
-    if (error instanceof AnalysisRequestError
-      && (error.failure === 'not_connected' || error.failure === 'session_unavailable')) {
+    if (error instanceof AnalysisRequestError && error.failure === 'not_connected') {
       onSessionFailure(error.failure)
       return true
     }

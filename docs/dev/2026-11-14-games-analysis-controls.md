@@ -49,6 +49,26 @@ The visible step text is not a live region, so screen readers are not interrupte
 - When an analysis completes, every loaded catalog page is fetched again quietly, without the loading skeleton, and matching cards are updated in place. Cards from Load older stay where they are. A filter change or leaving the view aborts this refresh.
 - Cancel shows "Stopping…" until the analysis has ended. Starting another analysis always clears it.
 
+## Found in the live check: Lichess rate limiting
+
+The owner's first live check switched Games to "Lichess connection is unavailable" moments after Analyze. The cause:
+
+1. Every API request is authorized by asking Lichess for the current account.
+2. Progress polling made that one Lichess call per second.
+3. Lichess rate-limited the calls.
+4. The analysis hook treated the resulting `session_unavailable` as a lost connection for the whole view.
+
+The background analysis itself was unaffected.
+
+Two fixes:
+
+- `LichessSessionService` reuses a successful account check for 60 seconds (`VALIDATION_REUSE`):
+  - entries are keyed by a SHA-256 digest of the access token, and only successes are remembered
+  - an unauthorized or failed check removes the entry, and logging out removes it at once
+  - at most 8 entries are kept
+  - polling now reaches Lichess about once a minute
+- The analysis hook escalates only `not_connected`. A temporarily unavailable session check during polling is retried on the next tick, and during start it is shown in the panel.
+
 ## Backend
 
 `GET /api/games` cards now carry, per side, the newest stored version:
@@ -108,6 +128,7 @@ Backend tests cover the catalog summaries and the newest-version query across ga
 | Data access | One constant parameterized query, scoped to the account; at most 50 validated ids. |
 | Client trust | Every response field is validated before use; React renders all text, and no HTML is injected. |
 | Mutations | Start and cancel use the existing same-origin, session-protected endpoints. |
+| Session check reuse | A successful Lichess account check is reused for 60 seconds per token digest. A token revoked on Lichess is noticed within a minute; local logout takes effect immediately. The sealed cookie, including its expiry, is still opened and verified on every request, and raw tokens are never map keys. |
 
 ## Next
 

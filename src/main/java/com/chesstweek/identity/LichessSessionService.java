@@ -1,8 +1,16 @@
 package com.chesstweek.identity;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
@@ -14,11 +22,21 @@ public final class LichessSessionService implements LichessSessionAuthorizer {
 
     private static final Pattern ACCOUNT_ID_PATTERN = Pattern.compile("[A-Za-z0-9_-]{1,32}");
     private static final Pattern USERNAME_PATTERN = Pattern.compile("[A-Za-z0-9_-]{1,32}");
+    /**
+     * How long a successful Lichess account check is reused. Every API request is authorized,
+     * and progress polling alone would otherwise call Lichess every second and get rate limited.
+     * A token revoked on Lichess is noticed at most this much later; logging out here clears it
+     * at once.
+     */
+    static final Duration VALIDATION_REUSE = Duration.ofSeconds(60);
+    private static final int MAX_REMEMBERED_SESSIONS = 8;
 
     private final Clock clock;
     private final LichessAccountClient accountClient;
     private final LichessTokenRevoker tokenRevoker;
     private final SessionCookieSealer sessionCookieSealer;
+    /** Keyed by a SHA-256 digest of the access token, so the map never holds raw tokens as keys. */
+    private final Map<String, RememberedAccount> recentValidations = new ConcurrentHashMap<>();
 
     public LichessSessionService() {
         this(
@@ -85,14 +103,23 @@ public final class LichessSessionService implements LichessSessionAuthorizer {
             return SessionValidation.disconnected(true);
         }
 
+        var session = opened.orElseThrow();
+        String key = digest(session.accessToken());
+        Instant now = clock.instant();
+        RememberedAccount remembered = recentValidations.get(key);
+        if (remembered != null && now.isBefore(remembered.validUntil())) {
+            return SessionValidation.connected(session, remembered.account());
+        }
         try {
-            var session = opened.orElseThrow();
             LichessAccount account = accountClient.currentAccount(session.accessToken());
             if (!isValid(account)) {
+                recentValidations.remove(key);
                 return SessionValidation.unavailable();
             }
+            remember(key, account, now);
             return SessionValidation.connected(session, account);
         } catch (LichessAccountException exception) {
+            recentValidations.remove(key);
             if (exception.unauthorized()) {
                 return SessionValidation.disconnected(true);
             }
@@ -107,12 +134,32 @@ public final class LichessSessionService implements LichessSessionAuthorizer {
         if (opened.isEmpty()) {
             return;
         }
+        recentValidations.remove(digest(opened.orElseThrow().accessToken()));
         try {
             tokenRevoker.revoke(opened.orElseThrow().accessToken());
         } catch (LichessRevocationException exception) {
             // Local logout must succeed even when upstream revocation is unavailable.
         }
     }
+
+    private void remember(String key, LichessAccount account, Instant now) {
+        recentValidations.values().removeIf(entry -> !now.isBefore(entry.validUntil()));
+        if (recentValidations.size() >= MAX_REMEMBERED_SESSIONS) {
+            recentValidations.clear();
+        }
+        recentValidations.put(key, new RememberedAccount(account, now.plus(VALIDATION_REUSE)));
+    }
+
+    private static String digest(String accessToken) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(accessToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is required", exception);
+        }
+    }
+
+    private record RememberedAccount(LichessAccount account, Instant validUntil) {}
 
     private static boolean isValid(LichessAccount account) {
         return account != null

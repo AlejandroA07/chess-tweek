@@ -292,6 +292,27 @@ describe('Game analysis on Games', () => {
     expect(screen.getByText('Earlier engine profile · reanalyze to update')).toBeInTheDocument()
   })
 
+  it('keeps following the analysis when one progress check is temporarily unavailable', async () => {
+    currentJob = running()
+    await openGames()
+    await screen.findByRole('heading', { name: 'Analyzing your moves against Rival' })
+
+    let unavailableOnce = true
+    const realFetch = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (input.toString() === '/api/analysis' && unavailableOnce) {
+        unavailableOnce = false
+        return json(503, { error: 'session_unavailable' })
+      }
+      return realFetch(input, init)
+    })
+    polls = [running({ judged: 9 })]
+
+    expect(await screen.findByText('First pass · 9 of 40 moves', {}, { timeout: 4_000 }))
+      .toBeInTheDocument()
+    expect(screen.queryByText('Lichess connection is unavailable')).not.toBeInTheDocument()
+  })
+
   it('does not show a finished analysis from before the view opened', async () => {
     currentJob = finished('completed', { versionIds: [3] })
     await openGames()

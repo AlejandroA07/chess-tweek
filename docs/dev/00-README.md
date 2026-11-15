@@ -34,4 +34,5 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-14-single-game-analysis.md` | Records background single-game analysis, Stockfish output parsing, immutable versions, and the analysis API. | dated report |
 | `2026-11-14-games-analysis-controls.md` | Records Games card analysis controls, the progress panel, and per-side status badges. | dated report |
 | `2026-11-14-game-review-data.md` | Records the game review endpoint, statistics, evaluations, and readable engine lines. | dated report |
+| `2026-11-15-tactic-labels-coach-cards.md` | Records the proven tactic labels and the Why?, threat, and training coach cards. | dated report |
 | `2026-11-14-game-review-page.md` | Records the game review page: board, moves, evaluation graph, side tabs, statistics, and findings. | dated report |

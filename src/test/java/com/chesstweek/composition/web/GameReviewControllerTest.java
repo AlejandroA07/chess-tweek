@@ -56,6 +56,8 @@ class GameReviewControllerTest {
                 .andExpect(jsonPath("$.selected.evaluations[0].whiteExpected").value(1_050))
                 .andExpect(jsonPath("$.selected.moves[0].bestMoveSan").value("d4"))
                 .andExpect(jsonPath("$.selected.moves[0].before[0].pvSan[0]").value("d4"))
+                .andExpect(jsonPath("$.selected.moves[0].tactics[0].theme").value("fork"))
+                .andExpect(jsonPath("$.selected.moves[0].tactics[0].targets[1]").value("a8"))
                 .andExpect(content().string(not(containsString("e4 e5"))));
 
         assertThat(requests).containsExactly("owner-id game0001 OPPONENT_MOVES");
@@ -146,7 +148,8 @@ class GameReviewControllerTest {
     private static GameReviews.GameReview review() {
         var line = new GameReviews.Line("d2d4", "d4", 20, null, 50, 900, 50, List.of("d2d4"), List.of("d4"));
         var move = new GameReviews.JudgedMove(1, "e4", "e2e4", "start-fen", "opening", "quick", "none", "none",
-                false, "d2d4", "d4", 1_050, 960, 90, "none", List.of(line), List.of(line));
+                false, "d2d4", "d4", 1_050, 960, 90, "none", List.of(line), List.of(line),
+                List.of(new GameReviews.Tactic("fork", "allowed", "knight", "c7", List.of("e8", "a8"))));
         var statistics = new GameReviews.Statistics(1, 0, 0, 0, 4.5, 30.0, Map.of(
                 "opening", new GameReviews.PhaseStatistics(1, 0, 0, 0, 4.5, 30.0)));
         return new GameReviews.GameReview(

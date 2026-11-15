@@ -108,7 +108,18 @@ public interface GameReviews {
             int loss,
             String afterTerminal,
             List<Line> before,
-            List<Line> after) {}
+            List<Line> after,
+            List<Tactic> tactics) {}
+
+    /**
+     * A conservative tactic label proven from the stored engine lines. {@code theme} is one of
+     * {@code allowed_mate}, {@code missed_mate}, {@code back_rank}, {@code hanging_piece},
+     * {@code fork}, or {@code general_tactics}; {@code kind} is {@code allowed} (from the
+     * opponent's reply line) or {@code missed} (from the best line). {@code piece} and
+     * {@code square} name the hanging piece, the forking piece, or the mating piece when known,
+     * and {@code targets} lists the forked squares.
+     */
+    record Tactic(String theme, String kind, String piece, String square, List<String> targets) {}
 
     /** One engine line from the side to move; {@code pvSan} stops at the first move that is not legal. */
     record Line(

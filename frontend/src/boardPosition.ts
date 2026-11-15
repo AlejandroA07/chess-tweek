@@ -74,3 +74,14 @@ function collapse(grid: string[][]) {
     })
     .join('/')
 }
+
+/** The piece on a square of a FEN, or null when the square is empty or the FEN is unreadable. */
+export function pieceAt(fen: string, name: string): { color: 'white' | 'black'; piece: string } | null {
+  const grid = expand(fen.split(' ')[0])
+  if (grid === null || !/^[a-h][1-8]$/.test(name)) return null
+  const { row, column } = square(name)
+  const letter = grid[row][column]
+  if (letter === '') return null
+  const names: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' }
+  return { color: letter === letter.toUpperCase() ? 'white' : 'black', piece: names[letter.toLowerCase()] }
+}

@@ -41,7 +41,7 @@ New views (Train, Patterns, Openings) have no Stitch prompt yet. They implement 
 
 **Branch:** `feature/my-mistakes` · **Needs:** Stage 6.
 
-- One five-ply drill for every owner mistake and blunder in any completed owner analysis, with alternative-line acceptance and the owner's "what I was thinking" note.
+- One five-ply drill for every owner mistake and blunder in any completed owner analysis, with alternative-line acceptance.
 - Groups by phase, opening, tactic label, and source site; links back to the game review.
 - Acceptance: every eligible error yields exactly one drill per analysis version; attempts survive reanalysis.
 
@@ -367,8 +367,7 @@ Acceptance:
 
 Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed parts. Parts 1 through 9 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record. Stage 3 is complete, including the owner's live check. Stage 4 is delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards.
 
-**Next immediate action (2026-11-14):**
+**Next immediate action (2026-11-15):**
 
-1. The owner reviews and merges the Stage 4 Part 5b game review page PR and checks it against real analyzed games.
-2. Start the remaining Stage 4 part on a new `feature/<topic>` branch from the updated `main`: conservative tactic labels and the deterministic coach cards, plus the owner's "what I was thinking" note on findings.
-3. Then the re-scoped Stage 5 (chess.com games).
+1. The owner reviews and merges Stage 4 Part 6 (`feature/tactic-labels-coach-cards`): conservative tactic labels and the deterministic coach cards. The "what I was thinking" note was dropped by the owner on 2026-11-15. This completes Stage 4.
+2. Then the re-scoped Stage 5 (chess.com games).

@@ -113,7 +113,7 @@ Keep (already built or next):
 
 - Lichess login, game catalog, filters, ratings: done.
 - Single-game Stockfish analysis: done.
-- Game review page (Stage 4 Part 5b): keep, add a short "what was I thinking" note per error (method 3).
+- Game review page (Stage 4 Part 5b): keep. (A "what was I thinking" note per error was proposed here and dropped by the owner on 2026-11-15.)
 
 Add (new, small):
 
@@ -245,6 +245,8 @@ The 22 themes marked **(start)** plus the two opening collections, at puzzle rat
 1. **Themes.** The first library is the 22 starter themes marked **(start)** in section 9, plus the Caro-Kann and London opening decks, at puzzle ratings about 1200 to 1700.
 2. **Import.** Download the CC0 Lichess puzzle file once and keep only the chosen themes and ratings. Decompression uses the Homebrew `zstd` tool, a system prerequisite like Stockfish (installed on the owner's Mac: zstd 1.5.7 at `/opt/homebrew/bin/zstd`). No Java decompression dependency is added.
 3. **Order.** Puzzles first: training core, My Mistakes, and the pattern library (Stages 6 to 8) come before the opening stages (9 to 11).
+
+4. **No mistake notes (2026-11-15).** The "what I was thinking" note and one-tap mistake reasons are dropped. The engine's best line and reply line already show what was missed.
 
 Still open: whether the project ships starter notes for the London and Caro-Kann plans, or only the owner's own notes and imported PGN comments. Decide before Stage 10.
 

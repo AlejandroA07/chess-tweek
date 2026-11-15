@@ -85,6 +85,7 @@ function judged(ply: number, label: string, overrides: Record<string, unknown> =
     afterTerminal: 'none',
     before: [line(uci, san, { cp: 20 }, [uci], [san])],
     after: [line('g1f3', 'Nf3', { cp: -20 }, ['g1f3'], ['Nf3'])],
+    tactics: [],
     ...overrides,
   }
 }
@@ -143,6 +144,7 @@ function review(options: { my?: boolean; opponent?: boolean } = {}) {
               loss: 900,
               before: [line('d8e7', 'Qe7', { cp: -40 }, ['d8e7', 'g1f3', 'g8f6'], ['Qe7', 'Nf3', 'Nf6'])],
               after: [line('h5f7', 'Qxf7#', { mate: 1 }, ['h5f7'], ['Qxf7#'])],
+              tactics: [{ theme: 'allowed_mate', kind: 'allowed', piece: null, square: null, targets: [] }],
             }),
           ],
         }
@@ -275,7 +277,7 @@ describe('Game review', () => {
     expect(screen.getByRole('img', { name: /Position after your blunder 3… Nf6\./ })).toBeInTheDocument()
 
     // The reply line shows why it was a blunder.
-    fireEvent.click(screen.getByRole('button', { name: 'Why It Was a Blunder' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show Their Best Reply' }))
     expect(screen.getByRole('img', { name: /Engine line, not played in the game: 4\. Qxf7#\./ })).toBeInTheDocument()
     expect(container.querySelector('[data-square="f7"] span')).toHaveTextContent('\u265B')
 
@@ -283,6 +285,35 @@ describe('Game review', () => {
     fireEvent.click(screen.getByRole('button', { name: '1. e4' }))
     expect(screen.queryByText('Back to the Game')).not.toBeInTheDocument()
     expect(screen.getByRole('img', { name: /Position after 1\. e4\./ })).toBeInTheDocument()
+  })
+
+  it('labels proven tactics and answers the three coach questions for the shown mistake', async () => {
+    render(<App />)
+    const card = (await screen.findByRole('button', { name: 'View mistake 3… Nf6' })).closest('li') as HTMLElement
+    expect(within(within(card).getByRole('list', { name: 'Tactic labels' })).getByText('Allowed mate'))
+      .toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Coach' })).not.toBeInTheDocument()
+
+    fireEvent.click(within(card).getByRole('button', { name: 'View mistake 3… Nf6' }))
+    const coach = screen.getByRole('region', { name: 'Coach' })
+    expect(within(coach).getByRole('button', { name: 'Why?' })).toHaveAttribute('aria-pressed', 'true')
+    expect(coach).toHaveTextContent(
+      '3… Nf6 lowered your expected score from 45% to 0% (45.0 points). The engine preferred 3… Qe7, which keeps it near 45%. It allows a forced mate: 4. Qxf7#.',
+    )
+
+    fireEvent.click(within(coach).getByRole('button', { name: 'What was the threat?' }))
+    expect(coach).toHaveTextContent('After 3… Nf6, your opponent’s best reply is 4. Qxf7#, a checkmate.')
+    expect(coach).toHaveTextContent('Best line instead: 3… Qe7 4. Nf3 Nf6.')
+
+    fireEvent.click(within(coach).getByRole('button', { name: 'What should I train?' }))
+    expect(within(coach).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Defensive checks: before moving, list every check the opponent has.',
+      'Mate-in-two puzzles (pattern theme: mateIn2).',
+    ])
+
+    // Entering an engine line hides the coach; returning shows it again.
+    fireEvent.click(screen.getByRole('button', { name: 'Show Best Move: 3… Qe7' }))
+    expect(screen.queryByRole('region', { name: 'Coach' })).not.toBeInTheDocument()
   })
 
   it('opens engine lines from the finding card', async () => {

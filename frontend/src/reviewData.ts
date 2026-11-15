@@ -40,6 +40,25 @@ export type EngineLine = {
   pvSan: string[]
 }
 
+export type TacticTheme =
+  | 'allowed_mate'
+  | 'missed_mate'
+  | 'back_rank'
+  | 'hanging_piece'
+  | 'fork'
+  | 'general_tactics'
+
+export type PieceName = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king'
+
+/** A conservative tactic label proven by the server from the stored engine lines. */
+export type Tactic = {
+  theme: TacticTheme
+  kind: 'allowed' | 'missed'
+  piece: PieceName | null
+  square: string | null
+  targets: string[]
+}
+
 export type JudgedMove = {
   ply: number
   san: string
@@ -58,6 +77,7 @@ export type JudgedMove = {
   afterTerminal: 'none' | 'checkmate' | 'stalemate'
   before: EngineLine[]
   after: EngineLine[]
+  tactics: Tactic[]
 }
 
 export type SelectedSide = {
@@ -276,7 +296,9 @@ function parseJudgedMove(value: unknown, plyCount: number): JudgedMove {
     !Array.isArray(value.before) ||
     value.before.length > 3 ||
     !Array.isArray(value.after) ||
-    value.after.length > 3
+    value.after.length > 3 ||
+    !Array.isArray(value.tactics) ||
+    value.tactics.length > 6
   ) {
     throw new Error('Invalid judged move')
   }
@@ -284,7 +306,26 @@ function parseJudgedMove(value: unknown, plyCount: number): JudgedMove {
     ...(value as JudgedMove),
     before: value.before.map(parseLine),
     after: value.after.map(parseLine),
+    tactics: value.tactics.map(parseTactic),
   }
+}
+
+const SQUARE = /^[a-h][1-8]$/
+
+function parseTactic(value: unknown): Tactic {
+  if (
+    !isRecord(value) ||
+    !isOneOf(value.theme, ['allowed_mate', 'missed_mate', 'back_rank', 'hanging_piece', 'fork', 'general_tactics']) ||
+    !isOneOf(value.kind, ['allowed', 'missed']) ||
+    !(value.piece === null || isOneOf(value.piece, ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'])) ||
+    !(value.square === null || (typeof value.square === 'string' && SQUARE.test(value.square))) ||
+    !Array.isArray(value.targets) ||
+    value.targets.length > 8 ||
+    !value.targets.every((target) => typeof target === 'string' && SQUARE.test(target))
+  ) {
+    throw new Error('Invalid tactic')
+  }
+  return value as Tactic
 }
 
 function parseLine(value: unknown): EngineLine {

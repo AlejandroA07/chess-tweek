@@ -124,7 +124,6 @@ Failure behavior:
 - Every owner mistake and blunder in any completed owner analysis becomes a drill immediately; no report is needed.
 - The drill starts immediately before the error and keeps the five-ply rule, alternative-line acceptance within three expected-score percentage points, and the stored engine line.
 - Drills are grouped by phase, opening, and the conservative tactic labels, and show the source game.
-- The owner may add a short "what I was thinking" note to any error in game review; it is shown with the drill.
 - Reanalysis adds drills for new versions without deleting attempt history.
 
 ### Pattern library (owner decision, 2026-11-14)
@@ -214,7 +213,7 @@ Versioning and queue behavior:
 - Show the move list, evaluation progression, opening identity, phase boundaries, and selected-side statistics.
 - When Both is available, show separate My Moves and Opponent Moves tabs. Never combine their counts.
 - Show every classified position with the exact pre-move FEN, played move, best move, before/after evaluation, expected-score loss, severity, phase, verified theme, and principal variations.
-- The owner can add a short "what I was thinking" note to any error position (owner decision, 2026-11-14).
+- No "what I was thinking" note or mistake-reason tagging (owner decision, 2026-11-15: dropped; the engine lines already show what was missed).
 - Coach cards are deterministic and offer preset follow-ups: Why?, What was the threat?, and What should I train?
 - No free-text imitation and no LLM calls.
 
@@ -391,7 +390,7 @@ Admin exposes every project operation that exists in v1:
 - [x] **1. Application foundation** — implement the approved `DESIGN.md`, scaffold the verified Spring Boot/React/SQLite application and shared shell, complete the harness, CI, architecture tests, and `scripts/verify.mjs`. Needs 0 and the approved canonical design direction.
 - [x] **2. Lichess connection** — deliver PKCE login, secure local session, account/rating display, reconnect, and logout end to end. Needs 1.
 - [x] **3. Lichess game catalog** — deliver Get Lichess Games, durable idempotent catalog, filters/cards, and bot/rating context. Needs 2.
-- [ ] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review with "what I was thinking" notes, and coach cards. Needs 3.
+- [ ] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review, tactic labels, and coach cards. Needs 3.
 - [ ] **5. Chess.com games** — deliver Get Chess.com Games, the shared catalog with a source, per-site ratings, and analysis eligibility. Needs 3.
 - [ ] **6. Training core** — deliver the interactive board with backend move validation, the shared spaced-repetition scheduler, mastery states, hints, and attempts. Needs 4.
 - [ ] **7. My Mistakes deck** — deliver drills from every owner mistake and blunder, grouped by phase, opening, and tactic label. Needs 6.

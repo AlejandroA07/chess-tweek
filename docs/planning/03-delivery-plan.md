@@ -379,5 +379,5 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-16):**
 
-1. The owner reviews and merges Stage 5 Part 1 (catalog for two sites, `feature/chesscom-games`; see `docs/dev/2026-11-16-catalog-two-sites.md`). Back up `var/chess-tweek.db` before the first start after merging: migration V6 rebuilds the catalog tables.
-2. Then Part 2 (chess.com retrieval), then Part 3 (interface).
+1. Stage 5 Part 1 (catalog for two sites) is merged. The owner reviews and merges Part 2 (chess.com retrieval, `feature/chesscom-retrieval`; see `docs/dev/2026-11-16-chesscom-retrieval.md`).
+2. Then Part 3 (interface): chess.com username on Admin, Get Chess.com Games on Games, source filter and badge, per-site ratings on the Dashboard.

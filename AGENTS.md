@@ -1,6 +1,6 @@
 # Chess Tweek — Agent Guide
 
-Chess Tweek is a local-first chess training web app for macOS. Stage 0 planning, the Stage 1 application foundation, and the Stage 2 Lichess connection implementation are complete. Stage 3 is being delivered in independently verified parts.
+Chess Tweek is a local-first chess training web app for macOS. Stage status and the next immediate action live only in `docs/planning/03-delivery-plan.md` under "Current stopping point"; read them there.
 
 This file is the source of truth for coding agents. Keep it aligned with the repository's current, verified state.
 
@@ -42,12 +42,7 @@ Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runti
 
 - Work only on branches named `feature/<topic>`, never directly on `main`.
 - After verification, commit coherent work on the current `feature/<topic>` branch. When the task calls for remote publication, push only that explicit branch to `origin`. The owner alone merges.
-- Never add application code on a planning, documentation, or wording branch; application work starts on the reviewed Stage 1 branch.
+- Never add application code on a planning, documentation, or wording branch.
 - Never introduce a second visual system or copy generated UI code; implement `docs/app-material/DESIGN.md` with project tokens and CSS Modules.
 - Never add a dependency without first proposing it to the owner.
 - Never weaken or remove a test to make a gate pass.
-- Do not claim application verification before Stage 1 creates and proves `node scripts/verify.mjs`.
-
-## Current stage
-
-Stages 0 through 3 are complete, including the owner's live Lichess connection and catalog checks. Stage 3 Parts 1 through 9 implement authenticated manual retrieval, an account-scoped idempotent SQLite catalog, exact new/updated/unchanged retrieval summaries, the owner's validated per-game Lichess rating change, Dashboard rating history and bot record built from stored games, the Games library and retrieval panel, the complete server-backed filter set, and in-memory single-game or exact filtered-group selection restricted to analysis-eligible games. No retrieval or selection starts analysis. Stage 4 is being delivered in parts. Part 1 locates Stockfish, runs a bounded UCI health check, and shows engine status on Admin. Part 2 benchmarks this Mac and stores an immutable analysis profile with fixed node budgets. Part 3 implements the analysis rules (expected score from WDL, labels, forced-mate rules, the second deep pass, and game phases) against a search interface tested with a fake engine. Part 4a runs one owner-requested Stockfish analysis at a time in the background through authenticated endpoints and stores owner and opponent findings as separate immutable versions. Part 4b adds Games card controls (Analyze My Moves, and Opponent and Both under More), a progress panel with cancel and recoverable failures, and per-side status badges from the newest stored version. Part 5a adds an authenticated game review endpoint with every position, phases, per-side statistics, evaluations, and every judged move with readable engine lines. Part 5b adds the game review page, opened from Games with Open Game: a dependency-free board with navigation, flip, and a vertical evaluation bar, move list, My Moves and Opponent Moves tabs, statistics, and every finding with View Mistake, a clickable best move, and engine lines that can be stepped through on the board. Part 6 adds conservative tactic labels proven from the stored engine lines (missed or allowed mate, back-rank, hanging piece, fork, general tactics) and deterministic Why?, What was the threat?, and What should I train? coach cards. The plan from Stage 5 on was re-scoped on 2026-11-14 (`docs/planning/04-training-goals.md`).

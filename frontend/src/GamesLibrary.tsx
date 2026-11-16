@@ -13,7 +13,8 @@ import {
   type AnalysisVersionSummary,
   type CatalogGame,
 } from './gameCatalog'
-import type { AnalysisJob, AnalysisPerspective } from './analysis'
+import { jobGame, type AnalysisJob, type AnalysisPerspective } from './analysis'
+import { gameKey } from './gameRef'
 import { useGameAnalysis } from './useGameAnalysis'
 
 type CatalogState =
@@ -60,7 +61,7 @@ export function GamesLibrary({
   const focusTarget = useRef<'library' | 'count' | null>(null)
   const retrievalTriggerRef = useRef<HTMLButtonElement | null>(null)
   const lastAnalysisRequest = useRef<{
-    gameId: string
+    gameKey: string
     perspective: AnalysisPerspective
     opponentName: string
   } | null>(null)
@@ -86,9 +87,9 @@ export function GamesLibrary({
     Promise.all(offsets.map((offset) => requestCatalog(offset, controller.signal, filters)))
       .then((pages) => {
         if (controller.signal.aborted) return
-        const updated = new Map(pages.flatMap((page) => page.games).map((game) => [game.id, game]))
+        const updated = new Map(pages.flatMap((page) => page.games).map((game) => [gameKey(game), game]))
         setCatalog((current) => current.kind === 'ready'
-          ? { ...current, games: current.games.map((game) => updated.get(game.id) ?? game) }
+          ? { ...current, games: current.games.map((game) => updated.get(gameKey(game)) ?? game) }
           : current)
       })
       .catch(() => {
@@ -105,26 +106,26 @@ export function GamesLibrary({
 
   const startGameAnalysis = (game: CatalogGame, perspective: AnalysisPerspective) => {
     lastAnalysisRequest.current = {
-      gameId: game.id,
+      gameKey: gameKey(game),
       perspective,
       opponentName: game.opponent.name,
     }
-    analysis.start(game.id, perspective)
+    analysis.start(game, perspective)
   }
 
   const retryAnalysis = () => {
     const job = analysis.job
-    if (job !== null) analysis.start(job.gameId, job.perspective)
+    if (job !== null) analysis.start(jobGame(job), job.perspective)
   }
 
   const analyzedOpponentName = (job: AnalysisJob | null) => {
     if (job === null) return null
     const shown = catalog.kind === 'ready'
-      ? catalog.games.find((game) => game.id === job.gameId)
+      ? catalog.games.find((game) => gameKey(game) === gameKey(jobGame(job)))
       : undefined
     if (shown) return shown.opponent.name
     const last = lastAnalysisRequest.current
-    return last !== null && last.gameId === job.gameId ? last.opponentName : null
+    return last !== null && last.gameKey === gameKey(jobGame(job)) ? last.opponentName : null
   }
 
   const closeRetrieval = () => {
@@ -156,22 +157,22 @@ export function GamesLibrary({
     ? selection.ids.size
     : selection.total - selection.excludedIds.size
 
-  const gameIsSelected = (gameId: string) => selection.kind === 'explicit'
-    ? selection.ids.has(gameId)
-    : !selection.excludedIds.has(gameId)
+  const gameIsSelected = (key: string) => selection.kind === 'explicit'
+    ? selection.ids.has(key)
+    : !selection.excludedIds.has(key)
 
   const toggleGameSelection = (game: CatalogGame) => {
     if (!game.analysis.eligible) return
     setSelection((current) => {
       if (current.kind === 'filtered') {
         const excludedIds = new Set(current.excludedIds)
-        if (excludedIds.has(game.id)) excludedIds.delete(game.id)
-        else excludedIds.add(game.id)
+        if (excludedIds.has(gameKey(game))) excludedIds.delete(gameKey(game))
+        else excludedIds.add(gameKey(game))
         return { ...current, excludedIds }
       }
       const ids = new Set(current.ids)
-      if (ids.has(game.id)) ids.delete(game.id)
-      else ids.add(game.id)
+      if (ids.has(gameKey(game))) ids.delete(gameKey(game))
+      else ids.add(gameKey(game))
       return { kind: 'explicit', ids }
     })
   }
@@ -302,8 +303,8 @@ export function GamesLibrary({
       focusTarget.current = 'count'
       setCatalog((current) => {
         if (current.kind !== 'ready') return current
-        const knownIds = new Set(current.games.map((game) => game.id))
-        const additions = page.games.filter((game) => !knownIds.has(game.id))
+        const knownIds = new Set(current.games.map((game) => gameKey(game)))
+        const additions = page.games.filter((game) => !knownIds.has(gameKey(game)))
         return {
           kind: 'ready',
           total: page.total,
@@ -496,11 +497,11 @@ export function GamesLibrary({
       <div className={styles.gameGrid}>
         {catalog.games.map((game) => (
           <GameCard
-            key={game.id}
+            key={gameKey(game)}
             game={game}
-            selected={game.analysis.eligible && gameIsSelected(game.id)}
+            selected={game.analysis.eligible && gameIsSelected(gameKey(game))}
             onSelectionChange={() => toggleGameSelection(game)}
-            currentJob={analysis.job?.gameId === game.id ? analysis.job : null}
+            currentJob={analysis.job !== null && gameKey(jobGame(analysis.job)) === gameKey(game) ? analysis.job : null}
             analysisLocked={analysisLocked}
             onAnalyze={(perspective) => startGameAnalysis(game, perspective)}
           />
@@ -657,7 +658,7 @@ function GameCard({
       </dl>
       <a
         className={styles.openGame}
-        href={`#/games/${encodeURIComponent(game.id)}`}
+        href={`#/games/${gameKey(game)}`}
         aria-label={`Open game against ${game.opponent.name}`}
       >
         Open Game
@@ -737,7 +738,7 @@ function AnalysisActions({
 }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const moreButton = useRef<HTMLButtonElement | null>(null)
-  const optionsId = `analysis-options-${game.id}`
+  const optionsId = `analysis-options-${game.source}-${game.id}`
   const verb = (version: AnalysisVersionSummary | null) => version === null ? 'Analyze' : 'Reanalyze'
 
   const choose = (perspective: AnalysisPerspective) => {

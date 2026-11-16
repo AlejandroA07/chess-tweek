@@ -18,6 +18,7 @@ import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.EngineProfile;
 import com.chesstweek.gamereview.EngineStatus;
 import com.chesstweek.gamereview.GameAnalysis;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.internal.analysis.Evaluation;
 import com.chesstweek.gamereview.internal.analysis.GamePhases;
 import com.chesstweek.gamereview.internal.analysis.MoveRules;
@@ -75,8 +76,8 @@ class StockfishGameAnalysisService implements GameAnalysis {
     }
 
     @Override
-    public StartResult start(String accountId, String gameId, Perspective perspective) {
-        CatalogGame game = catalog.find(accountId, gameId).orElse(null);
+    public StartResult start(String accountId, GameRef gameRef, Perspective perspective) {
+        CatalogGame game = catalog.find(accountId, gameRef).orElse(null);
         if (game == null) {
             return new StartResult(StartResult.Outcome.GAME_NOT_FOUND, null);
         }
@@ -98,7 +99,7 @@ class StockfishGameAnalysisService implements GameAnalysis {
             if (latest != null && latest.isRunning()) {
                 return new StartResult(StartResult.Outcome.BUSY, null);
             }
-            job = new RunningJob(accountId, game.id(), perspective, now());
+            job = new RunningJob(accountId, game.ref(), perspective, now());
             latest = job;
         }
         try {
@@ -241,7 +242,7 @@ class StockfishGameAnalysisService implements GameAnalysis {
             boolean ownerSide = side == owner;
             newVersions.add(new AnalysisVersionStore.NewVersion(
                     job.accountId,
-                    game.id(),
+                    game.ref(),
                     ownerSide ? AnalysisVersionStore.Side.OWNER : AnalysisVersionStore.Side.OPPONENT,
                     job.perspective,
                     side == ReplayedGame.Color.WHITE ? CatalogGame.Color.WHITE : CatalogGame.Color.BLACK,
@@ -304,7 +305,7 @@ class StockfishGameAnalysisService implements GameAnalysis {
     private static final class RunningJob implements TwoPassAnalysis.Progress {
 
         private final String accountId;
-        private final String gameId;
+        private final GameRef game;
         private final Perspective perspective;
         private final Instant startedAt;
         private volatile boolean cancelRequested;
@@ -316,9 +317,9 @@ class StockfishGameAnalysisService implements GameAnalysis {
         private Instant finishedAt;
         private List<Long> versionIds = List.of();
 
-        RunningJob(String accountId, String gameId, Perspective perspective, Instant startedAt) {
+        RunningJob(String accountId, GameRef game, Perspective perspective, Instant startedAt) {
             this.accountId = accountId;
-            this.gameId = gameId;
+            this.game = game;
             this.perspective = perspective;
             this.startedAt = startedAt;
         }
@@ -359,7 +360,7 @@ class StockfishGameAnalysisService implements GameAnalysis {
         }
 
         synchronized Job snapshot() {
-            return new Job(gameId, perspective, state, pass, judged, total, failure, startedAt,
+            return new Job(game, perspective, state, pass, judged, total, failure, startedAt,
                     finishedAt, versionIds);
         }
 

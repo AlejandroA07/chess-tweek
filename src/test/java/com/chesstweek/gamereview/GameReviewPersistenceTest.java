@@ -30,6 +30,7 @@ class GameReviewPersistenceTest {
 
     private static final String ACCOUNT = "owner";
     private static final String GAME_ID = "abcd1234";
+    private static final GameRef GAME = GameRef.lichess(GAME_ID);
     private static final String MOVES = "e4 e5 Qh5 Nc6 Bc4 Nf6 Qxf7#";
     private static final Instant STARTED = Instant.parse("2026-11-14T12:00:00Z");
     private static final Instant COMPLETED = Instant.parse("2026-11-14T12:01:30Z");
@@ -40,7 +41,7 @@ class GameReviewPersistenceTest {
         try (var application = start(directory)) {
             storeAnalyzedGame(application);
 
-            GameReviews.GameReview review = reviews(application).review(ACCOUNT, GAME_ID, null).orElseThrow();
+            GameReviews.GameReview review = reviews(application).review(ACCOUNT, GAME, null).orElseThrow();
 
             assertThat(review.initialFen()).startsWith("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w");
             assertThat(review.plies()).extracting(GameReviews.Ply::san)
@@ -84,7 +85,7 @@ class GameReviewPersistenceTest {
             storeAnalyzedGame(application);
 
             GameReviews.SideReview theirs = reviews(application)
-                    .review(ACCOUNT, GAME_ID, GameReviews.Side.OPPONENT_MOVES).orElseThrow().selected();
+                    .review(ACCOUNT, GAME, GameReviews.Side.OPPONENT_MOVES).orElseThrow().selected();
 
             assertThat(theirs.side()).isEqualTo(GameReviews.Side.OPPONENT_MOVES);
             assertThat(theirs.analyzedColor()).isEqualTo("black");
@@ -116,14 +117,14 @@ class GameReviewPersistenceTest {
         try (var application = start(directory)) {
             application.getBean(GameCatalogStore.class).save(ACCOUNT, List.of(game(GAME_ID, true)), STARTED);
 
-            GameReviews.GameReview review = reviews(application).review(ACCOUNT, GAME_ID, null).orElseThrow();
+            GameReviews.GameReview review = reviews(application).review(ACCOUNT, GAME, null).orElseThrow();
 
             assertThat(review.plies()).hasSize(7);
             assertThat(review.myMoves()).isNull();
             assertThat(review.opponentMoves()).isNull();
             assertThat(review.selected()).isNull();
             assertThat(review.phases().source()).isEqualTo("inferred");
-            assertThat(reviews(application).review(ACCOUNT, GAME_ID, GameReviews.Side.MY_MOVES)
+            assertThat(reviews(application).review(ACCOUNT, GAME, GameReviews.Side.MY_MOVES)
                     .orElseThrow().selected()).isNull();
         }
     }
@@ -134,9 +135,9 @@ class GameReviewPersistenceTest {
             application.getBean(GameCatalogStore.class).save(
                     ACCOUNT, List.of(game(GAME_ID, true), game("variant1", false)), STARTED);
 
-            assertThat(reviews(application).review("someone", GAME_ID, null)).isEmpty();
-            assertThat(reviews(application).review(ACCOUNT, "missing1", null)).isEmpty();
-            GameReviews.GameReview variant = reviews(application).review(ACCOUNT, "variant1", null).orElseThrow();
+            assertThat(reviews(application).review("someone", GAME, null)).isEmpty();
+            assertThat(reviews(application).review(ACCOUNT, GameRef.lichess("missing1"), null)).isEmpty();
+            GameReviews.GameReview variant = reviews(application).review(ACCOUNT, GameRef.lichess("variant1"), null).orElseThrow();
             assertThat(variant.plies()).isEmpty();
             assertThat(variant.phases()).isNull();
             assertThat(variant.selected()).isNull();
@@ -158,7 +159,7 @@ class GameReviewPersistenceTest {
             try (var application = start(run)) {
                 insertRawMove(application, lines, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-                assertThatThrownBy(() -> reviews(application).review(ACCOUNT, GAME_ID, null))
+                assertThatThrownBy(() -> reviews(application).review(ACCOUNT, GAME, null))
                         .as(lines)
                         .isInstanceOf(IllegalStateException.class);
             }
@@ -172,7 +173,7 @@ class GameReviewPersistenceTest {
                     "[{\"move\":\"e2e4\",\"cp\":10,\"wdl\":[0,1000,0],\"pv\":[\"e2e4\"]}]",
                     "8/8/8/8/8/8/8/8 w - - 0 1 not-a-position");
 
-            assertThatThrownBy(() -> reviews(application).review(ACCOUNT, GAME_ID, null))
+            assertThatThrownBy(() -> reviews(application).review(ACCOUNT, GAME, null))
                     .isInstanceOf(IllegalStateException.class);
         }
     }
@@ -186,11 +187,11 @@ class GameReviewPersistenceTest {
         var jdbc = application.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
         jdbc.update("""
                 INSERT INTO game_review_analysis_version (
-                    account_id, lichess_game_id, side, requested_perspective, analyzed_color,
+                    account_id, source, game_id, side, requested_perspective, analyzed_color,
                     profile_id, rules_version, phase_source, middlegame_start, move_count,
                     deep_move_count, inaccuracies, mistakes, blunders, total_loss,
                     started_at_ms, completed_at_ms
-                ) VALUES (?, ?, 'owner', 'my_moves', 'white', ?, 1, 'inferred', 20, 1, 0, 0, 0, 0, 0, 0, 0)
+                ) VALUES (?, 'lichess', ?, 'owner', 'my_moves', 'white', ?, 1, 'inferred', 20, 1, 0, 0, 0, 0, 0, 0, 0)
                 """, ACCOUNT, GAME_ID, profileId);
         long versionId = jdbc.queryForObject("SELECT MAX(id) FROM game_review_analysis_version", Long.class);
         jdbc.update("""
@@ -242,14 +243,14 @@ class GameReviewPersistenceTest {
             List<TwoPassAnalysis.MoveFinding> findings,
             ReplayedGame.Color mover) {
         return new AnalysisVersionStore.NewVersion(
-                ACCOUNT, GAME_ID, side, GameAnalysis.Perspective.BOTH, color, profileId, 1, phases,
+                ACCOUNT, GAME, side, GameAnalysis.Perspective.BOTH, color, profileId, 1, phases,
                 findings.stream().filter(finding -> finding.move().mover() == mover).toList(),
                 STARTED, COMPLETED);
     }
 
     private static CatalogGame game(String id, boolean standard) {
         return new CatalogGame(
-                id,
+                GameRef.lichess(id),
                 Instant.parse("2026-11-13T10:00:00Z"),
                 Instant.parse("2026-11-13T10:05:00Z"),
                 CatalogGame.Status.MATE,

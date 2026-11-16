@@ -96,6 +96,27 @@ class GameRatingContextPersistenceTest {
     }
 
     @Test
+    void leavesChessComGamesOutOfTheLichessRatingContext(@TempDir Path temporaryDirectory) {
+        try (var application = start(temporaryDirectory)) {
+            application.getBean(GameCatalogStore.class).save("ownerid", List.of(
+                    rated("blitz001", 0, CatalogGame.Speed.BLITZ, 1500, 8),
+                    onChessCom(rated("blitz002", 1, CatalogGame.Speed.BLITZ, 1300, null), "9001"),
+                    onChessCom(againstBot("bot00001", 2, CatalogGame.Result.WIN, 1400, true),
+                            "9002")),
+                    START);
+
+            RatingContext context = application.getBean(GameRatingContext.class)
+                    .ratingContext("ownerid");
+
+            SpeedHistory blitz = history(context, CatalogGame.Speed.BLITZ);
+            assertThat(blitz.gamesCounted()).isEqualTo(1);
+            assertThat(blitz.points()).containsExactly(new RatingPoint(START, 1508));
+            assertThat(context.botRecord().total()).isEqualTo(Tally.EMPTY);
+            assertThat(context.botRecord().groups()).isEmpty();
+        }
+    }
+
+    @Test
     void keepsOnlyTheMostRecentHistoryPointsButCountsEveryGame(
             @TempDir Path temporaryDirectory) {
         try (var application = start(temporaryDirectory)) {
@@ -212,6 +233,16 @@ class GameRatingContextPersistenceTest {
                 1500, null, result, human());
     }
 
+    private static CatalogGame onChessCom(CatalogGame game, String id) {
+        return new CatalogGame(
+                new GameRef(GameRef.Source.CHESSCOM, id),
+                game.playedAt(), game.lastMoveAt(), game.status(), game.ownerResult(),
+                game.ownerColor(), game.ownerRating(), game.ownerRatingChange(), game.opponent(),
+                game.speed(), game.rated(), game.variant(), game.timeControl(), game.opening(),
+                game.phaseDivision(), game.movesSan(), game.pgn(), game.clocks(),
+                game.analysisEligible());
+    }
+
     private static CatalogGame.Opponent human() {
         return new CatalogGame.Opponent(
                 CatalogGame.OpponentKind.USER, "opponent", "Opponent", 1550, null, null);
@@ -229,7 +260,7 @@ class GameRatingContextPersistenceTest {
             CatalogGame.Opponent opponent) {
         Instant playedAt = START.plusSeconds(hour * 3_600L);
         return new CatalogGame(
-                id,
+                GameRef.lichess(id),
                 playedAt,
                 playedAt.plusSeconds(300),
                 CatalogGame.Status.RESIGN,

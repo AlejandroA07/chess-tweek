@@ -28,6 +28,7 @@ public class JdbcGameRatingContext implements GameRatingContext {
     private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
     private static final String RATED_STANDARD = """
             account_id = :accountId
+              AND source = 'lichess'
               AND rated = 1
               AND variant = 'standard'
               AND owner_rating IS NOT NULL
@@ -36,10 +37,10 @@ public class JdbcGameRatingContext implements GameRatingContext {
     private static final String RECENT_RATINGS = """
             SELECT speed, played_at_ms, owner_rating, owner_rating_change, recency
             FROM (
-                SELECT speed, played_at_ms, lichess_game_id, owner_rating, owner_rating_change,
+                SELECT speed, played_at_ms, game_id, owner_rating, owner_rating_change,
                        ROW_NUMBER() OVER (
                            PARTITION BY speed
-                           ORDER BY played_at_ms DESC, lichess_game_id DESC
+                           ORDER BY played_at_ms DESC, game_id DESC
                        ) AS recency
                 FROM game_review_game
                 WHERE %s
@@ -58,6 +59,7 @@ public class JdbcGameRatingContext implements GameRatingContext {
                    COUNT(*) AS games
             FROM game_review_game
             WHERE account_id = :accountId
+              AND source = 'lichess'
               AND (opponent_kind = 'ai'
                    OR (opponent_kind = 'user' AND opponent_title = 'BOT'))
             GROUP BY opponent_kind, opponent_rating, opponent_ai_level, owner_result

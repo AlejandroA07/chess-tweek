@@ -19,6 +19,7 @@ import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameAnalysisSummaries;
 import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogQuery;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 import com.chesstweek.identity.LichessSessionService;
 
@@ -185,10 +186,10 @@ public final class GameCatalogController {
     private ResponseEntity<?> connected(String accountId, GameCatalogQuery query) {
         try {
             var page = gameCatalog.games(accountId, query);
-            Map<String, GameAnalysisSummaries.Summary> analyses = analysisSummaries.latest(
-                    accountId, page.games().stream().map(CatalogGame::id).toList());
+            Map<GameRef, GameAnalysisSummaries.Summary> analyses = analysisSummaries.latest(
+                    accountId, page.games().stream().map(CatalogGame::ref).toList());
             List<GameCardResponse> games = page.games().stream()
-                    .map(game -> toCard(game, analyses.get(game.id())))
+                    .map(game -> toCard(game, analyses.get(game.ref())))
                     .toList();
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
@@ -216,7 +217,8 @@ public final class GameCatalogController {
     static GameCardResponse toCard(
             CatalogGame game, GameAnalysisSummaries.Summary summary) {
         return new GameCardResponse(
-                game.id(),
+                game.ref().id(),
+                game.ref().source().value(),
                 game.playedAt().toString(),
                 game.ownerResult().value(),
                 game.ownerColor().value(),
@@ -314,6 +316,7 @@ public final class GameCatalogController {
 
     public record GameCardResponse(
             String id,
+            String source,
             String playedAt,
             String result,
             String ownerColor,

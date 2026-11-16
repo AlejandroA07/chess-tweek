@@ -6,6 +6,7 @@ import java.util.Objects;
 
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameAnalysis;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.internal.analysis.GamePhases;
 import com.chesstweek.gamereview.internal.analysis.TwoPassAnalysis;
 
@@ -17,7 +18,7 @@ public interface AnalysisVersionStore {
     /** One side's findings from one analysis, ready to be stored. */
     record NewVersion(
             String accountId,
-            String gameId,
+            GameRef game,
             Side side,
             GameAnalysis.Perspective requestedPerspective,
             CatalogGame.Color analyzedColor,
@@ -30,7 +31,7 @@ public interface AnalysisVersionStore {
 
         public NewVersion {
             Objects.requireNonNull(accountId);
-            Objects.requireNonNull(gameId);
+            Objects.requireNonNull(game);
             Objects.requireNonNull(side);
             Objects.requireNonNull(requestedPerspective);
             Objects.requireNonNull(analyzedColor);

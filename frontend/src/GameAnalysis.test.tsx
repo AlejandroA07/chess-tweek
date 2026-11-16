@@ -4,6 +4,7 @@ import { App } from './App'
 
 type Job = {
   gameId: string
+  source: 'lichess' | 'chesscom'
   perspective: 'my_moves' | 'opponent_moves' | 'both'
   state: 'running' | 'completed' | 'failed' | 'canceled'
   pass: 'starting' | 'quick' | 'deep' | 'saving'
@@ -21,6 +22,7 @@ const STARTED_AT = '2026-11-14T12:00:00Z'
 function running(overrides: Partial<Job> = {}): Job {
   return {
     gameId: GAME_ID,
+    source: 'lichess',
     perspective: 'my_moves',
     state: 'running',
     pass: 'quick',
@@ -74,7 +76,7 @@ describe('Game analysis on Games', () => {
         if (polls.length > 0) currentJob = polls.shift() ?? null
         return json(200, { job: currentJob })
       }
-      if (url === `/api/games/${GAME_ID}/analyses`) {
+      if (url === `/api/games/lichess/${GAME_ID}/analyses`) {
         if (startResponse.status === 202) {
           currentJob = (startResponse.body as { job: Job }).job
         }
@@ -99,7 +101,7 @@ describe('Game analysis on Games', () => {
     fireEvent.click(within(gameCard).getByRole('button', { name: 'Analyze my moves against Rival' }))
     analyzed = true
 
-    const start = requests.find((request) => request.url === `/api/games/${GAME_ID}/analyses`)
+    const start = requests.find((request) => request.url === `/api/games/lichess/${GAME_ID}/analyses`)
     expect(start?.init).toMatchObject({
       method: 'POST',
       credentials: 'same-origin',
@@ -152,7 +154,7 @@ describe('Game analysis on Games', () => {
 
     expect(await screen.findByRole('heading', { name: 'Analyzing both sides against Rival' }))
       .toBeInTheDocument()
-    const start = requests.find((request) => request.url === `/api/games/${GAME_ID}/analyses`)
+    const start = requests.find((request) => request.url === `/api/games/lichess/${GAME_ID}/analyses`)
     expect(start?.init?.body).toBe(JSON.stringify({ perspective: 'both' }))
     expect(within(gameCard).getByText('Opponent moves · Analyzing…')).toBeInTheDocument()
   })
@@ -169,7 +171,7 @@ describe('Game analysis on Games', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
     await waitFor(() => expect(requests.filter(
-      (request) => request.url === `/api/games/${GAME_ID}/analyses`,
+      (request) => request.url === `/api/games/lichess/${GAME_ID}/analyses`,
     )).toHaveLength(2))
     expect(await screen.findByRole('heading', { name: 'Analyzing your moves against Rival' }))
       .toBeInTheDocument()
@@ -354,6 +356,7 @@ function connectedSession() {
 function card(id: string, opponentName: string, analyzed: boolean) {
   return {
     id,
+    source: 'lichess',
     playedAt: '2026-11-13T10:00:00Z',
     result: 'win',
     ownerColor: 'white',

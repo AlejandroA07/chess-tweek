@@ -1,7 +1,6 @@
 package com.chesstweek.composition.web;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.CacheControl;
@@ -15,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.chesstweek.gamereview.GameAnalysisSummaries;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.GameReviews;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
@@ -24,8 +24,6 @@ import com.chesstweek.identity.LichessSessionService;
 @RestController
 public final class GameReviewController {
 
-    private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
-
     private final LichessSessionAuthorizer sessionAuthorizer;
     private final GameReviews gameReviews;
 
@@ -34,10 +32,11 @@ public final class GameReviewController {
         this.gameReviews = gameReviews;
     }
 
-    @GetMapping("/api/games/{gameId}/review")
+    @GetMapping("/api/games/{source}/{gameId}/review")
     public ResponseEntity<?> review(
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession,
+            @PathVariable("source") String sourceText,
             @PathVariable("gameId") String gameId,
             @RequestParam(name = "side", defaultValue = "") String sideText) {
         GameReviews.Side side = switch (sideText) {
@@ -46,7 +45,8 @@ public final class GameReviewController {
             case "opponent_moves" -> GameReviews.Side.OPPONENT_MOVES;
             default -> null;
         };
-        if (!GAME_ID.matcher(gameId).matches() || (side == null && !sideText.isEmpty())) {
+        GameRef game = GameRef.parse(sourceText, gameId).orElse(null);
+        if (game == null || (side == null && !sideText.isEmpty())) {
             return error(HttpStatus.BAD_REQUEST, "invalid_review_request");
         }
         LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
@@ -68,7 +68,7 @@ public final class GameReviewController {
         }
         GameReviews.GameReview review;
         try {
-            review = gameReviews.review(authorization.accountId(), gameId, side).orElse(null);
+            review = gameReviews.review(authorization.accountId(), game, side).orElse(null);
         } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "review_unavailable");
         } catch (RuntimeException exception) {

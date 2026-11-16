@@ -4,11 +4,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import com.chesstweek.gamereview.GameRef;
+
 /** Reads stored analysis versions back for review. */
 public interface AnalysisVersionReader {
 
     /** The account's newest version of one side of a game, if that side was ever analyzed. */
-    Optional<StoredVersion> newest(String accountId, String gameId, AnalysisVersionStore.Side side);
+    Optional<StoredVersion> newest(String accountId, GameRef game, AnalysisVersionStore.Side side);
 
     /** Every judged move of a version, in ply order. */
     List<StoredMove> moves(long versionId);

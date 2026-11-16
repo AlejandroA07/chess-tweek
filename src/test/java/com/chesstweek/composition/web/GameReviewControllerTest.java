@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.chesstweek.gamereview.CatalogGame;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.GameReviews;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
@@ -39,7 +40,7 @@ class GameReviewControllerTest {
         review = review();
 
         mockMvc(connected())
-                .perform(get("/api/games/game0001/review").queryParam("side", "opponent_moves").cookie(SESSION))
+                .perform(get("/api/games/lichess/game0001/review").queryParam("side", "opponent_moves").cookie(SESSION))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.game.id").value("game0001"))
@@ -60,17 +61,17 @@ class GameReviewControllerTest {
                 .andExpect(jsonPath("$.selected.moves[0].tactics[0].targets[1]").value("a8"))
                 .andExpect(content().string(not(containsString("e4 e5"))));
 
-        assertThat(requests).containsExactly("owner-id game0001 OPPONENT_MOVES");
+        assertThat(requests).containsExactly("owner-id lichess:game0001 OPPONENT_MOVES");
     }
 
     @Test
     void choosesTheDefaultSideWhenNoneIsRequested() throws Exception {
         review = review();
 
-        mockMvc(connected()).perform(get("/api/games/game0001/review").cookie(SESSION))
+        mockMvc(connected()).perform(get("/api/games/lichess/game0001/review").cookie(SESSION))
                 .andExpect(status().isOk());
 
-        assertThat(requests).containsExactly("owner-id game0001 null");
+        assertThat(requests).containsExactly("owner-id lichess:game0001 null");
     }
 
     @Test
@@ -81,10 +82,14 @@ class GameReviewControllerTest {
             return LichessSessionAuthorization.connected("owner-id", "ChessOwner", "liu_token");
         });
 
-        mockMvc.perform(get("/api/games/game0001/review").queryParam("side", "both").cookie(SESSION))
+        mockMvc.perform(get("/api/games/lichess/game0001/review").queryParam("side", "both").cookie(SESSION))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid_review_request"));
-        mockMvc.perform(get("/api/games/short/review").cookie(SESSION))
+        mockMvc.perform(get("/api/games/lichess/short/review").cookie(SESSION))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/games/chesscom/game0001/review").cookie(SESSION))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/games/chess.com/123456/review").cookie(SESSION))
                 .andExpect(status().isBadRequest());
 
         assertThat(authorizations).isEmpty();
@@ -94,12 +99,12 @@ class GameReviewControllerTest {
     @Test
     void deniesDisconnectedOrUnavailableSessionsBeforeReading() throws Exception {
         mockMvc(sealed -> LichessSessionAuthorization.disconnected(true))
-                .perform(get("/api/games/game0001/review").cookie(SESSION))
+                .perform(get("/api/games/lichess/game0001/review").cookie(SESSION))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("not_connected"))
                 .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
         mockMvc(sealed -> LichessSessionAuthorization.unavailable())
-                .perform(get("/api/games/game0001/review").cookie(SESSION))
+                .perform(get("/api/games/lichess/game0001/review").cookie(SESSION))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error").value("session_unavailable"));
 
@@ -108,31 +113,31 @@ class GameReviewControllerTest {
 
     @Test
     void reportsMissingGamesAndStorageFailuresWithFixedCodes() throws Exception {
-        mockMvc(connected()).perform(get("/api/games/game0001/review").cookie(SESSION))
+        mockMvc(connected()).perform(get("/api/games/lichess/game0001/review").cookie(SESSION))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("game_not_found"));
 
         failure = new DataAccessResourceFailureException("private database detail");
-        mockMvc(connected()).perform(get("/api/games/game0001/review").cookie(SESSION))
+        mockMvc(connected()).perform(get("/api/games/lichess/game0001/review").cookie(SESSION))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error").value("review_unavailable"))
                 .andExpect(content().string(not(containsString("private database detail"))));
 
         failure = new IllegalStateException("Stored engine lines are invalid");
-        mockMvc(connected()).perform(get("/api/games/game0001/review").cookie(SESSION))
+        mockMvc(connected()).perform(get("/api/games/lichess/game0001/review").cookie(SESSION))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error").value("review_unavailable"));
 
         failure = new java.util.NoSuchElementException("library detail");
-        mockMvc(connected()).perform(get("/api/games/game0001/review").cookie(SESSION))
+        mockMvc(connected()).perform(get("/api/games/lichess/game0001/review").cookie(SESSION))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error").value("review_unavailable"))
                 .andExpect(content().string(not(containsString("library detail"))));
     }
 
     private MockMvc mockMvc(LichessSessionAuthorizer authorizer) {
-        GameReviews reviews = (accountId, gameId, side) -> {
-            requests.add(accountId + " " + gameId + " " + side);
+        GameReviews reviews = (accountId, game, side) -> {
+            requests.add(accountId + " " + game.source().value() + ":" + game.id() + " " + side);
             if (failure != null) {
                 throw failure;
             }
@@ -166,7 +171,7 @@ class GameReviewControllerTest {
 
     private static CatalogGame game() {
         return new CatalogGame(
-                "game0001",
+                GameRef.lichess("game0001"),
                 Instant.parse("2026-11-13T10:00:00Z"),
                 Instant.parse("2026-11-13T10:05:00Z"),
                 CatalogGame.Status.RESIGN,

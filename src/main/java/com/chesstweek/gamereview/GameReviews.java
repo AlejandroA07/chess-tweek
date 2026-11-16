@@ -15,7 +15,7 @@ public interface GameReviews {
      * The account's game, or empty when it is not stored. {@code side} null selects the owner's
      * moves when analyzed, otherwise the opponent's, otherwise no side.
      */
-    Optional<GameReview> review(String accountId, String gameId, Side side);
+    Optional<GameReview> review(String accountId, GameRef game, Side side);
 
     enum Side {
         MY_MOVES,

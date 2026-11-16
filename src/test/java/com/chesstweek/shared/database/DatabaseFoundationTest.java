@@ -20,12 +20,12 @@ class DatabaseFoundationTest {
 
     private static final String OUT_OF_RANGE_RATING_CHANGE = """
             INSERT INTO game_review_game (
-                account_id, lichess_game_id, played_at_ms, last_move_at_ms, status,
+                account_id, source, game_id, played_at_ms, last_move_at_ms, status,
                 owner_result, owner_color, owner_rating, owner_rating_change,
                 opponent_kind, opponent_user_id, opponent_name, speed, rated, variant,
                 moves_san, clocks_json, analysis_eligible, retrieved_at_ms
             ) VALUES (
-                'ownerid', 'game0001', 0, 0, 'mate',
+                'ownerid', 'lichess', 'game0001', 0, 0, 'mate',
                 'win', 'white', 1800, 1001,
                 'user', 'opponent', 'Opponent', 'blitz', 1, 'standard',
                 'e4', '[]', 1, 0
@@ -48,7 +48,7 @@ class DatabaseFoundationTest {
                             PosixFilePermission.OWNER_WRITE);
             assertThat(jdbc.queryForObject(
                     "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1",
-                    Integer.class)).isEqualTo(5);
+                    Integer.class)).isEqualTo(6);
             assertThat(jdbc.queryForObject(
                     "SELECT COUNT(*) FROM sqlite_master "
                             + "WHERE type = 'table' AND name = 'game_review_game'",

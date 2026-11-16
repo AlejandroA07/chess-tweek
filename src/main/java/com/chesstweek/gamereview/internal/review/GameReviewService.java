@@ -14,6 +14,7 @@ import io.github.wolfraam.chessgame.notation.NotationType;
 import org.springframework.stereotype.Service;
 
 import com.chesstweek.gamereview.CatalogGame;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.GameReviews;
 import com.chesstweek.gamereview.internal.analysis.ExpectedScore;
 import com.chesstweek.gamereview.internal.analysis.GamePhases;
@@ -42,8 +43,8 @@ class GameReviewService implements GameReviews {
     }
 
     @Override
-    public Optional<GameReview> review(String accountId, String gameId, Side side) {
-        CatalogGame game = games.find(accountId, gameId).orElse(null);
+    public Optional<GameReview> review(String accountId, GameRef gameRef, Side side) {
+        CatalogGame game = games.find(accountId, gameRef).orElse(null);
         if (game == null) {
             return Optional.empty();
         }
@@ -51,8 +52,8 @@ class GameReviewService implements GameReviews {
             return Optional.of(new GameReview(game, null, List.of(), null, null, null, null));
         }
         ReplayedGame replay = ReplayedGame.fromSan(game.movesSan());
-        StoredVersion mine = versions.newest(accountId, gameId, AnalysisVersionStore.Side.OWNER).orElse(null);
-        StoredVersion theirs = versions.newest(accountId, gameId, AnalysisVersionStore.Side.OPPONENT).orElse(null);
+        StoredVersion mine = versions.newest(accountId, gameRef, AnalysisVersionStore.Side.OWNER).orElse(null);
+        StoredVersion theirs = versions.newest(accountId, gameRef, AnalysisVersionStore.Side.OPPONENT).orElse(null);
         Side chosen = side != null ? side : mine != null ? Side.MY_MOVES : theirs != null ? Side.OPPONENT_MOVES : null;
         StoredVersion selected = chosen == Side.MY_MOVES ? mine : chosen == Side.OPPONENT_MOVES ? theirs : null;
 

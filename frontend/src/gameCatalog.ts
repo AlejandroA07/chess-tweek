@@ -1,5 +1,8 @@
+import { isGameRef, type GameSource } from './gameRef'
+
 export type CatalogGame = {
   id: string
+  source: GameSource
   playedAt: string
   result: 'win' | 'draw' | 'loss'
   ownerColor: 'white' | 'black'
@@ -170,7 +173,7 @@ function parseCatalog(value: unknown): CatalogPage {
 export function parseGame(value: unknown): CatalogGame {
   if (
     !isRecord(value) ||
-    !isBoundedText(value.id, 32) ||
+    !isGameRef(value.source, value.id) ||
     !isDate(value.playedAt) ||
     !isOneOf(value.result, ['win', 'draw', 'loss']) ||
     !isOneOf(value.ownerColor, ['white', 'black']) ||

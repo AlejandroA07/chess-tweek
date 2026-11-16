@@ -4,7 +4,7 @@ Stage 4 Part 5 is split in two. Part 5a, recorded here, adds the read model and 
 
 ## Endpoint
 
-`GET /api/games/{gameId}/review?side=my_moves|opponent_moves` requires the Lichess session.
+`GET /api/games/{source}/{gameId}/review?side=my_moves|opponent_moves` (`source` since Stage 5 Part 1) requires the Lichess session.
 
 - The game id must be 8–32 letters or digits, and `side` is allowlisted. Both are checked before authorization.
 - Without `side`, the owner's moves are chosen when analyzed, otherwise the opponent's, otherwise none.

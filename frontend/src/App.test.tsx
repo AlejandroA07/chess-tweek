@@ -94,6 +94,7 @@ describe('App', () => {
             games: [
               {
                 id: 'game0001',
+                source: 'lichess',
                 playedAt: '2026-11-11T00:00:00Z',
                 result: 'win',
                 ownerColor: 'white',
@@ -120,6 +121,7 @@ describe('App', () => {
               },
               {
                 id: 'game0002',
+                source: 'lichess',
                 playedAt: '2026-11-10T00:00:00Z',
                 result: 'loss',
                 ownerColor: 'black',
@@ -1018,6 +1020,7 @@ function connectedSession() {
 function catalogCard(id: string, opponentName: string, playedAt: string) {
   return {
     id,
+    source: 'lichess',
     playedAt,
     result: 'win',
     ownerColor: 'white',

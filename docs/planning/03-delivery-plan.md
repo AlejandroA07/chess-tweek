@@ -379,6 +379,15 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-16):**
 
-1. Stage 5 Parts 1 and 2 are merged. The owner reviews and merges Part 3 (interface, `feature/chesscom-interface`; see `docs/dev/2026-11-16-chesscom-interface.md`), which completes the Stage 5 implementation.
+1. Stage 5 Parts 1, 2, and 3 are merged (Part 3 in #37; see `docs/dev/2026-11-16-chesscom-interface.md`), which completes the Stage 5 implementation.
 2. The owner's live check: back up `var/chess-tweek.db` (the first start runs migrations V6 and V7), save the chess.com username on Admin, get chess.com games, filter by site, analyze and review one chess.com game, and check the Dashboard ratings.
-3. Then Stage 6 (training core).
+3. Then the Accounts and Dashboard redesign below, as its own branch and PR.
+4. Then Stage 6 (training core).
+
+**Accounts and Dashboard redesign (owner decision, 2026-11-16):**
+
+- Admin gets an Accounts section: the Lichess connection (connect, connected account, disconnect) moves there from Dashboard, above the chess.com username card. Admin must render while Lichess is disconnected.
+- Dashboard shows two rating boxes side by side, Chess.com on the left and Lichess on the right, stacking on narrow widths; the cards inside each box stack in one column.
+- Each box shows a Connect Chess.com or Connect Lichess button that opens Admin whenever its account is not connected. The chess.com box asks to connect Lichess first while Lichess is disconnected, because chess.com data is stored under the Lichess account.
+- While disconnected, a box shows a short empty message (for example "Connect a Chess.com account to see your ratings here"), never stale numbers: every data endpoint requires the Lichess session, and remembering last-seen ratings in the browser was considered and declined.
+- Messages that say "Reconnect from Dashboard" point to Admin instead; the Lichess login may keep returning to Dashboard.

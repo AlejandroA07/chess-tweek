@@ -150,18 +150,19 @@ export function DashboardChessComRatings({
 
   const context = state.kind === 'ready' ? state.context : null
   const historyFor = (speed: HistorySpeed) =>
-    context?.ratings[HISTORY_SPEEDS.indexOf(speed)] ?? null
+    context?.ratings.find((rating) => rating.speed === speed) ?? null
   const empty = context !== null && CHESSCOM_SPEEDS.every((speed) => (historyFor(speed)?.gamesCounted ?? 0) === 0)
 
   return (
     <section className={styles.panel} aria-labelledby="chesscom-ratings-title">
       <div className={styles.heading}>
         <div>
-          <p className={styles.eyebrow}>Chess.com ratings</p>
+          <p className={styles.eyebrow}>From stored games</p>
           <h2 id="chesscom-ratings-title">Chess.com ratings</h2>
           <p>
             Built only from chess.com games stored on this Mac: each rating is the latest one in your
-            stored games, so it can be older than your rating on chess.com.
+            stored games, so it can be older than your rating on chess.com. Daily games are stored
+            and can be analyzed, but their rating is not shown here.
           </p>
         </div>
         <a className={styles.link} href="#/games">Open Games</a>
@@ -187,8 +188,8 @@ export function DashboardChessComRatings({
 
       {context === null ? null : empty ? (
         <p className={styles.note}>
-          No rated chess.com games are stored yet. Save your chess.com username on Admin, then use
-          Get Chess.com Games on Games.
+          No rated chess.com rapid, blitz, or bullet games are stored yet. Save your chess.com
+          username on Admin, then use Get Chess.com Games on Games.
         </p>
       ) : (
         <div className={styles.grid}>

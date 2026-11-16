@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import styles from './GameRetrievalPanel.module.css'
-import { requestChessComUsername } from './chessComPlayer'
+import { ChessComPlayerError, requestChessComUsername } from './chessComPlayer'
 import { sourceLabel } from './gameCatalog'
 import {
   GameRetrievalError,
@@ -47,21 +47,37 @@ export function GameRetrievalPanel({
   const [player, setPlayer] = useState<PlayerState>(site === 'lichess'
     ? { kind: 'ready', username: lichessUsername }
     : { kind: 'loading' })
+  const [playerAttempt, setPlayerAttempt] = useState(0)
   const request = useRef<AbortController | null>(null)
+  const adminLink = useRef<HTMLAnchorElement | null>(null)
+  const focusAdminLink = useRef(false)
 
   useEffect(() => () => request.current?.abort(), [])
+
+  // The form disappears when the username turns out to be missing; keep focus on the next step.
+  useEffect(() => {
+    if (player.kind === 'missing' && focusAdminLink.current) {
+      focusAdminLink.current = false
+      adminLink.current?.focus()
+    }
+  }, [player])
 
   useEffect(() => {
     if (site !== 'chesscom') return
     const controller = new AbortController()
+    setPlayer({ kind: 'loading' })
     requestChessComUsername(controller.signal)
       .then((username) => setPlayer(username === null ? { kind: 'missing' } : { kind: 'ready', username }))
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
+        if (error instanceof ChessComPlayerError && error.failure === 'not_connected') {
+          onSessionFailure('not_connected')
+          return
+        }
         setPlayer({ kind: 'unavailable' })
       })
     return () => controller.abort()
-  }, [site])
+  }, [site, onSessionFailure, playerAttempt])
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -80,7 +96,10 @@ export function GameRetrievalPanel({
     } catch (error: unknown) {
       if (error instanceof GameRetrievalError) {
         if (error.failure === 'not_connected') onSessionFailure(error.failure)
-        if (error.failure === 'username_missing') setPlayer({ kind: 'missing' })
+        if (error.failure === 'username_missing') {
+          focusAdminLink.current = true
+          setPlayer({ kind: 'missing' })
+        }
         setSubmission({
           kind: 'error',
           failure: error.failure,
@@ -108,13 +127,19 @@ export function GameRetrievalPanel({
       {player.kind === 'missing' && (
         <div className={styles.account} role="status">
           <p>No chess.com username is saved for this account yet.</p>
-          <p><a href="#/admin">Add your chess.com username on Admin</a>, then come back to get games.</p>
+          <p>
+            <a ref={adminLink} href="#/admin">Add your chess.com username on Admin</a>, then come back
+            to get games.
+          </p>
         </div>
       )}
       {player.kind === 'unavailable' && (
-        <p className={styles.account} role="alert">
-          Your chess.com username could not be read. Close this panel and try again.
-        </p>
+        <div className={styles.account} role="alert">
+          <p>Your chess.com username could not be read. Nothing was changed.</p>
+          <div className={styles.actions}>
+            <button type="button" onClick={() => setPlayerAttempt((value) => value + 1)}>Retry</button>
+          </div>
+        </div>
       )}
       {player.kind === 'ready' && (
         <>

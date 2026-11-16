@@ -4,19 +4,19 @@ Stage 5 Part 3 puts chess.com games in the interface. With it, Stage 5 is implem
 
 ## Admin
 
-A Chess.com account card above Stockfish (`AdminChessCom.tsx`) reads, saves, and removes the username through `/api/chesscom/player`. The input is checked against the same rule as the server (3 to 25 letters, digits, `_`, `-`) before anything is sent, and surrounding spaces are trimmed. Removing the username keeps every stored chess.com game. Loading, Retry, saving, removing, and session loss are covered.
+A Chess.com account card above Stockfish (`AdminChessCom.tsx`) reads, saves, and removes the username through `/api/chesscom/player`. The plan placed it "next to the Lichess connection", but the Lichess connection lives on Dashboard, not Admin; the card is on Admin as the owner chose. The input is checked against the same rule as the server (3 to 25 letters, digits, `_`, `-`) before anything is sent, and surrounding spaces are trimmed. Removing the username keeps every stored chess.com game, so it needs no confirmation; focus then moves to the empty field. Loading, Retry, saving, removing, and session loss are covered; success is announced politely and errors as alerts.
 
 ## Games
 
 - The library heading is now "Stored games" with two actions: Get Lichess Games and Get Chess.com Games. Focus returns to the button that opened the panel.
-- `GameRetrievalPanel` serves both sites (`site` prop). The chess.com panel reads the saved username first; without one it links to Admin instead of showing the form. It explains that chess.com publishes games with a delay of up to a day and stores only standard chess, and reports skipped games, an unknown player, the rate-limit wait, and other failures without changing the library.
+- `GameRetrievalPanel` serves both sites (`site` prop). The chess.com panel reads the saved username first; without one it links to Admin instead of showing the form (and moves focus to that link if the username disappears during a retrieval). If the username cannot be read it offers Retry; a lost Lichess session returns to the connection prompt. It explains that chess.com publishes games with a delay of up to a day and stores only standard chess, and reports skipped games, an unknown player, the rate-limit wait, and other failures without changing the library.
 - Every card shows its site as a bordered text badge next to the date.
 - A Site filter (All sites, Lichess, Chess.com) is the first filter and is sent as `source` to `/api/games`. The Correspondence speed option notes that it holds chess.com Daily games.
 - An opening known only by its ECO code shows the code alone (`openingLabel`), on cards and on the review page. Before this, such a card made the whole library response invalid.
 
 ## Dashboard
 
-Below the Lichess ratings, a Chess.com ratings section (`DashboardChessComRatings`) reads `/api/dashboard/rating-context?source=chesscom` and shows Rapid, Blitz, and Bullet: the latest rating in the stored games, labeled as such, with the stored history. It shows no bot record (chess.com archives contain no computer games). Without rated chess.com games it explains how to add them; cards appear only after loading, so nothing reads "Not rated" by mistake.
+Below the Lichess ratings, a Chess.com ratings section (`DashboardChessComRatings`) reads `/api/dashboard/rating-context?source=chesscom` and shows Rapid, Blitz, and Bullet: the latest rating in the stored games, labeled as such, with the stored history. Daily games are stored as correspondence and can be analyzed, but their rating is not shown (the rating history covers rapid, blitz, bullet, and classical); the section says so. It shows no bot record (chess.com archives contain no computer games). Without rated chess.com games it explains how to add them; cards appear only after loading, so nothing reads "Not rated" by mistake.
 
 ## Server
 
@@ -28,6 +28,8 @@ Analysis and game review already worked for chess.com games after Part 1; review
 ## Tests
 
 - Backend: the source filter in `GameCatalogControllerTest` and `GameCatalogPersistenceTest`; per-site ratings in `DashboardRatingContextControllerTest` and `GameRatingContextPersistenceTest`.
-- Frontend: `ChessCom.test.tsx` (12) covers the Admin card, the chess.com retrieval panel, the Dashboard section, and an ECO-only opening; `App.test.tsx` checks the new heading and button.
+- Frontend: `ChessCom.test.tsx` (15) covers the Admin card (including focus after removal), the chess.com retrieval panel (missing username and focus, Retry, session loss, success, 404, 429, 502), the Dashboard section, and an ECO-only opening; `GameReview.test.tsx` opens a chess.com game at `#/games/chesscom/{id}`; `App.test.tsx` checks the new heading and button.
+
+Known limits: malformed chess.com data (502) and an unreachable chess.com (503) show the same message, since both are fixed by trying again later.
 
 The connected screens were not driven in a browser by the agent (they need the owner's Lichess session); the owner's live check covers them.

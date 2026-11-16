@@ -59,6 +59,7 @@ describe('Chess.com account on Admin', () => {
     expect(await screen.findByText('Username removed. Stored chess.com games were kept.'))
       .toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove Username' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Chess.com username')).toHaveFocus()
     expect(calls.map((call) => call.method)).toEqual(['GET', 'PUT', 'DELETE'])
   })
 
@@ -114,6 +115,52 @@ describe('Get Chess.com Games', () => {
     expect(await screen.findByRole('link', { name: 'Add your chess.com username on Admin' }))
       .toHaveAttribute('href', '#/admin')
     expect(screen.queryByRole('button', { name: 'Get Games' })).not.toBeInTheDocument()
+  })
+
+  it('offers Retry when the saved username cannot be read', async () => {
+    let reads = 0
+    server(() => {
+      reads += 1
+      return reads === 1 ? json(503, { error: 'catalog_unavailable' }) : json(200, { username: 'OwnerName' })
+    })
+    panel()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+
+    expect(await screen.findByRole('button', { name: 'Get Games' })).toBeInTheDocument()
+  })
+
+  it('returns to the connection prompt when the session has ended', async () => {
+    server(() => json(401, { error: 'not_connected' }))
+    const onSessionFailure = vi.fn()
+    render(
+      <GameRetrievalPanel
+        site="chesscom"
+        lichessUsername="ChessOwner"
+        onClose={vi.fn()}
+        onComplete={vi.fn()}
+        onSessionFailure={onSessionFailure}
+      />,
+    )
+
+    await waitFor(() => expect(onSessionFailure).toHaveBeenCalledWith('not_connected'))
+    expect(screen.queryByText(/could not be read/)).not.toBeInTheDocument()
+  })
+
+  it('moves focus to the Admin link when the username was removed meanwhile', async () => {
+    server((call) => call.method === 'GET'
+      ? json(200, { username: 'OwnerName' })
+      : json(409, { error: 'chesscom_username_missing' }))
+    panel()
+
+    const submit = await screen.findByRole('button', { name: 'Get Games' })
+    submit.focus()
+    fireEvent.click(submit)
+
+    await waitFor(() => expect(
+      screen.getByRole('link', { name: 'Add your chess.com username on Admin' }),
+    ).toHaveFocus())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('retrieves a batch with the saved username and reports skipped games', async () => {
@@ -188,7 +235,7 @@ describe('Chess.com ratings on Dashboard', () => {
     server(() => json(200, context([])))
     render(<DashboardChessComRatings onSessionFailure={vi.fn()} />)
 
-    expect(await screen.findByText(/No rated chess.com games are stored yet/)).toBeInTheDocument()
+    expect(await screen.findByText(/No rated chess.com rapid, blitz, or bullet games are stored yet/)).toBeInTheDocument()
     expect(screen.queryByText('Not rated')).not.toBeInTheDocument()
   })
 })

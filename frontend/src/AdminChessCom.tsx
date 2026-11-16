@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import styles from './AdminChessCom.module.css'
 import {
   CHESSCOM_USERNAME,
@@ -26,6 +26,7 @@ export function AdminChessCom({
   const [draft, setDraft] = useState('')
   const [action, setAction] = useState<Action>('idle')
   const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const input = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -64,7 +65,11 @@ export function AdminChessCom({
       setDraft(username)
       setMessage({ kind: 'success', text: `Saved. Get Chess.com Games on Games now uses ${username}.` })
     } catch (error: unknown) {
-      setMessage({ kind: 'error', text: failureText(error, 'saved', onSessionFailure) })
+      if (isSessionLoss(error)) {
+        onSessionFailure('not_connected')
+        return
+      }
+      setMessage({ kind: 'error', text: failureText(error, 'saved') })
     } finally {
       setAction('idle')
     }
@@ -78,8 +83,14 @@ export function AdminChessCom({
       setState({ kind: 'ready', username: null })
       setDraft('')
       setMessage({ kind: 'success', text: 'Username removed. Stored chess.com games were kept.' })
+      // The Remove button disappears with the saved username; continue from the empty field.
+      input.current?.focus()
     } catch (error: unknown) {
-      setMessage({ kind: 'error', text: failureText(error, 'removed', onSessionFailure) })
+      if (isSessionLoss(error)) {
+        onSessionFailure('not_connected')
+        return
+      }
+      setMessage({ kind: 'error', text: failureText(error, 'removed') })
     } finally {
       setAction('idle')
     }
@@ -112,6 +123,7 @@ export function AdminChessCom({
         <form className={styles.form} onSubmit={(event) => void save(event)}>
           <label htmlFor="chesscom-username">Chess.com username</label>
           <input
+            ref={input}
             id="chesscom-username"
             type="text"
             autoComplete="off"
@@ -149,29 +161,24 @@ export function AdminChessCom({
       )}
 
       <div aria-live="polite">
-        {message !== null && (
-          <p className={styles.message} data-kind={message.kind} role={message.kind === 'error' ? 'alert' : undefined}>
-            {message.text}
-          </p>
+        {message?.kind === 'success' && (
+          <p className={styles.message} data-kind="success">{message.text}</p>
         )}
       </div>
+      {message?.kind === 'error' && (
+        <p className={styles.message} data-kind="error" role="alert">{message.text}</p>
+      )}
     </section>
   )
 }
 
-function failureText(
-  error: unknown,
-  verb: 'saved' | 'removed',
-  onSessionFailure: (failure: 'not_connected') => void,
-) {
-  if (error instanceof ChessComPlayerError) {
-    if (error.failure === 'not_connected') {
-      onSessionFailure('not_connected')
-      return 'Your Lichess connection ended. Reconnect from Dashboard before trying again.'
-    }
-    if (error.failure === 'invalid_username') {
-      return 'Enter 3 to 25 letters, numbers, underscores, or hyphens.'
-    }
+function isSessionLoss(error: unknown) {
+  return error instanceof ChessComPlayerError && error.failure === 'not_connected'
+}
+
+function failureText(error: unknown, verb: 'saved' | 'removed') {
+  if (error instanceof ChessComPlayerError && error.failure === 'invalid_username') {
+    return 'Enter 3 to 25 letters, numbers, underscores, or hyphens.'
   }
   return `The username could not be ${verb}. Your settings were not changed. Try again.`
 }

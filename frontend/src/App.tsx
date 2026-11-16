@@ -5,9 +5,11 @@ import { DashboardRatingContext } from './DashboardRatingContext'
 import { GameReview } from './GameReview'
 import { gameKey, parseGameKey } from './gameRef'
 import { GamesLibrary } from './GamesLibrary'
+import { TrainingCourse } from './TrainingCourse'
+import { TrainingShortcut } from './TrainingShortcut'
 
 type HealthState = 'checking' | 'ready' | 'offline'
-type IconName = 'dashboard' | 'games' | 'reports' | 'puzzles' | 'admin'
+type IconName = 'dashboard' | 'training' | 'games' | 'reports' | 'puzzles' | 'admin'
 type EmptyState = { eyebrow: string; title: string; description: string }
 type Route = { href: string; icon: IconName; label: string; emptyState: EmptyState }
 type RatingSpeed = 'bullet' | 'blitz' | 'rapid' | 'classical' | 'correspondence'
@@ -33,6 +35,16 @@ const navigation: Route[] = [
       title: 'No chess activity yet',
       description:
         'Ratings, recent games, reports, and training will appear here after you connect Lichess. Everything stays local on this Mac.',
+    },
+  },
+  {
+    href: '#/training',
+    icon: 'training',
+    label: 'Training',
+    emptyState: {
+      eyebrow: 'Guided chess study',
+      title: 'The course could not be loaded',
+      description: 'The local training course will appear here when its content is available.',
     },
   },
   {
@@ -85,6 +97,7 @@ export function App() {
   const [health, setHealth] = useState<HealthState>('checking')
   const [route, setRoute] = useState(currentRoute)
   const [reviewGame, setReviewGame] = useState(currentReviewGame)
+  const [trainingLesson, setTrainingLesson] = useState(currentTrainingLesson)
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [session, setSession] = useState<SessionState>({ kind: 'checking' })
   const [accountAction, setAccountAction] = useState<'idle' | 'connecting' | 'logging-out'>('idle')
@@ -127,6 +140,7 @@ export function App() {
     const updateRoute = () => {
       setRoute(currentRoute())
       setReviewGame(currentReviewGame())
+      setTrainingLesson(currentTrainingLesson())
       setNavigationOpen(false)
     }
     window.addEventListener('hashchange', updateRoute)
@@ -264,7 +278,10 @@ export function App() {
         </header>
 
         <main className={styles.workspace}>
-          <div className={styles.workspaceStack} data-wide={reviewGame !== null}>
+          <div
+            className={styles.workspaceStack}
+            data-wide={reviewGame !== null || trainingLesson !== null}
+          >
             {route.href === '#/dashboard' && callbackNotice && (
               <CallbackBanner notice={callbackNotice} onDismiss={() => setCallbackNotice(null)} />
             )}
@@ -285,10 +302,22 @@ export function App() {
                 onSessionFailure={handleCatalogSessionFailure}
               />
             )}
+            {route.href === '#/dashboard' && session.kind !== 'checking' && (
+              <TrainingShortcut
+                connected={session.kind === 'connected'}
+                onSessionFailure={handleCatalogSessionFailure}
+              />
+            )}
             {reviewGame !== null && session.kind === 'connected' ? (
               <GameReview
                 key={`${session.account.id}:${gameKey(reviewGame)}`}
                 game={reviewGame}
+                onSessionFailure={handleCatalogSessionFailure}
+              />
+            ) : route.href === '#/training' ? (
+              <TrainingCourse
+                connectionState={session.kind}
+                lessonKey={trainingLesson}
                 onSessionFailure={handleCatalogSessionFailure}
               />
             ) : route.href === '#/games' ? (
@@ -476,7 +505,10 @@ function readCallbackNotice(): CallbackNotice | null {
 
 function currentRoute() {
   const hash = window.location.hash || '#/dashboard'
-  if (currentReviewGame() !== null) return navigation[1]
+  if (currentReviewGame() !== null) return navigation.find((item) => item.href === '#/games') ?? navigation[0]
+  if (currentTrainingLesson() !== null || hash === '#/training') {
+    return navigation.find((item) => item.href === '#/training') ?? navigation[0]
+  }
   return navigation.find((item) => item.href === hash) ?? navigation[0]
 }
 
@@ -486,9 +518,16 @@ function currentReviewGame() {
   return match === null ? null : parseGameKey(match[1])
 }
 
+/** The lesson key of a `#/training/lessons/{key}` link, or null for the course dashboard. */
+function currentTrainingLesson() {
+  const match = /^#\/training\/lessons\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(window.location.hash)
+  return match?.[1] ?? null
+}
+
 function NavIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, ReactNode> = {
     dashboard: <path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z" />,
+    training: <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zm3 0v16m3-12h5m-5 4h5" />,
     games: <path d="M8 4h8l-1 5 3 3v8H6v-8l3-3zm1 8h6m-7 4h8" />,
     reports: <path d="M6 3h9l3 3v15H6zm9 0v4h4M9 11h6m-6 4h6" />,
     puzzles: <path d="M9 4a3 3 0 1 1 6 0v3h3v4a3 3 0 1 0 0 6v3h-5v-3a3 3 0 1 0-6 0v3H3v-6h3a3 3 0 1 0 0-6H3V7h6z" />,

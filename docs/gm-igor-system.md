@@ -1,8 +1,20 @@
 # GM Igor Smirnov training system — research and planning handoff
 
-**Status:** Research-backed product proposal, not yet canonical product scope
+**Status:** Research handoff; the 2026-11-16 guided-course decision below supersedes its original roadmap proposal
 **Prepared:** 2026-11-09
-**Intended reader:** The next planning chat for Chess Tweek
+**Intended reader:** Future course and personalization planning
+
+## Decision applied on 2026-11-16
+
+The owner chose a smaller, standalone first release rather than the report-driven roadmap originally proposed in this handoff:
+
+- The first-class navigation destination is **Training**, with a Dashboard shortcut.
+- The course title is **Grandmaster Thinking Method**. It is an independent Chess Tweek course inspired by GM Igor Smirnov's publicly described principles; all prose, positions, hints, feedback, and exercises are original.
+- Stage 6 ships one complete guided module, **Repeatable Move Routine**, with four lessons and 12 board exercises. The lessons are browseable in order without artificial locks.
+- Authored content is versioned with the app and readable offline. Authorized Lichess identity is required only for saved progress and exercise actions.
+- V1 is intentionally not personalized from analyzed games and has no spaced-repetition grading. The deeper focus-first, evidence-driven roadmap described below remains research for a possible later extension through public module interfaces.
+
+The canonical scope now lives in `docs/planning/01-chess-tweek.md`, the module decision in `docs/planning/02-architecture.md`, and delivery in `docs/planning/03-delivery-plan.md`. When this research conflicts with those documents, the canonical documents win.
 
 ## Handoff objective
 

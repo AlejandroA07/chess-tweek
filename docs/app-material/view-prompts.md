@@ -19,7 +19,7 @@ Include these visible controls: Connect with Lichess, Retry connection, View ins
 ```text
 Create a high-fidelity 1440px desktop dashboard for “Chess Tweek,” a local-first macOS chess analysis and training app. Use a calm analysis-studio design: espresso-brown navigation and typography, warm-beige canvas, white/off-white surfaces, restrained serif headings, legible sans-serif body text, subtle borders, and minimal shadows. Avoid gradients, purple, neon, glass effects, emoji, childish badges, confetti, and generic admin-template styling. Every status must use text or icon as well as color.
 
-Use a persistent left navigation rail with Chess Tweek at the top and Dashboard, Games, Reports, Puzzles, and Admin. Dashboard is selected. The top bar shows the connected Lichess username/avatar placeholder, connection status, a small local-only indicator, and current date—no global search.
+Use a persistent left navigation rail with Chess Tweek at the top and Dashboard, Training, Games, Reports, Puzzles, and Admin. Dashboard is selected. The top bar shows the connected Lichess username/avatar placeholder, connection status, a small local-only indicator, and current date—no global search.
 
 Build an information-rich but breathable overview. The first row contains current Lichess rating cards for Blitz, Rapid, and Classical with rating, recent change if available, and a small historical sparkline. Do not invent a Chess Tweek rating. Beside them show a “Bot record” card with wins, draws, losses, games counted, and opponent-rating range.
 
@@ -35,7 +35,7 @@ Visible buttons and links: Get Lichess Games, View All Games, Open Game, Analyze
 ```text
 Create a high-fidelity 1440px desktop “Games” view for Chess Tweek. The app is a calm professional chess-analysis studio. Use an espresso-brown navigation rail and primary actions, warm-beige page canvas, white/off-white card surfaces, restrained serif page titles, precise sans-serif UI text, subtle borders, and accessible focus states. Avoid purple, gradients, neon, glassmorphism, excessive shadows, emoji, and playful reward styling.
 
-Keep the persistent left navigation with Dashboard, Games, Reports, Puzzles, and Admin; Games is selected. The page header contains “Lichess games,” a short statement that completed games are stored locally, and a primary “Get Lichess Games” button.
+Keep the persistent left navigation with Dashboard, Training, Games, Reports, Puzzles, and Admin; Games is selected. The page header contains “Lichess games,” a short statement that completed games are stored locally, and a primary “Get Lichess Games” button.
 
 When Get Lichess Games is opened, show a right-side panel rather than a modal. It contains a numeric field labeled “Number of games” with helper text “1–50,” an optional “Games before” date picker for older batches, a summary of the connected Lichess account, and buttons Get Games and Cancel. Include progress state “Receiving 18 of 50,” a successful summary with new/updated/duplicate counts, a rate-limit state with retry time, and a safe network error with Retry.
 
@@ -81,7 +81,7 @@ Primary controls: Analyze My Moves, Analyze Opponent, Analyze Both, Reanalyze Se
 ```text
 Create a high-fidelity 1440px desktop “Create Overall Games Analysis” screen for Chess Tweek, a local-first macOS chess study application. Use a calm professional analysis-studio visual system: dark espresso-brown navigation, typography, and primary actions; a warm-beige canvas; white or warm off-white surfaces; restrained serif headings; and precise sans-serif interface text. Use subtle borders, minimal shadows, strong keyboard focus, and controls at least 44px high. Avoid purple, gradients, neon, glassmorphism, emoji, confetti, playful game styling, and generic dashboard templates.
 
-Use the persistent left navigation with Dashboard, Games, Reports, Puzzles, and Admin; Reports is selected. The header says “Create Overall Games Analysis” and explains that a report requires exactly 10 distinct games with completed My Moves analysis. Show a prominent selection counter such as “7 of 10 games selected,” a restrained progress ring or bar, and a primary “Generate Report” button that is disabled until exactly 10 eligible games are selected. Beside the disabled button, state the exact reason.
+Use the persistent left navigation with Dashboard, Training, Games, Reports, Puzzles, and Admin; Reports is selected. The header says “Create Overall Games Analysis” and explains that a report requires exactly 10 distinct games with completed My Moves analysis. Show a prominent selection counter such as “7 of 10 games selected,” a restrained progress ring or bar, and a primary “Generate Report” button that is disabled until exactly 10 eligible games are selected. Beside the disabled button, state the exact reason.
 
 Build a filter toolbar with result, owner color, opening, opponent type, speed, and date range, plus Clear Filters and sort by newest/oldest. Show an “Eligible only” control that is on by default. Provide a compact explanation of eligibility and a disclosure for excluded games. Exclusion reasons include not analyzed, opponent-only analysis, unsupported variant, already selected duplicate, and analysis failed. Do not exclude a game merely because it belongs to another report.
 
@@ -228,4 +228,20 @@ Create three clear maintenance panels. “Backups” shows backup location, last
 Restore requires a confirmation drawer listing selected backup, automatic pre-restore backup, exact database target, checks, service interruption, typed confirmation, Cancel, and Confirm Restore. Compaction has its own confirmation with space requirement and Cancel/Compact. Show progress steps for backup, pre-restore backup, validation, replacement, post-restore integrity check, and compaction. Disable conflicting actions while one maintenance operation runs.
 
 Include states for 80% warning, 90% critical warning, 100% persistence stop, less-than-10-GB disk stop, backup success/failure, corrupt backup rejected, incompatible backup rejected, pre-restore-backup failure that stops restore, restore failure with original database still usable, post-restore success, compaction success with reclaimed amount, compaction failure, and no backups yet. Provide Retry, View Safe Details, and Run Integrity Check where relevant, but never show secrets or destructive “delete all data” shortcuts.
+```
+
+## 16. Training — Grandmaster Thinking Method
+
+```text
+Create a high-fidelity 1440px desktop Training view for “Chess Tweek,” a local-first macOS chess analysis and training app. Follow the calm Grandmaster Studio visual system: a low-contrast warm checkerboard canvas, solid white and warm surfaces, mahogany primary controls, restrained serif headings, precise sans-serif body text, subtle borders, minimal shadows, and obvious keyboard focus. Avoid gradients, neon, purple, glass effects, streaks, points, trophies, confetti, locked-module gamification, and invented performance claims.
+
+Use the persistent left navigation in this order: Dashboard, Training, Games, Reports, Puzzles, Admin. Training is selected. The course is titled “Grandmaster Thinking Method” and is clearly described as an independent Chess Tweek course inspired by GM Igor Smirnov's publicly described principles, with original prose and exercises.
+
+Design the course dashboard. Lead with the title, a short purpose statement, a compact progress meter such as “1 of 4 lessons,” and one primary recommended-next card with Start Lesson or Continue Lesson. Add a Dashboard-compatible summary card for the same course that can be reused as a shortcut. Show the four-step routine as a readable numbered strip: Read the last move, Generate serious candidates, Test the strongest reply, Make the final safety check.
+
+Show a course roadmap of solid surface cards. Module 1, “Repeatable Move Routine,” is available and lists four browseable lessons with state text: Available, In progress, or Completed. Six future module cards use only the word Planned and a short description; do not show locks, dates, or disabled fake controls. Include a visible source-and-independence note near the bottom.
+
+Also show the lesson state within the same visual direction. Place the lesson explanation and a short recall checklist before a three-position guided practice section. Each position has a project-styled square chessboard supporting click, keyboard, and drag moves; beside it show prompt, state, Hint: piece, Hint: destination, Reveal answer, concise correct/try-again feedback, and reference-move explanation after solve or reveal. Finish with a Complete Lesson action and exact incomplete guidance.
+
+Include connected, disconnected read-only, loading, request failure, unattempted, incorrect, solved, revealed, completed, and returned-solved “Review answer” states. In disconnected mode all authored course prose and positions remain readable, while one calm notice says a Lichess connection is required to submit moves and save progress. Do not imply that the course is official, personalized from game evidence, or able to guarantee rating improvement.
 ```

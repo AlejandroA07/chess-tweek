@@ -31,6 +31,7 @@ describe('App', () => {
     const navigation = screen.getByRole('navigation', { name: 'Primary' })
     expect(within(navigation).getAllByRole('link').map((link) => link.textContent)).toEqual([
       'Dashboard',
+      'Training',
       'Games',
       'Reports',
       'Puzzles',
@@ -56,6 +57,59 @@ describe('App', () => {
     )
     expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('heading', { name: 'Games' })).toBeInTheDocument()
+  })
+
+  it('opens the standalone course from the Dashboard shortcut', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url === '/api/health') return { ok: true, json: async () => ({ status: 'ok' }) } as Response
+      if (url === '/api/lichess/session') {
+        return { ok: true, json: async () => ({ connected: false, account: null }) } as Response
+      }
+      if (url === '/api/training/courses/grandmaster-thinking-method') {
+        return {
+          ok: true,
+          json: async () => ({
+            key: 'grandmaster-thinking-method',
+            version: 1,
+            title: 'Grandmaster Thinking Method',
+            subtitle: 'A repeatable way to choose moves with purpose',
+            attribution: 'An independent Chess Tweek course with original material.',
+            modules: [{
+              key: 'repeatable-move-routine',
+              title: 'Repeatable Move Routine',
+              description: 'Build one calm sequence.',
+              status: 'available',
+              lessons: [{
+                key: 'read-the-last-move',
+                title: 'Read the last move',
+                summary: 'Identify what changed.',
+                estimatedMinutes: 10,
+                explanation: ['Read the position.'],
+                checklist: ['Am I in check?'],
+                exercises: [{
+                  key: 'answer-the-check',
+                  fen: '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1',
+                  orientation: 'white',
+                  prompt: 'Remove the checking piece.',
+                }],
+              }],
+            }],
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+
+    render(<App />)
+    fireEvent.click(await screen.findByRole('link', { name: 'Explore course' }))
+
+    await waitFor(() => expect(window.location.hash).toBe('#/training'))
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Training' }))
+      .toHaveAttribute('aria-current', 'page'))
+    expect(await screen.findByRole('heading', { name: 'Four questions before you commit' }))
+      .toBeInTheDocument()
+    expect(screen.getByText('Course material remains available.')).toBeInTheDocument()
   })
 
   it('renders stored games as safe catalog cards for the connected account', async () => {

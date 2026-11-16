@@ -4,7 +4,7 @@ Delivery status and the next step live in [`../planning/03-delivery-plan.md`](..
 
 The database is a local `var/chess-tweek.db` file with Flyway migrations, WAL journaling, foreign keys, normal synchronization, a five-second busy timeout, and at most two pooled connections. Run `node scripts/verify.mjs` for the complete gate.
 
-The interface now uses the canonical design tokens and shared shell at desktop and compact widths. Each destination has its own empty first-use explanation without exposing actions that are not implemented yet.
+The interface now uses the canonical design tokens and shared shell at desktop and compact widths. Training is the sixth first-class destination and the Dashboard links to its guided course; remaining unimplemented destinations keep their empty first-use explanations without exposing future actions.
 
 | File | What it contains | Kind |
 |---|---|---|
@@ -36,3 +36,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-14-game-review-data.md` | Records the game review endpoint, statistics, evaluations, and readable engine lines. | dated report |
 | `2026-11-15-tactic-labels-coach-cards.md` | Records the proven tactic labels and the Why?, threat, and training coach cards. | dated report |
 | `2026-11-14-game-review-page.md` | Records the game review page: board, moves, evaluation graph, side tabs, statistics, and findings. | dated report |
+| `2026-11-16-guided-training-method.md` | Records the standalone Grandmaster Thinking Method course, protected progress boundary, original content, and interface. | dated report |

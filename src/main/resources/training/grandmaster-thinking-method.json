@@ -1,0 +1,263 @@
+{
+  "key": "grandmaster-thinking-method",
+  "version": 1,
+  "title": "Grandmaster Thinking Method",
+  "subtitle": "A repeatable way to choose moves with purpose",
+  "attribution": "An independent Chess Tweek course inspired by GM Igor Smirnov's publicly described teaching principles. All explanations and exercises are original to Chess Tweek.",
+  "modules": [
+    {
+      "key": "repeatable-move-routine",
+      "title": "Repeatable Move Routine",
+      "description": "Build one calm sequence for reading threats, finding candidates, testing replies, and checking safety.",
+      "status": "available",
+      "lessons": [
+        {
+          "key": "read-the-last-move",
+          "title": "Read the last move",
+          "summary": "Before looking for your move, identify what changed and what the opponent threatens now.",
+          "estimatedMinutes": 10,
+          "explanation": [
+            "Every position is different after the opponent moves. Start by naming the piece that moved, the lines it opened or closed, and every new attack it created.",
+            "Deal with checks and immediate tactical threats before pursuing your own plan. A threat that can be removed while gaining time is usually stronger than passive defense."
+          ],
+          "checklist": [
+            "Am I in check?",
+            "What did the opponent's move attack or uncover?",
+            "Is any piece loose, overloaded, or facing mate?",
+            "Can I answer the threat with an active move?"
+          ],
+          "exercises": [
+            {
+              "key": "answer-the-check",
+              "fen": "4k3/8/8/8/8/8/4r3/4K3 w - - 0 1",
+              "orientation": "white",
+              "prompt": "White is in check. Remove the checking piece immediately.",
+              "acceptedMoves": ["e1e2"],
+              "hints": ["Use the white king on e1.", "The destination is e2."],
+              "correctFeedback": "Correct. Checks come before every other candidate.",
+              "incorrectFeedback": "The king is still in check. Resolve the check before considering another plan.",
+              "explanation": "Kxe2 removes the rook and ends the immediate threat. The routine begins with checks because no unrelated move is legal."
+            },
+            {
+              "key": "remove-the-mate-threat",
+              "fen": "6k1/5ppp/8/8/8/7q/6PP/5RK1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "Black's queen threatens the king from h3. Find the active answer that removes it.",
+              "acceptedMoves": ["g2h3"],
+              "hints": ["Use the pawn on g2.", "The destination is h3."],
+              "correctFeedback": "Correct. You removed the attacking queen instead of defending passively.",
+              "incorrectFeedback": "The queen on h3 remains the urgent problem. Look for a direct capture.",
+              "explanation": "gxh3 wins the exposed queen and removes every threat it created. First understand the threat, then look for the most active answer."
+            },
+            {
+              "key": "save-with-tempo",
+              "fen": "4k3/8/8/8/1q6/2N5/8/6K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "The queen attacks the knight on c3. Save the knight while attacking the queen.",
+              "acceptedMoves": ["c3d5"],
+              "hints": ["Use the knight on c3.", "The destination is d5."],
+              "correctFeedback": "Correct. The threatened knight moves with tempo against the queen.",
+              "incorrectFeedback": "Look for a safe knight square that also attacks the queen on b4.",
+              "explanation": "Nd5 moves the attacked knight and attacks the queen on b4. An active defense solves the opponent's threat while creating one of your own."
+            }
+          ]
+        },
+        {
+          "key": "generate-candidates",
+          "title": "Generate serious candidates",
+          "summary": "Search forcing moves first, then add active moves that improve your position or restrict the opponent.",
+          "estimatedMinutes": 10,
+          "explanation": [
+            "Checks, captures, and direct threats deserve attention because they limit the opponent's replies. They are candidates, not automatic choices.",
+            "If no forcing move works, prefer a move with a clear job: activate a piece, enter the center, gain space, or reduce the opponent's activity."
+          ],
+          "checklist": [
+            "List every sensible check.",
+            "List valuable or tactically safe captures.",
+            "List direct threats the opponent must answer.",
+            "Add one active improving move when forcing play is absent."
+          ],
+          "exercises": [
+            {
+              "key": "forcing-queen-check",
+              "fen": "6k1/5ppp/8/8/8/3Q4/8/6K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "Find the queen check that reaches the back rank and leaves the king no safe square.",
+              "acceptedMoves": ["d3d8"],
+              "hints": ["Use the queen on d3.", "The destination is d8."],
+              "correctFeedback": "Correct. The forcing check decides the position immediately.",
+              "incorrectFeedback": "List the queen checks before choosing a quieter move.",
+              "explanation": "Qd8 is checkmate: the king's own pawns cover its lower escape squares and the queen controls the back rank."
+            },
+            {
+              "key": "valuable-capture",
+              "fen": "4k3/8/8/3q4/8/8/3R4/4K3 w - - 0 1",
+              "orientation": "white",
+              "prompt": "A valuable black piece is unprotected. Take it before looking for a slower plan.",
+              "acceptedMoves": ["d2d5"],
+              "hints": ["Use the rook on d2.", "The destination is d5."],
+              "correctFeedback": "Correct. The safe capture of the queen outranks positional improvements.",
+              "incorrectFeedback": "Check every safe capture. The queen on d5 is on the rook's file.",
+              "explanation": "Rxd5 wins the queen. Candidate generation prevents a player from overlooking a direct tactical gain while thinking about general plans."
+            },
+            {
+              "key": "rook-entry-check",
+              "fen": "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "Find the rook move that enters the opponent's position with check.",
+              "acceptedMoves": ["a1a8"],
+              "hints": ["Use the rook on a1.", "The destination is a8."],
+              "correctFeedback": "Correct. The active rook move forces the opponent to respond.",
+              "incorrectFeedback": "Look for a rook check along the open a-file.",
+              "explanation": "Ra8+ uses the open file and reaches the eighth rank with tempo. Forward activity matters when it is tactically sound."
+            }
+          ]
+        },
+        {
+          "key": "test-the-reply",
+          "title": "Test the strongest reply",
+          "summary": "Do not stop when your idea looks attractive. Ask what the opponent will do against it.",
+          "estimatedMinutes": 10,
+          "explanation": [
+            "Wishful thinking evaluates only your threat. Reliable calculation gives the opponent the strongest check, capture, or counter-threat after each candidate.",
+            "A move is a serious candidate only after it survives that reply. Sometimes the right move is a quiet preparation; sometimes it is a forcing move that removes the opponent's resource."
+          ],
+          "checklist": [
+            "After my candidate, what is the opponent's strongest check?",
+            "What can the opponent capture?",
+            "Can the opponent counter-attack something more valuable?",
+            "Does my intended follow-up still work after that reply?"
+          ],
+          "exercises": [
+            {
+              "key": "decline-the-poisoned-pawn",
+              "fen": "4k3/8/8/3q4/4p3/5n2/4Q3/7K w - - 0 1",
+              "orientation": "white",
+              "prompt": "Qxe4 would be met by Qxe4. Keep the queen safe while increasing pressure on e4.",
+              "acceptedMoves": ["e2e3"],
+              "hints": ["Use the queen on e2.", "The destination is e3."],
+              "correctFeedback": "Correct. You rejected a capture that failed to the opponent's best reply.",
+              "incorrectFeedback": "Before taking on e4, calculate Black's queen recapture from d5.",
+              "explanation": "Qe3 keeps the queen safe and continues to contest e4. A tempting capture is not a candidate once the opponent's reply refutes it."
+            },
+            {
+              "key": "attack-before-capturing",
+              "fen": "4k3/8/8/3r4/3p4/2P5/3R4/6K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "Rxd4 would be answered by Rxd4. Attack the rook first with the pawn.",
+              "acceptedMoves": ["c3c4"],
+              "hints": ["Use the pawn on c3.", "The destination is c4."],
+              "correctFeedback": "Correct. The pawn attacks the defender before you consider taking on d4.",
+              "incorrectFeedback": "Calculate Black's recapture after Rxd4, then look for a move with tempo.",
+              "explanation": "c4 attacks the rook on d5. Moving the defender first changes the calculation and avoids the immediate exchange that spoiled Rxd4."
+            },
+            {
+              "key": "remove-the-defender",
+              "fen": "4k3/8/8/3q4/4p3/2N5/4Q3/6K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "Nxe4 would allow the queen to recapture. Find the forcing knight move that removes the defender.",
+              "acceptedMoves": ["c3d5"],
+              "hints": ["Use the knight on c3.", "The destination is d5."],
+              "correctFeedback": "Correct. You removed the defender instead of entering its recapture line.",
+              "incorrectFeedback": "The queen on d5 is the defender of e4. Can the knight take it first?",
+              "explanation": "Nxd5 wins the queen and eliminates the recapture on e4. Calculate the opponent's resource, then look for a move that removes it."
+            }
+          ]
+        },
+        {
+          "key": "final-safety-check",
+          "title": "Make the final safety check",
+          "summary": "Before committing, verify that your chosen move does not leave a piece or square undefended.",
+          "estimatedMinutes": 10,
+          "explanation": [
+            "The final check is deliberately short. Look once more at the piece you are moving, the piece or square it used to protect, and every forcing reply available afterward.",
+            "This habit catches one-move losses without restarting the whole calculation. It is a last verification step, not an invitation to search forever."
+          ],
+          "checklist": [
+            "Is the moving piece safe on its destination?",
+            "What becomes loose when the piece leaves?",
+            "Did I open a line to my king or queen?",
+            "After one last scan, can I commit without hesitation?"
+          ],
+          "exercises": [
+            {
+              "key": "move-the-attacked-rook",
+              "fen": "4k3/8/8/8/8/2b5/3R4/6K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "The bishop attacks the rook. Move the rook to the safe back-rank square.",
+              "acceptedMoves": ["d2d1"],
+              "hints": ["Use the rook on d2.", "The destination is d1."],
+              "correctFeedback": "Correct. The rook leaves the bishop's diagonal safely.",
+              "incorrectFeedback": "Check the bishop's diagonal from c3 before placing the rook.",
+              "explanation": "Rd1 steps off the c3-d2-e1 diagonal. A final geometry check confirms that the destination is not attacked by the bishop."
+            },
+            {
+              "key": "leave-the-bishop-line",
+              "fen": "4k3/8/8/8/2b5/8/4R3/6K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "The bishop attacks the rook on e2. Move the rook one square to safety.",
+              "acceptedMoves": ["e2e3"],
+              "hints": ["Use the rook on e2.", "The destination is e3."],
+              "correctFeedback": "Correct. The rook leaves the diagonal without creating a new weakness.",
+              "incorrectFeedback": "Trace the bishop's diagonal through d3 and e2, then choose a square outside it.",
+              "explanation": "Re3 leaves the c4-d3-e2 diagonal. The last check confirms that the rook is no longer exposed to the bishop."
+            },
+            {
+              "key": "save-the-queen",
+              "fen": "4k3/8/8/8/8/2n5/4Q3/6K1 w - - 0 1",
+              "orientation": "white",
+              "prompt": "The knight attacks the queen. Move the queen to the safe central square.",
+              "acceptedMoves": ["e2e3"],
+              "hints": ["Use the queen on e2.", "The destination is e3."],
+              "correctFeedback": "Correct. The queen leaves every square attacked by the knight.",
+              "incorrectFeedback": "List the knight's attacks from c3 before choosing the queen's destination.",
+              "explanation": "Qe3 is outside the knight's attack pattern. The final safety check verifies the destination rather than assuming every queen move is safe."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "opening-readiness",
+      "title": "Opening Readiness",
+      "description": "Develop, secure the king, and finish the opening's essential jobs before launching an attack.",
+      "status": "planned",
+      "lessons": []
+    },
+    {
+      "key": "active-middlegame-play",
+      "title": "Active Middlegame Play",
+      "description": "Improve passive pieces, use the center, move forward with purpose, and restrict counterplay.",
+      "status": "planned",
+      "lessons": []
+    },
+    {
+      "key": "calculation-discipline",
+      "title": "Calculation Discipline",
+      "description": "Choose candidate lines, visualize replies, and know when the calculation is complete.",
+      "status": "planned",
+      "lessons": []
+    },
+    {
+      "key": "attack-and-defense",
+      "title": "Attack and Defense",
+      "description": "Recognize when an attack is justified and compare active counterplay with passive defense.",
+      "status": "planned",
+      "lessons": []
+    },
+    {
+      "key": "plans-and-pawn-structures",
+      "title": "Plans and Pawn Structures",
+      "description": "Use the center and recurring structures to choose useful long-term plans.",
+      "status": "planned",
+      "lessons": []
+    },
+    {
+      "key": "conversion-and-endgames",
+      "title": "Conversion and Endgame Decisions",
+      "description": "Convert advantages, save difficult positions, and make practical endgame decisions.",
+      "status": "planned",
+      "lessons": []
+    }
+  ]
+}

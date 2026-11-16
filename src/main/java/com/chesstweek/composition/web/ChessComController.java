@@ -144,8 +144,7 @@ public final class ChessComController {
             case PLAYER_NOT_FOUND -> error(HttpStatus.NOT_FOUND, "chesscom_player_not_found");
             case RATE_LIMITED -> ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .cacheControl(CacheControl.noStore())
-                    .header(HttpHeaders.RETRY_AFTER, Long.toString(
-                            result.retryAfterSeconds() == null ? 60 : result.retryAfterSeconds()))
+                    .header(HttpHeaders.RETRY_AFTER, String.valueOf(result.retryAfterSeconds()))
                     .body(new ErrorResponse("chesscom_rate_limited"));
             case INVALID_RESPONSE -> error(HttpStatus.BAD_GATEWAY, "invalid_chesscom_response");
             case UPSTREAM_UNAVAILABLE -> error(HttpStatus.SERVICE_UNAVAILABLE, "chesscom_unavailable");

@@ -73,11 +73,15 @@ public final class ChessComRetrievalService implements ChessComRetrieval {
             var accepted = new ArrayList<CatalogGame>(count);
             int rejected = 0;
             int requests = 0;
+            // Games must end before the date, so the last useful month holds the second before it.
+            YearMonth lastMonth = before == null
+                    ? null
+                    : YearMonth.from(before.minusSeconds(1).atOffset(ZoneOffset.UTC));
             for (YearMonth month : client.archiveMonths(username)) {
                 if (accepted.size() >= count || requests >= MAX_MONTH_REQUESTS) {
                     break;
                 }
-                if (before != null && month.isAfter(YearMonth.from(before.atOffset(ZoneOffset.UTC)))) {
+                if (lastMonth != null && month.isAfter(lastMonth)) {
                     continue;
                 }
                 List<JsonNode> games = new ArrayList<>(client.monthGames(username, month));

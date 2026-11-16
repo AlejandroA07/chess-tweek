@@ -8,7 +8,7 @@ Migration `V7__game_review_chesscom_player.sql` stores one username per account 
 
 ## Retrieval
 
-`ChessComRetrievalService` reads the archive month list, then months newest first, one request at a time (chess.com allows unlimited serial requests and may answer parallel ones with 429). Within each month it keeps the newest games that ended before the optional date until it has the requested 1 to 50, then saves them through the same idempotent catalog store as Lichess, so a repeat creates no duplicate and reports new, updated, and unchanged counts. At most 24 months are read per retrieval; older games are reached with the before date. One chess.com retrieval runs at a time.
+`ChessComRetrievalService` reads the archive month list, then months newest first, one request at a time (chess.com allows unlimited serial requests and may answer parallel ones with 429). Months after the one holding the last second before the optional date are skipped without a request. Within each month it keeps the newest games that ended before that date until it has the requested 1 to 50, then saves them through the same idempotent catalog store as Lichess, so a repeat creates no duplicate and reports new, updated, and unchanged counts. At most 24 months are read per retrieval; older games are reached with the before date. One chess.com retrieval runs at a time.
 
 `HttpChessComGameClient` builds every URL from the validated, lowercased username and the month; URLs inside responses are only read for their year and month. It sends `Accept: application/json` and the generic `User-Agent: ChessTweek/0.1 (local single-user app)`, with no credentials or personal data (chess.com suggests contact details in the User-Agent; the owner's rules exclude them). Redirects are not followed, responses must be JSON, and sizes are capped (256 KB for the month list, 16 MB per month). A 404 or 410 on the month list means the player does not exist; 429 keeps the `Retry-After` wait (60 seconds when absent).
 
@@ -28,7 +28,7 @@ The archives refresh at most every 12 to 24 hours (chess.com documentation), so 
 | Opening | PGN `ECO`, with the name from the `ECOUrl` slug (hyphens become spaces) |
 | Rating | The owner's and opponent's ratings; the archive has no per-game rating change, so it stays empty |
 
-Only standard chess from the normal starting position is stored. Variants (chess960, crazyhouse, and others), games set up from a position, illegal or unreadable moves, unknown result pairs, and unknown fields are rejected and counted, never stored partially.
+Only standard chess from the normal starting position is stored. Variants (chess960, crazyhouse, and others), games set up from a position, illegal or unreadable moves, unknown result pairs, and missing or unexpected values in the fields above are rejected and counted, never stored partially. Fields the parser does not use are ignored.
 
 Known limit: live and daily games are numbered separately on chess.com, so a live and a daily game could share a number. Chess Tweek would treat them as one game. This needs one live and one daily game of the owner with the same number and is not handled.
 
@@ -49,4 +49,4 @@ Every endpoint also answers `401 not_connected` or `503 session_unavailable` for
 
 ## Tests
 
-`ChessComGameParserTest` (7), `HttpChessComGameClientTest` (7), `ChessComRetrievalServiceTest` (7), `ChessComRetrievalPersistenceTest` (2, real database: username per account, repeat retrieval without duplicates, database check), and `ChessComControllerTest` (6).
+`ChessComGameParserTest` (7), `HttpChessComGameClientTest` (7), `ChessComRetrievalServiceTest` (8), `ChessComRetrievalPersistenceTest` (2, real database: username per account, repeat retrieval without duplicates, database check), and `ChessComControllerTest` (6).

@@ -66,6 +66,19 @@ class ChessComRetrievalServiceTest {
     }
 
     @Test
+    void doesNotReadTheMonthThatStartsOnTheBeforeDate() {
+        client.months.put(NOVEMBER, List.of(game(101, "2026-11-02T10:00:00Z")));
+        client.months.put(OCTOBER, List.of(game(91, "2026-10-31T23:59:00Z")));
+
+        ChessComRetrievalResult result = service.retrieve(
+                "owner-id", 5, Instant.parse("2026-11-01T00:00:00Z"));
+
+        assertThat(catalog.saved).extracting(game -> game.ref().id()).containsExactly("91");
+        assertThat(client.requests).containsExactly("archives OwnerName", "month OwnerName 2026-10");
+        assertThat(result.received()).isEqualTo(1);
+    }
+
+    @Test
     void countsGamesItCannotStoreAsRejectedAndKeepsTheRest() {
         JsonNode variant = ChessComGameParserTest.game(Map.of(
                 "url", "https://www.chess.com/game/live/103",

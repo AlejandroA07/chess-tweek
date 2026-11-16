@@ -110,13 +110,13 @@ final class ChessComGameParser {
 
         String pgn = text(game, "pgn", 1, MAX_PGN_LENGTH);
         ChessGame replay = replay(pgn);
-        PGNData tags = replay.getPGNData();
+        PGNData pgnData = replay.getPGNData();
         List<String> san = replay.getNotationList(NotationType.SAN);
         if (san.isEmpty() || san.size() > MAX_PLIES) {
             throw invalid();
         }
 
-        Instant playedAt = startedAt(game, tags, endedAt);
+        Instant playedAt = startedAt(game, pgnData, endedAt);
         return new CatalogGame(
                 ref,
                 playedAt,
@@ -137,11 +137,11 @@ final class ChessComGameParser {
                 rated.booleanValue(),
                 CatalogGame.Variant.STANDARD,
                 timeControl,
-                opening(tags),
+                opening(pgnData),
                 null,
                 String.join(" ", san),
                 pgn,
-                clocks(tags, san.size()),
+                clocks(pgnData, san.size()),
                 true);
     }
 
@@ -152,7 +152,7 @@ final class ChessComGameParser {
         importer.setOnGame(games::add);
         importer.setOnError((message, exception) -> failed[0] = true);
         importer.setOnWarning(message -> {
-            // Warnings (for example unknown tags) do not change the replayed moves.
+            // Warnings (for example unknown pgnData) do not change the replayed moves.
         });
         importer.run(new ByteArrayInputStream(pgn.getBytes(StandardCharsets.UTF_8)));
         if (failed[0] || games.size() != 1) {
@@ -208,14 +208,14 @@ final class ChessComGameParser {
     }
 
     /** Daily games carry their start; live games carry it in the PGN. Never after the end. */
-    private static Instant startedAt(JsonNode game, PGNData tags, Instant endedAt) {
+    private static Instant startedAt(JsonNode game, PGNData pgnData, Instant endedAt) {
         Instant started = null;
         JsonNode startTime = game.get("start_time");
         if (startTime != null && !startTime.isNull()) {
             started = Instant.ofEpochSecond(longValue(game, "start_time"));
         } else {
-            String date = tags.getPGNTagValue(PGNTag.UTC_DATE);
-            String time = tags.getPGNTagValue(PGNTag.UTC_TIME);
+            String date = pgnData.getPGNTagValue(PGNTag.UTC_DATE);
+            String time = pgnData.getPGNTagValue(PGNTag.UTC_TIME);
             if (date != null && time != null) {
                 try {
                     started = LocalDate.parse(date, PGN_DATE)
@@ -229,12 +229,12 @@ final class ChessComGameParser {
         return started == null || started.isAfter(endedAt) ? endedAt : started;
     }
 
-    private static CatalogGame.Opening opening(PGNData tags) {
-        String eco = tags.getPGNTagValue(PGNTag.ECO);
+    private static CatalogGame.Opening opening(PGNData pgnData) {
+        String eco = pgnData.getPGNTagValue(PGNTag.ECO);
         if (eco == null || !ECO.matcher(eco).matches()) {
             return null;
         }
-        String url = tags.getPGNTagValue(PGNTag.ECO_URL);
+        String url = pgnData.getPGNTagValue(PGNTag.ECO_URL);
         String name = null;
         if (url != null && url.startsWith(OPENINGS_URL)) {
             String slug = url.substring(OPENINGS_URL.length());
@@ -246,11 +246,11 @@ final class ChessComGameParser {
     }
 
     /** Remaining time after each ply in centiseconds, or none unless every ply has one. */
-    private static List<Integer> clocks(PGNData tags, int plies) {
+    private static List<Integer> clocks(PGNData pgnData, int plies) {
         var clocks = new ArrayList<Integer>(plies);
         for (int ply = 0; ply < plies; ply++) {
             Integer clock = null;
-            List<PGNComment> comments = tags.getPGNCommentsAfter(ply);
+            List<PGNComment> comments = pgnData.getPGNCommentsAfter(ply);
             if (comments != null) {
                 for (PGNComment comment : comments) {
                     Matcher matcher = CLOCK.matcher(comment.getText());

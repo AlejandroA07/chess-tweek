@@ -1,3 +1,5 @@
+import { gameApiPath, isGameRef, type GameRef, type GameSource } from './gameRef'
+
 export type AnalysisPerspective = 'my_moves' | 'opponent_moves' | 'both'
 export type AnalysisState = 'running' | 'completed' | 'failed' | 'canceled'
 export type AnalysisPass = 'starting' | 'quick' | 'deep' | 'saving'
@@ -10,6 +12,7 @@ export type AnalysisJobFailure =
 
 export type AnalysisJob = {
   gameId: string
+  source: GameSource
   perspective: AnalysisPerspective
   state: AnalysisState
   pass: AnalysisPass
@@ -47,10 +50,10 @@ const KNOWN_FAILURES: readonly AnalysisRequestFailure[] = [
 ]
 
 export async function startAnalysis(
-  gameId: string,
+  game: GameRef,
   perspective: AnalysisPerspective,
 ): Promise<AnalysisJob> {
-  return send(`/api/games/${encodeURIComponent(gameId)}/analyses`, {
+  return send(`${gameApiPath(game)}/analyses`, {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ perspective }),
@@ -98,11 +101,15 @@ async function safeErrorCode(response: Response) {
   }
 }
 
+/** The stored game an analysis job belongs to. */
+export function jobGame(job: AnalysisJob): GameRef {
+  return { source: job.source, id: job.gameId }
+}
+
 export function parseJob(value: unknown): AnalysisJob {
   if (
     !isRecord(value) ||
-    typeof value.gameId !== 'string' ||
-    !/^[A-Za-z0-9]{8,32}$/.test(value.gameId) ||
+    !isGameRef(value.source, value.gameId) ||
     !isOneOf(value.perspective, ['my_moves', 'opponent_moves', 'both']) ||
     !isOneOf(value.state, ['running', 'completed', 'failed', 'canceled']) ||
     !isOneOf(value.pass, ['starting', 'quick', 'deep', 'saving']) ||

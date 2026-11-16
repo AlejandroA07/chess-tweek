@@ -30,6 +30,7 @@ function card(analyzed: { my: boolean; opponent: boolean }, overrides: Record<st
   })
   return {
     id: GAME_ID,
+    source: 'lichess',
     playedAt: '2026-11-13T10:00:00Z',
     result: 'loss',
     ownerColor: 'black',
@@ -158,7 +159,7 @@ describe('Game review', () => {
   let startResponse: { status: number; body: unknown }
 
   beforeEach(() => {
-    window.history.replaceState(null, '', `/#/games/${GAME_ID}`)
+    window.history.replaceState(null, '', `/#/games/lichess/${GAME_ID}`)
     requests = []
     reviews = { '': { status: 200, body: review() } }
     startResponse = {
@@ -166,6 +167,7 @@ describe('Game review', () => {
       body: {
         job: {
           gameId: GAME_ID,
+          source: 'lichess',
           perspective: 'opponent_moves',
           state: 'running',
           pass: 'starting',
@@ -184,8 +186,8 @@ describe('Game review', () => {
       if (url === '/api/health') return json(200, { status: 'ok' })
       if (url === '/api/lichess/session') return json(200, connectedSession())
       if (url === '/api/analysis') return json(200, { job: null })
-      if (url === `/api/games/${GAME_ID}/analyses`) return json(startResponse.status, startResponse.body)
-      const prefix = `/api/games/${GAME_ID}/review`
+      if (url === `/api/games/lichess/${GAME_ID}/analyses`) return json(startResponse.status, startResponse.body)
+      const prefix = `/api/games/lichess/${GAME_ID}/review`
       if (url.startsWith(prefix)) {
         const response = reviews[url.slice(prefix.length)]
         if (response) return json(response.status, response.body)
@@ -205,8 +207,8 @@ describe('Game review', () => {
     const link = await screen.findByRole('link', {
       name: 'Open game against LondonSystemEnthusiastWithAVeryLongName',
     })
-    expect(link).toHaveAttribute('href', `#/games/${GAME_ID}`)
-    window.history.replaceState(null, '', `/#/games/${GAME_ID}`)
+    expect(link).toHaveAttribute('href', `#/games/lichess/${GAME_ID}`)
+    window.history.replaceState(null, '', `/#/games/lichess/${GAME_ID}`)
     fireEvent(window, new HashChangeEvent('hashchange'))
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Game Review' })).toBeInTheDocument()
@@ -396,7 +398,7 @@ describe('Game review', () => {
     reviews['?side=opponent_moves'] = { status: 200, body: review() }
     fireEvent.click(screen.getByRole('button', { name: 'Analyze Opponent Moves' }))
     await waitFor(() => {
-      const start = requests.find((request) => request.url === `/api/games/${GAME_ID}/analyses`)
+      const start = requests.find((request) => request.url === `/api/games/lichess/${GAME_ID}/analyses`)
       expect(start?.init).toMatchObject({ method: 'POST', body: JSON.stringify({ perspective: 'opponent_moves' }) })
     })
     expect(await screen.findByRole('region', { name: 'Game analysis' })).toBeInTheDocument()
@@ -479,8 +481,13 @@ describe('Game review', () => {
     expect(await screen.findByRole('heading', { name: 'Connect Lichess to view stored games' })).toBeInTheDocument()
   })
 
-  it('ignores review links with an invalid game id', async () => {
-    window.history.replaceState(null, '', '/#/games/bad!id')
+  it.each([
+    '/#/games/lichess/bad!id',
+    '/#/games/chesscom/game0001',
+    '/#/games/elsewhere/game0001',
+    '/#/games/game0001',
+  ])('ignores the review link %s because it is not a valid game', async (link) => {
+    window.history.replaceState(null, '', link)
     render(<App />)
     expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument()
     expect(requests.some((request) => request.url.includes('/review'))).toBe(false)

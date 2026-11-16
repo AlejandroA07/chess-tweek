@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.chesstweek.gamereview.GameAnalysis;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 
@@ -28,7 +29,7 @@ class GameAnalysisControllerTest {
             new jakarta.servlet.http.Cookie("__Host-chess_tweek_session", "sealed-session");
     private static final String ORIGIN = "http://127.0.0.1:8080";
     private static final GameAnalysis.Job RUNNING = new GameAnalysis.Job(
-            "abcd1234", GameAnalysis.Perspective.BOTH, GameAnalysis.State.RUNNING,
+            GameRef.lichess("abcd1234"), GameAnalysis.Perspective.BOTH, GameAnalysis.State.RUNNING,
             GameAnalysis.Pass.QUICK, 24, 41, null, Instant.parse("2026-11-14T12:00:00Z"), null,
             List.of());
 
@@ -43,13 +44,14 @@ class GameAnalysisControllerTest {
                 .andExpect(status().isAccepted())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.job.gameId").value("abcd1234"))
+                .andExpect(jsonPath("$.job.source").value("lichess"))
                 .andExpect(jsonPath("$.job.perspective").value("both"))
                 .andExpect(jsonPath("$.job.state").value("running"))
                 .andExpect(jsonPath("$.job.pass").value("quick"))
                 .andExpect(jsonPath("$.job.judged").value(24))
                 .andExpect(jsonPath("$.job.total").value(41));
 
-        assertThat(analysis.started).containsExactly("owner-id abcd1234 BOTH");
+        assertThat(analysis.started).containsExactly("owner-id lichess:abcd1234 BOTH");
     }
 
     @Test
@@ -61,7 +63,7 @@ class GameAnalysisControllerTest {
         mockMvc.perform(start("abcd1234", "{\"perspective\":\"opponent_moves\"}")).andExpect(status().isAccepted());
 
         assertThat(analysis.started).containsExactly(
-                "owner-id abcd1234 MY_MOVES", "owner-id abcd1234 OPPONENT_MOVES");
+                "owner-id lichess:abcd1234 MY_MOVES", "owner-id lichess:abcd1234 OPPONENT_MOVES");
     }
 
     @Test
@@ -81,6 +83,14 @@ class GameAnalysisControllerTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(start("abcd1234..", "{\"perspective\":\"both\"}"))
                 .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/games/chesscom/abcd1234/analyses")
+                        .cookie(SESSION).header("Origin", ORIGIN)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"perspective\":\"both\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/games/elsewhere/abcd1234/analyses")
+                        .cookie(SESSION).header("Origin", ORIGIN)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"perspective\":\"both\"}"))
+                .andExpect(status().isBadRequest());
 
         assertThat(authorizations).isEmpty();
         assertThat(analysis.started).isEmpty();
@@ -94,7 +104,7 @@ class GameAnalysisControllerTest {
             return LichessSessionAuthorization.connected("owner-id", "ChessOwner", "liu_token");
         });
 
-        mockMvc.perform(post("/api/games/abcd1234/analyses")
+        mockMvc.perform(post("/api/games/lichess/abcd1234/analyses")
                         .cookie(SESSION)
                         .header("Origin", "https://example.com")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -146,7 +156,7 @@ class GameAnalysisControllerTest {
                 .andExpect(jsonPath("$.job").isEmpty());
 
         analysis.current = new GameAnalysis.Job(
-                "abcd1234", GameAnalysis.Perspective.MY_MOVES, GameAnalysis.State.FAILED,
+                GameRef.lichess("abcd1234"), GameAnalysis.Perspective.MY_MOVES, GameAnalysis.State.FAILED,
                 GameAnalysis.Pass.QUICK, 3, 20, GameAnalysis.Failure.ENGINE_UNAVAILABLE,
                 Instant.parse("2026-11-14T12:00:00Z"), Instant.parse("2026-11-14T12:00:05Z"),
                 List.of());
@@ -184,7 +194,7 @@ class GameAnalysisControllerTest {
     }
 
     private static org.springframework.test.web.servlet.RequestBuilder start(String gameId, String body) {
-        return post("/api/games/" + gameId + "/analyses")
+        return post("/api/games/lichess/" + gameId + "/analyses")
                 .cookie(SESSION)
                 .header("Origin", ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -211,8 +221,8 @@ class GameAnalysisControllerTest {
         int cancels;
 
         @Override
-        public StartResult start(String accountId, String gameId, Perspective perspective) {
-            started.add(accountId + " " + gameId + " " + perspective);
+        public StartResult start(String accountId, GameRef game, Perspective perspective) {
+            started.add(accountId + " " + game.source().value() + ":" + game.id() + " " + perspective);
             return startResult;
         }
 

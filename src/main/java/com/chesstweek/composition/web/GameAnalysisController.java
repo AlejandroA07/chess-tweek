@@ -2,7 +2,6 @@ package com.chesstweek.composition.web;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -19,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.chesstweek.gamereview.GameAnalysis;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 import com.chesstweek.identity.LichessSessionService;
@@ -30,8 +30,6 @@ import com.chesstweek.identity.LichessSessionService;
 @RestController
 public final class GameAnalysisController {
 
-    private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
-
     private final LichessSessionAuthorizer sessionAuthorizer;
     private final GameAnalysis gameAnalysis;
 
@@ -40,18 +38,20 @@ public final class GameAnalysisController {
         this.gameAnalysis = gameAnalysis;
     }
 
-    @PostMapping("/api/games/{gameId}/analyses")
+    @PostMapping("/api/games/{source}/{gameId}/analyses")
     public ResponseEntity<?> start(
             HttpServletRequest request,
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession,
+            @PathVariable("source") String sourceText,
             @PathVariable("gameId") String gameId,
             @RequestBody(required = false) StartRequest body) {
         if (!LoopbackRequestPolicy.isSameOrigin(request)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         GameAnalysis.Perspective perspective = body == null ? null : perspective(body.perspective());
-        if (!GAME_ID.matcher(gameId).matches() || perspective == null) {
+        GameRef game = GameRef.parse(sourceText, gameId).orElse(null);
+        if (game == null || perspective == null) {
             return error(HttpStatus.BAD_REQUEST, "invalid_analysis_request");
         }
         var authorization = sessionAuthorizer.authorize(sealedSession);
@@ -61,7 +61,7 @@ public final class GameAnalysisController {
         }
         GameAnalysis.StartResult result;
         try {
-            result = gameAnalysis.start(authorization.accountId(), gameId, perspective);
+            result = gameAnalysis.start(authorization.accountId(), game, perspective);
         } catch (DataAccessException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "analysis_unavailable");
         }
@@ -125,7 +125,8 @@ public final class GameAnalysisController {
 
     private static JobResponse job(GameAnalysis.Job job) {
         return new JobResponse(
-                job.gameId(),
+                job.game().id(),
+                job.game().source().value(),
                 lower(job.perspective()),
                 lower(job.state()),
                 lower(job.pass()),
@@ -170,6 +171,7 @@ public final class GameAnalysisController {
 
     public record JobResponse(
             String gameId,
+            String source,
             String perspective,
             String state,
             String pass,

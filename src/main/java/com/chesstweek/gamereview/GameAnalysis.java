@@ -11,7 +11,7 @@ import java.util.Optional;
  */
 public interface GameAnalysis {
 
-    StartResult start(String accountId, String gameId, Perspective perspective);
+    StartResult start(String accountId, GameRef game, Perspective perspective);
 
     /** The account's running analysis, or its most recent finished one. */
     Optional<Job> current(String accountId);
@@ -41,7 +41,7 @@ public interface GameAnalysis {
      * {@code pass}. {@code versionIds} are the stored versions once completed.
      */
     record Job(
-            String gameId,
+            GameRef game,
             Perspective perspective,
             State state,
             Pass pass,

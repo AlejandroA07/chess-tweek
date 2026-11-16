@@ -12,9 +12,9 @@ public interface GameAnalysisSummaries {
 
     /**
      * The newest version per side for each of the account's games that has one. Games with no
-     * stored analysis are absent. At most {@link #MAX_GAMES} ids are accepted.
+     * stored analysis are absent. At most {@link #MAX_GAMES} games are accepted.
      */
-    Map<String, Summary> latest(String accountId, Collection<String> gameIds);
+    Map<GameRef, Summary> latest(String accountId, Collection<GameRef> games);
 
     /** Either side is null when that side has never been analyzed. */
     record Summary(Version myMoves, Version opponentMoves) {}

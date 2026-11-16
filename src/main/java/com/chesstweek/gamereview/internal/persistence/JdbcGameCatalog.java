@@ -4,6 +4,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogPage;
 import com.chesstweek.gamereview.GameCatalogQuery;
 import com.chesstweek.gamereview.GameCatalogWriteResult;
+import com.chesstweek.gamereview.GameRef;
 
 @Repository
 public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLookup {
@@ -33,7 +36,7 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
     private static final TypeReference<List<Integer>> INTEGER_LIST = new TypeReference<>() {};
     private static final String UPSERT = """
             INSERT INTO game_review_game (
-                account_id, lichess_game_id, played_at_ms, last_move_at_ms, status,
+                account_id, source, game_id, played_at_ms, last_move_at_ms, status,
                 owner_result, owner_color, owner_rating, owner_rating_change,
                 opponent_kind, opponent_user_id,
                 opponent_name, opponent_rating, opponent_title, opponent_ai_level, speed,
@@ -41,7 +44,7 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
                 opening_eco, opening_name, opening_ply, middlegame_ply, endgame_ply,
                 moves_san, pgn, clocks_json, analysis_eligible, retrieved_at_ms
             ) VALUES (
-                :accountId, :gameId, :playedAt, :lastMoveAt, :status,
+                :accountId, :source, :gameId, :playedAt, :lastMoveAt, :status,
                 :ownerResult, :ownerColor, :ownerRating, :ownerRatingChange,
                 :opponentKind, :opponentUserId,
                 :opponentName, :opponentRating, :opponentTitle, :opponentAiLevel, :speed,
@@ -49,7 +52,7 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
                 :openingEco, :openingName, :openingPly, :middlegamePly, :endgamePly,
                 :movesSan, :pgn, :clocksJson, :analysisEligible, :retrievedAt
             )
-            ON CONFLICT (account_id, lichess_game_id) DO UPDATE SET
+            ON CONFLICT (account_id, source, game_id) DO UPDATE SET
                 played_at_ms = excluded.played_at_ms,
                 last_move_at_ms = excluded.last_move_at_ms,
                 status = excluded.status,
@@ -94,18 +97,18 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
             SELECT *
             FROM game_review_game
             WHERE account_id = :accountId
-              AND lichess_game_id IN (:gameIds)
+              AND source = :source
+              AND game_id IN (:gameIds)
             """;
     private static final String FIND_ONE = """
             SELECT *
             FROM game_review_game
-            WHERE account_id = :accountId AND lichess_game_id = :gameId
+            WHERE account_id = :accountId AND source = :source AND game_id = :gameId
             """;
-    private static final Pattern GAME_ID = Pattern.compile("[A-Za-z0-9]{8,32}");
     private static final String NEWEST_FIRST =
-            " ORDER BY played_at_ms DESC, lichess_game_id LIMIT :limit OFFSET :offset";
+            " ORDER BY played_at_ms DESC, source, game_id LIMIT :limit OFFSET :offset";
     private static final String OLDEST_FIRST =
-            " ORDER BY played_at_ms ASC, lichess_game_id LIMIT :limit OFFSET :offset";
+            " ORDER BY played_at_ms ASC, source, game_id LIMIT :limit OFFSET :offset";
 
     private final NamedParameterJdbcTemplate namedJdbc;
     private final ObjectMapper objectMapper;
@@ -123,19 +126,27 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
         if (games.isEmpty()) {
             return new GameCatalogWriteResult(0, 0, 0);
         }
-        var existingParameters = new MapSqlParameterSource()
-                .addValue("accountId", accountId)
-                .addValue("gameIds", games.stream().map(CatalogGame::id).toList());
-        Map<String, CatalogGame> existing = new HashMap<>();
-        for (CatalogGame stored : namedJdbc.query(
-                FIND_EXISTING_BY_IDS, existingParameters, this::mapGame)) {
-            existing.put(stored.id(), stored);
+        Map<GameRef, CatalogGame> existing = new HashMap<>();
+        Map<GameRef.Source, List<String>> idsBySource = new EnumMap<>(GameRef.Source.class);
+        for (CatalogGame game : games) {
+            idsBySource.computeIfAbsent(game.ref().source(), ignored -> new ArrayList<>())
+                    .add(game.ref().id());
+        }
+        for (var entry : idsBySource.entrySet()) {
+            var existingParameters = new MapSqlParameterSource()
+                    .addValue("accountId", accountId)
+                    .addValue("source", entry.getKey().value())
+                    .addValue("gameIds", entry.getValue());
+            for (CatalogGame stored : namedJdbc.query(
+                    FIND_EXISTING_BY_IDS, existingParameters, this::mapGame)) {
+                existing.put(stored.ref(), stored);
+            }
         }
         int created = 0;
         int updated = 0;
         int unchanged = 0;
         for (CatalogGame game : games) {
-            CatalogGame stored = existing.get(game.id());
+            CatalogGame stored = existing.get(game.ref());
             if (stored == null) {
                 created += 1;
             } else if (stored.equals(game)) {
@@ -144,20 +155,21 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
                 updated += 1;
             }
             namedJdbc.update(UPSERT, parameters(accountId, game, retrievedAt));
-            existing.put(game.id(), game);
+            existing.put(game.ref(), game);
         }
         return new GameCatalogWriteResult(created, updated, unchanged);
     }
 
     @Override
-    public Optional<CatalogGame> find(String accountId, String gameId) {
+    public Optional<CatalogGame> find(String accountId, GameRef game) {
         requireAccountId(accountId);
-        if (gameId == null || !GAME_ID.matcher(gameId).matches()) {
+        if (game == null) {
             return Optional.empty();
         }
         return namedJdbc.query(FIND_ONE, new MapSqlParameterSource()
                         .addValue("accountId", accountId)
-                        .addValue("gameId", gameId), this::mapGame)
+                        .addValue("source", game.source().value())
+                        .addValue("gameId", game.id()), this::mapGame)
                 .stream()
                 .findFirst();
     }
@@ -262,7 +274,8 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
         CatalogGame.PhaseDivision phase = game.phaseDivision();
         return new MapSqlParameterSource()
                 .addValue("accountId", accountId)
-                .addValue("gameId", game.id())
+                .addValue("source", game.ref().source().value())
+                .addValue("gameId", game.ref().id())
                 .addValue("playedAt", game.playedAt().toEpochMilli())
                 .addValue("lastMoveAt", game.lastMoveAt().toEpochMilli())
                 .addValue("status", game.status().value())
@@ -299,7 +312,9 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
         CatalogGame.Opening opening = opening(result);
         CatalogGame.PhaseDivision phase = phaseDivision(result);
         return new CatalogGame(
-                result.getString("lichess_game_id"),
+                new GameRef(
+                        GameRef.Source.fromValue(result.getString("source")).orElseThrow(),
+                        result.getString("game_id")),
                 Instant.ofEpochMilli(result.getLong("played_at_ms")),
                 Instant.ofEpochMilli(result.getLong("last_move_at_ms")),
                 CatalogGame.Status.fromValue(result.getString("status")),

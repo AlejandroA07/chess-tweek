@@ -29,6 +29,14 @@ New views (Train, Patterns, Openings) have no Stitch prompt yet. They implement 
 - One catalog with a source filter and badge; ratings and history per site; standard games analysis-eligible.
 - Acceptance: re-fetching creates no duplicate; 404 username, 429, malformed data, and network failure are visible and recoverable; no personal data is sent in request headers.
 
+Delivered in three parts (owner approval, 2026-11-16):
+
+1. **Catalog for two sites.** Games and analysis versions gain a `source` (`lichess` or `chesscom`) and are keyed by source and game ID; the catalog accepts the chess.com values it needs. Existing games and analyses carry over unchanged; Lichess behavior does not change. No visible change.
+2. **Chess.com retrieval.** The validated username is stored under the active account. One request at a time reads the public monthly archives newest first; games are mapped into the shared catalog with moves read from the PGN through the approved `chessgame` library. Idempotent with new, updated, and unchanged counts. The archives carry no per-game rating change, so that field stays empty for chess.com games.
+3. **Interface.** Chess.com username on Admin next to the Lichess connection, a Get Chess.com Games panel on Games, the source filter and badge, per-site ratings and history on the Dashboard, and analysis and review for chess.com games.
+
+No new dependency is expected; if `chessgame` cannot read the PGN, a proposal comes to the owner first.
+
 ### Stage 6 — Training core
 
 **Branch:** `feature/training-core` · **Needs:** Stage 4.
@@ -371,5 +379,5 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-16):**
 
-1. The owner approves the part breakdown and any dependency proposal for the re-scoped Stage 5 (chess.com games, `feature/chesscom-games`).
-2. Then implement Stage 5.
+1. The owner reviews and merges Stage 5 Part 1 (catalog for two sites, `feature/chesscom-games`; see `docs/dev/2026-11-16-catalog-two-sites.md`). Back up `var/chess-tweek.db` before the first start after merging: migration V6 rebuilds the catalog tables.
+2. Then Part 2 (chess.com retrieval), then Part 3 (interface).

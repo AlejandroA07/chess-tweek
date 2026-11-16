@@ -4,7 +4,7 @@ Stage 4 Part 5b adds the game review page on top of the Part 5a endpoint (`2026-
 
 ## Opening a review
 
-- Every Games card has an **Open Game** link to `#/games/{gameId}`.
+- Every Games card has an **Open Game** link to `#/games/{source}/{gameId}` (`source` since Stage 5 Part 1).
 - The route is accepted only when the id matches the server's game-id pattern (8–32 letters or digits); any other `#/games/...` hash falls back to the normal route table and sends no request.
 - The page needs a connected Lichess session. Games stays selected in the navigation and the top bar reads Game Review. The workspace is wider than other routes (up to 92rem) because the page has a board and an analysis panel side by side.
 

@@ -18,6 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.EngineProfile;
 import com.chesstweek.gamereview.GameAnalysis;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.GameAnalysis.Failure;
 import com.chesstweek.gamereview.GameAnalysis.Perspective;
 import com.chesstweek.gamereview.GameAnalysis.StartResult.Outcome;
@@ -33,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class StockfishGameAnalysisServiceTest {
 
     private static final String ACCOUNT = "owner";
-    private static final String GAME_ID = "abcd1234";
+    private static final GameRef GAME_ID = GameRef.lichess("abcd1234");
     private static final Instant NOW = Instant.parse("2026-11-14T12:00:00.123456Z");
     private static final EngineProfile PROFILE = new EngineProfile(
             7, "Stockfish 19", 2, 256, 3, 6, 1_000_000, 1_180_000, 750, 3_000,
@@ -419,15 +420,15 @@ class StockfishGameAnalysisServiceTest {
 
     private static final class Catalog implements GameLookup {
 
-        private final Map<String, CatalogGame> games = new HashMap<>();
+        private final Map<GameRef, CatalogGame> games = new HashMap<>();
 
         void add(CatalogGame game) {
-            games.put(game.id(), game);
+            games.put(game.ref(), game);
         }
 
         @Override
-        public Optional<CatalogGame> find(String accountId, String gameId) {
-            return ACCOUNT.equals(accountId) ? Optional.ofNullable(games.get(gameId)) : Optional.empty();
+        public Optional<CatalogGame> find(String accountId, GameRef gameRef) {
+            return ACCOUNT.equals(accountId) ? Optional.ofNullable(games.get(gameRef)) : Optional.empty();
         }
     }
 

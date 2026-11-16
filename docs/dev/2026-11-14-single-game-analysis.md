@@ -75,7 +75,7 @@ The game and profile references are `RESTRICT`, so a game or profile with analys
 
 | Request | Result |
 |---|---|
-| `POST /api/games/{gameId}/analyses` with `{"perspective": "my_moves" \| "opponent_moves" \| "both"}` | `202` with the job. `400 invalid_analysis_request`, `404 game_not_found`, `409 analysis_not_supported`, `409 analysis_busy`, `409 engine_profile_missing`, `503 analysis_unavailable`. |
+| `POST /api/games/{source}/{gameId}/analyses` (`source` is `lichess` or `chesscom` since Stage 5 Part 1) with `{"perspective": "my_moves" \| "opponent_moves" \| "both"}` | `202` with the job. `400 invalid_analysis_request`, `404 game_not_found`, `409 analysis_not_supported`, `409 analysis_busy`, `409 engine_profile_missing`, `503 analysis_unavailable`. |
 | `GET /api/analysis` | `200` with the account's running or most recent job, or `null`. |
 | `POST /api/analysis/cancel` | `200` with the job, or `409 no_running_analysis`. |
 

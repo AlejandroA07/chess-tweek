@@ -90,7 +90,7 @@ final class GamePayloadParser {
         CatalogGame.PhaseDivision division = division(root.get("division"), plyCount);
 
         return new CatalogGame(
-                id,
+                GameRef.lichess(id),
                 Instant.ofEpochMilli(playedAt),
                 Instant.ofEpochMilli(lastMoveAt),
                 status,

@@ -32,6 +32,7 @@ class AnalysisVersionPersistenceTest {
 
     private static final String ACCOUNT = "owner";
     private static final String GAME_ID = "abcd1234";
+    private static final GameRef GAME = GameRef.lichess(GAME_ID);
     private static final String MOVES = "e4 e5 Qh5 Nc6 Bc4 Nf6 Qxf7#";
     private static final Instant STARTED = Instant.parse("2026-11-14T12:00:00Z");
     private static final Instant COMPLETED = Instant.parse("2026-11-14T12:01:30Z");
@@ -92,16 +93,16 @@ class AnalysisVersionPersistenceTest {
                     .hasMessageContaining("analysis moves are immutable");
             assertThatThrownBy(() -> jdbc.update("""
                     INSERT INTO game_review_analysis_version (
-                        account_id, lichess_game_id, side, requested_perspective, analyzed_color,
+                        account_id, source, game_id, side, requested_perspective, analyzed_color,
                         profile_id, rules_version, phase_source, middlegame_start, move_count,
                         deep_move_count, inaccuracies, mistakes, blunders, total_loss,
                         started_at_ms, completed_at_ms
-                    ) VALUES ('owner', 'abcd1234', 'owner', 'opponent_moves', 'white', ?, 1,
+                    ) VALUES ('owner', 'lichess', 'abcd1234', 'owner', 'opponent_moves', 'white', ?, 1,
                               'inferred', 20, 0, 0, 0, 0, 0, 0, 0, 0)
                     """, profileId))
                     .hasMessageContaining("CHECK constraint failed");
             assertThatThrownBy(() -> jdbc.update(
-                    "DELETE FROM game_review_game WHERE lichess_game_id = ?", GAME_ID))
+                    "DELETE FROM game_review_game WHERE source = 'lichess' AND game_id = ?", GAME_ID))
                     .hasMessageContaining("FOREIGN KEY constraint failed");
         }
     }
@@ -135,7 +136,7 @@ class AnalysisVersionPersistenceTest {
             List<TwoPassAnalysis.MoveFinding> findings = findings();
             var store = application.getBean(AnalysisVersionStore.class);
             var summaries = application.getBean(GameAnalysisSummaries.class);
-            assertThat(summaries.latest(ACCOUNT, List.of(GAME_ID))).isEmpty();
+            assertThat(summaries.latest(ACCOUNT, List.of(GAME))).isEmpty();
 
             store.saveAll(List.of(version(AnalysisVersionStore.Side.OWNER, CatalogGame.Color.WHITE,
                     profileId, findings, ReplayedGame.Color.WHITE)));
@@ -147,10 +148,10 @@ class AnalysisVersionPersistenceTest {
             application.getBean(GameCatalogStore.class).save(
                     ACCOUNT, List.of(game("efgh5678")), STARTED);
 
-            Map<String, GameAnalysisSummaries.Summary> latest =
-                    summaries.latest(ACCOUNT, List.of(GAME_ID, "efgh5678"));
-            assertThat(latest).containsOnlyKeys(GAME_ID);
-            GameAnalysisSummaries.Summary summary = latest.get(GAME_ID);
+            Map<GameRef, GameAnalysisSummaries.Summary> latest =
+                    summaries.latest(ACCOUNT, List.of(GAME, GameRef.lichess("efgh5678")));
+            assertThat(latest).containsOnlyKeys(GAME);
+            GameAnalysisSummaries.Summary summary = latest.get(GAME);
             assertThat(summary.myMoves().id()).isEqualTo(newer.getFirst());
             assertThat(summary.myMoves().moves()).isEqualTo(4);
             assertThat(summary.myMoves().completedAt()).isEqualTo(COMPLETED);
@@ -160,10 +161,10 @@ class AnalysisVersionPersistenceTest {
             application.getBean(EngineProfileStore.class).save(new EngineProfile(
                     0, "Stockfish 19", 2, 256, 3, 6, 1_000_000, 1_200_000, 750, 3_000,
                     900_000, 3_600_000, COMPLETED));
-            assertThat(summaries.latest(ACCOUNT, List.of(GAME_ID)).get(GAME_ID).myMoves()
+            assertThat(summaries.latest(ACCOUNT, List.of(GAME)).get(GAME).myMoves()
                     .currentProfile()).isFalse();
-            assertThat(summaries.latest("someone", List.of(GAME_ID))).isEmpty();
-            assertThatThrownBy(() -> summaries.latest(ACCOUNT, List.of("bad id")))
+            assertThat(summaries.latest("someone", List.of(GAME))).isEmpty();
+            assertThatThrownBy(() -> summaries.latest("bad account!", List.of(GAME)))
                     .isInstanceOf(IllegalArgumentException.class);
         }
     }
@@ -174,11 +175,11 @@ class AnalysisVersionPersistenceTest {
             storeGameAndProfile(application);
             var lookup = application.getBean(GameLookup.class);
 
-            assertThat(lookup.find(ACCOUNT, GAME_ID)).get()
+            assertThat(lookup.find(ACCOUNT, GAME)).get()
                     .extracting(CatalogGame::movesSan).isEqualTo(MOVES);
-            assertThat(lookup.find("someone", GAME_ID)).isEmpty();
-            assertThat(lookup.find(ACCOUNT, "abcd1234' OR '1'='1")).isEmpty();
-            assertThat(lookup.find(ACCOUNT, "zzzz9999")).isEmpty();
+            assertThat(lookup.find("someone", GAME)).isEmpty();
+            assertThat(lookup.find(ACCOUNT, GameRef.lichess("zzzz9999"))).isEmpty();
+            assertThat(lookup.find(ACCOUNT, new GameRef(GameRef.Source.CHESSCOM, "1234"))).isEmpty();
         }
     }
 
@@ -206,7 +207,7 @@ class AnalysisVersionPersistenceTest {
             ReplayedGame.Color mover) {
         ReplayedGame game = ReplayedGame.fromSan(MOVES);
         return new AnalysisVersionStore.NewVersion(
-                ACCOUNT, GAME_ID, side, GameAnalysis.Perspective.BOTH, color, profileId, 1,
+                ACCOUNT, GAME, side, GameAnalysis.Perspective.BOTH, color, profileId, 1,
                 GamePhases.of(null, game),
                 findings.stream().filter(finding -> finding.move().mover() == mover).toList(),
                 STARTED, COMPLETED);
@@ -218,7 +219,7 @@ class AnalysisVersionPersistenceTest {
 
     private static CatalogGame game(String id) {
         return new CatalogGame(
-                id,
+                GameRef.lichess(id),
                 Instant.parse("2026-11-13T10:00:00Z"),
                 Instant.parse("2026-11-13T10:05:00Z"),
                 CatalogGame.Status.MATE,

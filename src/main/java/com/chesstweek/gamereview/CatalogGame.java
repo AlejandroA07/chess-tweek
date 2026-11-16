@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 
 public record CatalogGame(
-        String id,
+        GameRef ref,
         Instant playedAt,
         Instant lastMoveAt,
         Status status,
@@ -26,7 +26,7 @@ public record CatalogGame(
         boolean analysisEligible) {
 
     public CatalogGame {
-        Objects.requireNonNull(id);
+        Objects.requireNonNull(ref);
         Objects.requireNonNull(playedAt);
         Objects.requireNonNull(lastMoveAt);
         Objects.requireNonNull(status);

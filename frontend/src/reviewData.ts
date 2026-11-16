@@ -1,4 +1,5 @@
 import { parseGame, type CatalogGame } from './gameCatalog'
+import { gameApiPath, isGameRef, type GameRef } from './gameRef'
 
 export type ReviewSide = 'my_moves' | 'opponent_moves'
 export type Phase = 'opening' | 'middlegame' | 'endgame'
@@ -116,19 +117,18 @@ export class ReviewRequestError extends Error {
   }
 }
 
-export const GAME_ID_PATTERN = /^[A-Za-z0-9]{8,32}$/
 const MAX_PLIES = 1_200
 const UCI = /^[a-h][1-8][a-h][1-8][qrbn]?$/
 const PHASES: readonly Phase[] = ['opening', 'middlegame', 'endgame']
 
 export async function requestReview(
-  gameId: string,
+  game: GameRef,
   side: ReviewSide | null,
   signal: AbortSignal,
 ): Promise<GameReview> {
-  if (!GAME_ID_PATTERN.test(gameId)) throw new ReviewRequestError('game_not_found')
+  if (!isGameRef(game.source, game.id)) throw new ReviewRequestError('game_not_found')
   const query = side === null ? '' : `?side=${side}`
-  const response = await fetch(`/api/games/${encodeURIComponent(gameId)}/review${query}`, {
+  const response = await fetch(`${gameApiPath(game)}/review${query}`, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
     signal,

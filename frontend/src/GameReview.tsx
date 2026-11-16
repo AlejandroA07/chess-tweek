@@ -13,7 +13,8 @@ import { ChessBoard, type BoardOrientation } from './ChessBoard'
 import { playUci } from './boardPosition'
 import { coachCard, tacticLabel, type CoachCard } from './coach'
 import { GameAnalysisPanel } from './GameAnalysisPanel'
-import type { AnalysisPerspective } from './analysis'
+import { jobGame, type AnalysisPerspective } from './analysis'
+import { gameKey, type GameRef } from './gameRef'
 import {
   ReviewRequestError,
   requestReview,
@@ -55,12 +56,13 @@ const SIDE_TEXT: Record<ReviewSide, string> = {
 
 /** One stored game: board, moves, evaluation progression, and one analyzed side's findings. */
 export function GameReview({
-  gameId,
+  game,
   onSessionFailure,
 }: {
-  gameId: string
+  game: GameRef
   onSessionFailure: (failure: 'not_connected' | 'session_unavailable') => void
 }) {
+  const { source, id } = game
   const [side, setSide] = useState<ReviewSide | null>(null)
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [reloadTick, setReloadTick] = useState(0)
@@ -76,7 +78,7 @@ export function GameReview({
   useEffect(() => {
     const controller = new AbortController()
     setState((current) => current.kind === 'ready' ? current : { kind: 'loading' })
-    requestReview(gameId, side, controller.signal)
+    requestReview({ source, id }, side, controller.signal)
       .then((review) => {
         setState({ kind: 'ready', review })
         setIndex((current) => Math.min(current, review.plies.length))
@@ -91,7 +93,7 @@ export function GameReview({
         setState({ kind: 'failed', failure })
       })
     return () => controller.abort()
-  }, [gameId, side, reloadTick, onSessionFailure])
+  }, [source, id, side, reloadTick, onSessionFailure])
 
   if (state.kind === 'loading') {
     return (
@@ -130,14 +132,14 @@ export function GameReview({
       boardPanel={boardPanel}
       analysisPanel={(
         <GameAnalysisPanel
-          job={analysis.job?.gameId === review.game.id || analysis.job === null ? analysis.job : null}
+          job={analysis.job === null || gameKey(jobGame(analysis.job)) === gameKey(review.game) ? analysis.job : null}
           opponentName={review.game.opponent.name}
           starting={analysis.starting}
           canceling={analysis.canceling}
           startFailure={analysis.startFailure}
           now={Date.now()}
           onCancel={analysis.cancel}
-          onRetry={() => analysis.start(review.game.id, lastPerspective.current)}
+          onRetry={() => analysis.start(review.game, lastPerspective.current)}
           onDismiss={analysis.dismiss}
         />
       )}
@@ -145,7 +147,7 @@ export function GameReview({
       onAnalyze={(perspective) => {
         lastPerspective.current = perspective
         if (perspective !== 'both') setSide(perspective)
-        analysis.start(review.game.id, perspective)
+        analysis.start(review.game, perspective)
       }}
     />
   )

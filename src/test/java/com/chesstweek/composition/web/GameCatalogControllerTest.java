@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.chesstweek.gamereview.CatalogGame;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.GameAnalysisSummaries;
 import com.chesstweek.gamereview.GameCatalog;
 import com.chesstweek.gamereview.GameCatalogPage;
@@ -39,8 +40,8 @@ class GameCatalogControllerTest {
         GameCatalog catalog = (accountId, query) -> new GameCatalogPage(List.of(game()), 1);
         var requested = new AtomicReference<String>();
         GameAnalysisSummaries summaries = (accountId, gameIds) -> {
-            requested.set(accountId + " " + gameIds);
-            return java.util.Map.of("game0001", new GameAnalysisSummaries.Summary(
+            requested.set(accountId + " " + gameIds.stream().map(game -> game.source().value() + ":" + game.id()).toList());
+            return java.util.Map.of(GameRef.lichess("game0001"), new GameAnalysisSummaries.Summary(
                     new GameAnalysisSummaries.Version(
                             12, Instant.parse("2026-11-14T13:00:00Z"), false, 40, 3, 1, 2),
                     null));
@@ -64,7 +65,7 @@ class GameCatalogControllerTest {
                 .andExpect(jsonPath("$.games[0].analysis.myMoves.blunders").value(2))
                 .andExpect(jsonPath("$.games[0].analysis.opponentMoves").isEmpty());
 
-        assertThat(requested).hasValue("owner-id [game0001]");
+        assertThat(requested).hasValue("owner-id [lichess:game0001]");
     }
 
     @Test
@@ -90,6 +91,7 @@ class GameCatalogControllerTest {
                 .andExpect(jsonPath("$.offset").value(0))
                 .andExpect(jsonPath("$.limit").value(50))
                 .andExpect(jsonPath("$.games[0].id").value("game0001"))
+                .andExpect(jsonPath("$.games[0].source").value("lichess"))
                 .andExpect(jsonPath("$.games[0].playedAt").value("2026-11-11T00:00:00Z"))
                 .andExpect(jsonPath("$.games[0].result").value("win"))
                 .andExpect(jsonPath("$.games[0].ownerColor").value("white"))
@@ -290,7 +292,7 @@ class GameCatalogControllerTest {
 
     private static CatalogGame game() {
         return new CatalogGame(
-                "game0001",
+                GameRef.lichess("game0001"),
                 Instant.parse("2026-11-11T00:00:00Z"),
                 Instant.parse("2026-11-11T00:05:00Z"),
                 CatalogGame.Status.MATE,

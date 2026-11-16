@@ -45,7 +45,7 @@ class GameCatalogPersistenceTest {
             assertThat(repeated.updated()).isEqualTo(1);
             assertThat(repeated.unchanged()).isEqualTo(1);
             assertThat(catalog.games("ownerid", GameCatalogQuery.unfiltered(0, 50)).games())
-                    .extracting(CatalogGame::id)
+                    .extracting(game -> game.ref().id())
                     .containsExactly("game0003", "game0001");
             assertThat(catalog.games(
                     "another-account", GameCatalogQuery.unfiltered(0, 50)).games()).isEmpty();
@@ -60,7 +60,7 @@ class GameCatalogPersistenceTest {
                             GameCatalogQuery.Sort.OLDEST));
             assertThat(filtered.total()).isEqualTo(1);
             assertThat(filtered.games())
-                    .extracting(CatalogGame::id)
+                    .extracting(game -> game.ref().id())
                     .containsExactly("game0003");
 
             assertThat(catalog.games(
@@ -68,7 +68,7 @@ class GameCatalogPersistenceTest {
                             new GameCatalogQuery(
                                     0, 50, null, null, GameCatalogQuery.Sort.OLDEST))
                     .games())
-                    .extracting(CatalogGame::id)
+                    .extracting(game -> game.ref().id())
                     .containsExactly("game0001", "game0003");
 
             GameCatalogPage advanced = catalog.games(
@@ -88,7 +88,7 @@ class GameCatalogPersistenceTest {
                             GameCatalogQuery.Sort.NEWEST));
             assertThat(advanced.total()).isEqualTo(1);
             assertThat(advanced.games())
-                    .extracting(CatalogGame::id)
+                    .extracting(game -> game.ref().id())
                     .containsExactly("game0001");
 
             assertThat(catalog.games(
@@ -125,7 +125,7 @@ class GameCatalogPersistenceTest {
                                     null,
                                     GameCatalogQuery.Sort.NEWEST))
                     .games())
-                    .extracting(CatalogGame::id)
+                    .extracting(game -> game.ref().id())
                     .containsExactly("game0003");
         }
 
@@ -136,7 +136,7 @@ class GameCatalogPersistenceTest {
 
             assertThat(games).hasSize(2);
             CatalogGame standard = games.stream()
-                    .filter(game -> game.id().equals("game0001"))
+                    .filter(game -> game.ref().id().equals("game0001"))
                     .findFirst()
                     .orElseThrow();
             assertThat(standard.ownerResult()).isEqualTo(CatalogGame.Result.WIN);
@@ -150,13 +150,54 @@ class GameCatalogPersistenceTest {
             assertThat(standard.analysisEligible()).isTrue();
 
             CatalogGame variant = games.stream()
-                    .filter(game -> game.id().equals("game0003"))
+                    .filter(game -> game.ref().id().equals("game0003"))
                     .findFirst()
                     .orElseThrow();
             assertThat(variant.variant()).isEqualTo(CatalogGame.Variant.CRAZYHOUSE);
             assertThat(variant.analysisEligible()).isFalse();
             assertThat(variant.ownerRatingChange()).isNull();
         }
+    }
+
+    @Test
+    void keepsTheSameIdFromTwoSourcesAsTwoGames(@TempDir Path temporaryDirectory) {
+        try (var application = start(temporaryDirectory.resolve("runtime/chess-tweek.db"))) {
+            var store = application.getBean(
+                    com.chesstweek.gamereview.internal.persistence.GameCatalogStore.class);
+            var lookup = application.getBean(
+                    com.chesstweek.gamereview.internal.persistence.GameLookup.class);
+            GameRef lichess = GameRef.lichess("12345678");
+            GameRef chessCom = new GameRef(GameRef.Source.CHESSCOM, "12345678");
+            var now = java.time.Instant.parse("2026-11-16T12:00:00Z");
+
+            GameCatalogWriteResult first = store.save(
+                    "ownerid", List.of(storedGame(lichess, 1500), storedGame(chessCom, 1300)), now);
+            GameCatalogWriteResult repeated = store.save(
+                    "ownerid", List.of(storedGame(chessCom, 1301)), now);
+
+            assertThat(first).isEqualTo(new GameCatalogWriteResult(2, 0, 0));
+            assertThat(repeated).isEqualTo(new GameCatalogWriteResult(0, 1, 0));
+            assertThat(lookup.find("ownerid", lichess)).get()
+                    .extracting(CatalogGame::ownerRating).isEqualTo(1500);
+            assertThat(lookup.find("ownerid", chessCom)).get()
+                    .extracting(CatalogGame::ownerRating).isEqualTo(1301);
+            assertThat(application.getBean(GameCatalog.class)
+                    .games("ownerid", GameCatalogQuery.unfiltered(0, 50)).games())
+                    .extracting(CatalogGame::ref)
+                    .containsExactlyInAnyOrder(lichess, chessCom);
+        }
+    }
+
+    private static CatalogGame storedGame(GameRef ref, int ownerRating) {
+        var playedAt = java.time.Instant.parse("2026-11-15T10:00:00Z");
+        return new CatalogGame(
+                ref, playedAt, playedAt.plusSeconds(600), CatalogGame.Status.RESIGN,
+                CatalogGame.Result.WIN, CatalogGame.Color.WHITE, ownerRating, null,
+                new CatalogGame.Opponent(
+                        CatalogGame.OpponentKind.USER, "rival", "Rival", 1450, null, null),
+                CatalogGame.Speed.RAPID, true, CatalogGame.Variant.STANDARD,
+                new CatalogGame.TimeControl(600, 0, null), null, null,
+                FakeLichessConfiguration.VALID_MOVES, null, List.of(), true);
     }
 
     private ConfigurableApplicationContext start(Path databasePath) {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { GameRef } from './gameRef'
 import {
   AnalysisRequestError,
   cancelAnalysis,
@@ -17,7 +18,7 @@ export type GameAnalysisControls = {
   starting: boolean
   canceling: boolean
   startFailure: AnalysisRequestFailure | null
-  start: (gameId: string, perspective: AnalysisPerspective) => void
+  start: (game: GameRef, perspective: AnalysisPerspective) => void
   cancel: () => void
   dismiss: () => void
 }
@@ -103,11 +104,11 @@ export function useGameAnalysis({
     }
   }, [enabled, running, pollTick, receive, sessionFailure])
 
-  const start = (gameId: string, perspective: AnalysisPerspective) => {
+  const start = (game: GameRef, perspective: AnalysisPerspective) => {
     setStarting(true)
     setCanceling(false)
     setStartFailure(null)
-    startAnalysis(gameId, perspective)
+    startAnalysis(game, perspective)
       .then((started) => setJob(started))
       .catch((error: unknown) => {
         if (sessionFailure(error)) return

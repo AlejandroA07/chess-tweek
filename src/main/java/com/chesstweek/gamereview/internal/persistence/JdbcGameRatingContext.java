@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.GameRatingContext;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.RatingContext;
 import com.chesstweek.gamereview.RatingContext.BotGroup;
 import com.chesstweek.gamereview.RatingContext.RatingPoint;
@@ -28,7 +29,7 @@ public class JdbcGameRatingContext implements GameRatingContext {
     private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
     private static final String RATED_STANDARD = """
             account_id = :accountId
-              AND source = 'lichess'
+              AND source = :source
               AND rated = 1
               AND variant = 'standard'
               AND owner_rating IS NOT NULL
@@ -59,7 +60,7 @@ public class JdbcGameRatingContext implements GameRatingContext {
                    COUNT(*) AS games
             FROM game_review_game
             WHERE account_id = :accountId
-              AND source = 'lichess'
+              AND source = :source
               AND (opponent_kind = 'ai'
                    OR (opponent_kind = 'user' AND opponent_title = 'BOT'))
             GROUP BY opponent_kind, opponent_rating, opponent_ai_level, owner_result
@@ -73,16 +74,17 @@ public class JdbcGameRatingContext implements GameRatingContext {
 
     @Override
     @Transactional(readOnly = true)
-    public RatingContext ratingContext(String accountId) {
-        if (accountId == null || !ACCOUNT_ID.matcher(accountId).matches()) {
-            throw new IllegalArgumentException("Invalid account id");
+    public RatingContext ratingContext(String accountId, GameRef.Source source) {
+        if (accountId == null || !ACCOUNT_ID.matcher(accountId).matches() || source == null) {
+            throw new IllegalArgumentException("Invalid rating context request");
         }
-        return new RatingContext(histories(accountId), botRecord(accountId));
+        return new RatingContext(histories(accountId, source), botRecord(accountId, source));
     }
 
-    private List<SpeedHistory> histories(String accountId) {
+    private List<SpeedHistory> histories(String accountId, GameRef.Source source) {
         var parameters = new MapSqlParameterSource()
                 .addValue("accountId", accountId)
+                .addValue("source", source.value())
                 .addValue("speeds", RatingContext.HISTORY_SPEEDS.stream()
                         .map(CatalogGame.Speed::value)
                         .toList())
@@ -117,10 +119,12 @@ public class JdbcGameRatingContext implements GameRatingContext {
                 .toList();
     }
 
-    private RatingContext.BotRecord botRecord(String accountId) {
+    private RatingContext.BotRecord botRecord(String accountId, GameRef.Source source) {
         List<BotResultRow> rows = namedJdbc.query(
                 BOT_RESULTS,
-                new MapSqlParameterSource().addValue("accountId", accountId),
+                new MapSqlParameterSource()
+                        .addValue("accountId", accountId)
+                        .addValue("source", source.value()),
                 (row, rowNumber) -> new BotResultRow(
                         CatalogGame.OpponentKind.fromValue(row.getString("opponent_kind")),
                         nullableInteger(row.getInt("opponent_rating"), row.wasNull()),

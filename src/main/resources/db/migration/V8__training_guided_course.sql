@@ -1,3 +1,4 @@
+-- The guided course follows the chess.com account migration introduced on main.
 CREATE TABLE training_course_lesson_progress (
     account_id TEXT NOT NULL CHECK (length(account_id) BETWEEN 1 AND 32),
     course_key TEXT NOT NULL CHECK (length(course_key) BETWEEN 1 AND 64),

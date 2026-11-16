@@ -199,7 +199,8 @@ class GameCatalogControllerTest {
                         .queryParam("to", "2026-11-11")
                         .queryParam("variant", "standard")
                         .queryParam("analysis", "eligible")
-                        .queryParam("sort", "oldest"))
+                        .queryParam("sort", "oldest")
+                        .queryParam("source", "chesscom"))
                 .andExpect(status().isOk());
 
         assertThat(querySeen).hasValue(new GameCatalogQuery(
@@ -214,7 +215,8 @@ class GameCatalogControllerTest {
                 LocalDate.parse("2026-11-11"),
                 CatalogGame.Variant.STANDARD,
                 GameCatalogQuery.AnalysisState.ELIGIBLE,
-                GameCatalogQuery.Sort.OLDEST));
+                GameCatalogQuery.Sort.OLDEST,
+                GameRef.Source.CHESSCOM));
     }
 
     @Test
@@ -256,6 +258,9 @@ class GameCatalogControllerTest {
                         .queryParam("result", "winning")
                         .queryParam("color", "green")
                         .queryParam("sort", "random"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_catalog_filter"));
+        mockMvc.perform(get("/api/games").queryParam("source", "chess.com"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("invalid_catalog_filter"));
 

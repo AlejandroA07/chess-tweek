@@ -35,8 +35,8 @@ class DashboardRatingContextControllerTest {
     @Test
     void returnsTheAuthorizedAccountsRatingHistoryAndBotRecord() throws Exception {
         var accountSeen = new AtomicReference<String>();
-        GameRatingContext ratingContext = accountId -> {
-            accountSeen.set(accountId);
+        GameRatingContext ratingContext = (accountId, source) -> {
+            accountSeen.set(accountId + " " + source.value());
             return context();
         };
 
@@ -71,13 +71,13 @@ class DashboardRatingContextControllerTest {
                 .andExpect(jsonPath("$.botRecord.groups[2].type").value("bot_unrated"))
                 .andExpect(content().string(not(containsString("private_token"))));
 
-        assertThat(accountSeen).hasValue("owner-id");
+        assertThat(accountSeen).hasValue("owner-id lichess");
     }
 
     @Test
     void deniesDisconnectedRequestsBeforeReadingAccountData() throws Exception {
         var reads = new AtomicInteger();
-        GameRatingContext ratingContext = accountId -> {
+        GameRatingContext ratingContext = (accountId, source) -> {
             reads.incrementAndGet();
             return context();
         };
@@ -96,7 +96,7 @@ class DashboardRatingContextControllerTest {
     @Test
     void reportsAnUnavailableSessionWithoutReadingAccountData() throws Exception {
         var reads = new AtomicInteger();
-        GameRatingContext ratingContext = accountId -> {
+        GameRatingContext ratingContext = (accountId, source) -> {
             reads.incrementAndGet();
             return context();
         };
@@ -114,8 +114,33 @@ class DashboardRatingContextControllerTest {
     }
 
     @Test
+    void readsTheRequestedSiteAndRejectsAnUnknownOneBeforeTheSession() throws Exception {
+        var seen = new AtomicReference<String>();
+        var authorizations = new AtomicInteger();
+        GameRatingContext ratingContext = (accountId, source) -> {
+            seen.set(source.value());
+            return context();
+        };
+        var mockMvc = MockMvcBuilders
+                .standaloneSetup(new DashboardRatingContextController(sealed -> {
+                    authorizations.incrementAndGet();
+                    return LichessSessionAuthorization.connected("owner-id", "ChessOwner", "liu_token");
+                }, ratingContext))
+                .build();
+
+        mockMvc.perform(get("/api/dashboard/rating-context").queryParam("source", "chesscom").cookie(SESSION))
+                .andExpect(status().isOk());
+        assertThat(seen).hasValue("chesscom");
+
+        mockMvc.perform(get("/api/dashboard/rating-context").queryParam("source", "chess.com").cookie(SESSION))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_rating_context_request"));
+        assertThat(authorizations).hasValue(1);
+    }
+
+    @Test
     void returnsASafeRecoverableErrorWhenStorageFails() throws Exception {
-        GameRatingContext ratingContext = accountId -> {
+        GameRatingContext ratingContext = (accountId, source) -> {
             throw new DataAccessResourceFailureException("private database detail");
         };
 

@@ -18,7 +18,7 @@ The course is independent Chess Tweek material inspired by GM Igor Smirnov's pub
 - Authored content is a validated, versioned JSON resource. Application startup rejects invalid keys, incomplete FENs, illegal accepted UCI moves, missing hints, and malformed lesson structure.
 - Sanitized course reads are public so the lesson material stays available without an active connection. Accepted moves, solution moves, and answer explanations are omitted.
 - Progress, attempts, hints, reveals, and completion are scoped to the sealed-session account. Mutations require same-origin validation and never accept an account ID from the client.
-- Flyway V7 adds training-owned lesson progress, exercise progress, and immutable attempt rows with foreign keys, checks, and indexes.
+- Flyway V8 adds training-owned lesson progress, exercise progress, and immutable attempt rows with foreign keys, checks, and indexes.
 - Submitted moves are syntax-checked and validated against the exercise FEN with the approved `chessgame` library before comparison with server-held accepted moves.
 
 ## Interface

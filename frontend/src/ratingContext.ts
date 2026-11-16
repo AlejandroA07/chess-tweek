@@ -1,3 +1,5 @@
+import type { GameSource } from './gameRef'
+
 export type HistorySpeed = 'rapid' | 'blitz' | 'bullet' | 'classical'
 
 export const HISTORY_SPEEDS: readonly HistorySpeed[] = ['rapid', 'blitz', 'bullet', 'classical']
@@ -53,8 +55,12 @@ export class RatingContextRequestError extends Error {
   }
 }
 
-export async function requestRatingContext(signal: AbortSignal): Promise<RatingContext> {
-  const response = await fetch('/api/dashboard/rating-context', {
+export async function requestRatingContext(
+  signal: AbortSignal,
+  source: GameSource = 'lichess',
+): Promise<RatingContext> {
+  const query = source === 'lichess' ? '' : `?source=${source}`
+  const response = await fetch(`/api/dashboard/rating-context${query}`, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
     signal,

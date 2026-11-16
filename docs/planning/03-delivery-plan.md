@@ -383,11 +383,12 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0 through 4 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15. The owner's live check on 2026-11-16 confirmed the Part 6 labels and findings on the stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; the opponent-side coach wording has no stored opponent analysis yet and was checked only in tests. Stage 5 Part 1, the two-site catalog foundation, merged on 2026-11-16 (PR #35).
+Stages 0 through 5 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15. The owner's live check on 2026-11-16 confirmed the Part 6 labels and findings on the stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; the opponent-side coach wording has no stored opponent analysis yet and was checked only in tests. Stage 5 was delivered in three parts: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37), all merged on 2026-11-16.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-16):**
 
-1. Stage 5 Part 2 (chess.com retrieval) and Stage 6 (Grandmaster Thinking Method) may proceed independently from `main`; both depend only on completed work.
-2. After Stage 5 Part 2, deliver Part 3 (the chess.com interface). Stage 6 stops for owner review after its verified guided-course slice.
+1. The owner completes the Stage 5 live check: back up `var/chess-tweek.db`, save the chess.com username on Admin, get chess.com games, filter by site, analyze and review one chess.com game, and check the Dashboard ratings.
+2. The owner reviews and merges Stage 6, Grandmaster Thinking Method (PR #38). Before its first start, back up `var/chess-tweek.db`; migration V8 adds account-scoped guided-course progress.
+3. The Stage 6 live check opens Training, completes the four lessons with wrong moves, hints, and reveals, restarts the app, and confirms that progress persists.

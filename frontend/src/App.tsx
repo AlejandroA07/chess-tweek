@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import styles from './App.module.css'
+import { AdminChessCom } from './AdminChessCom'
 import { AdminEngine } from './AdminEngine'
-import { DashboardRatingContext } from './DashboardRatingContext'
+import { DashboardChessComRatings, DashboardRatingContext } from './DashboardRatingContext'
 import { GameReview } from './GameReview'
 import { gameKey, parseGameKey } from './gameRef'
 import { GamesLibrary } from './GamesLibrary'
@@ -296,11 +297,17 @@ export function App() {
               />
             )}
             {route.href === '#/dashboard' && session.kind === 'connected' && (
-              <DashboardRatingContext
-                key={session.account.id}
-                currentRatings={session.account.ratings}
-                onSessionFailure={handleCatalogSessionFailure}
-              />
+              <>
+                <DashboardRatingContext
+                  key={session.account.id}
+                  currentRatings={session.account.ratings}
+                  onSessionFailure={handleCatalogSessionFailure}
+                />
+                <DashboardChessComRatings
+                  key={`${session.account.id}:chesscom`}
+                  onSessionFailure={handleCatalogSessionFailure}
+                />
+              </>
             )}
             {route.href === '#/dashboard' && session.kind !== 'checking' && (
               <TrainingShortcut
@@ -328,7 +335,10 @@ export function App() {
                 onSessionFailure={handleCatalogSessionFailure}
               />
             ) : route.href === '#/admin' && session.kind === 'connected' ? (
-              <AdminEngine onSessionFailure={handleCatalogSessionFailure} />
+              <>
+                <AdminChessCom onSessionFailure={handleCatalogSessionFailure} />
+                <AdminEngine onSessionFailure={handleCatalogSessionFailure} />
+              </>
             ) : route.href === '#/dashboard' && session.kind === 'connected' ? null : (
               <section className={styles.emptyState} aria-labelledby="workspace-title">
                 <span className={styles.emptyStateIcon}>

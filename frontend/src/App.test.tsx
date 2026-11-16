@@ -158,7 +158,8 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Games' }))
 
     expect(await screen.findByText('2 stored games')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Lichess games' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Stored games' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Get Chess.com Games' })).toBeInTheDocument()
     const botCard = screen.getByRole('article', { name: 'Win against StudyBot' })
     expect(within(botCard).getByText('BOT StudyBot')).toBeInTheDocument()
     expect(within(botCard).getByText('1,750 · You 1,800 (+8)')).toBeInTheDocument()

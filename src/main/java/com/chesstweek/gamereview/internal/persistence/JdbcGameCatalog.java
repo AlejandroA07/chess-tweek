@@ -242,6 +242,10 @@ public class JdbcGameCatalog implements GameCatalog, GameCatalogStore, GameLooku
             filters.append(" AND variant = :variant");
             parameters.addValue("variant", query.variant().value());
         }
+        if (query.source() != null) {
+            filters.append(" AND source = :source");
+            parameters.addValue("source", query.source().value());
+        }
         if (query.analysisState() != null) {
             filters.append(" AND analysis_eligible = :analysisEligible");
             parameters.addValue(

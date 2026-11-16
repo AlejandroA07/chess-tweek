@@ -27,6 +27,7 @@ import {
   type ReviewSide,
   type Severity,
 } from './reviewData'
+import { openingLabel } from './gameCatalog'
 import { useGameAnalysis } from './useGameAnalysis'
 
 type LoadState =
@@ -580,7 +581,7 @@ function ReviewHeader({ review }: { review: Review }) {
         {formatDate(game.playedAt)} · {game.timeControl.label} {titleCase(game.speed)} · {game.rated ? 'Rated' : 'Casual'}
       </p>
       <p className={styles.meta}>
-        {game.opening ? `${game.opening.eco} · ${game.opening.name}` : 'Opening unavailable'}
+        {game.opening ? openingLabel(game.opening) : 'Opening unavailable'}
       </p>
     </header>
   )

@@ -54,7 +54,8 @@ public final class GameCatalogController {
             @RequestParam(name = "to", defaultValue = "") String to,
             @RequestParam(name = "variant", defaultValue = "") String variant,
             @RequestParam(name = "analysis", defaultValue = "") String analysis,
-            @RequestParam(name = "sort", defaultValue = "newest") String sort) {
+            @RequestParam(name = "sort", defaultValue = "newest") String sort,
+            @RequestParam(name = "source", defaultValue = "") String source) {
         Integer offset = boundedInteger(offsetText, 0, 100_000);
         Integer limit = boundedInteger(limitText, 1, 50);
         if (offset == null || limit == null) {
@@ -89,7 +90,8 @@ public final class GameCatalogController {
                         "threeCheck",
                         "fromPosition")
                 || !allowed(analysis, "", "eligible", "catalog_only")
-                || !allowed(sort, "newest", "oldest")) {
+                || !allowed(sort, "newest", "oldest")
+                || !allowed(source, "", "lichess", "chesscom")) {
             return ResponseEntity.badRequest()
                     .cacheControl(CacheControl.noStore())
                     .body(new CatalogError("invalid_catalog_filter"));
@@ -119,7 +121,8 @@ public final class GameCatalogController {
                 analysisState(analysis),
                 "oldest".equals(sort)
                         ? GameCatalogQuery.Sort.OLDEST
-                        : GameCatalogQuery.Sort.NEWEST);
+                        : GameCatalogQuery.Sort.NEWEST,
+                GameRef.Source.fromValue(source).orElse(null));
         var authorization = sessionAuthorizer.authorize(sealedSession);
         return switch (authorization.type()) {
             case CONNECTED -> connected(authorization.accountId(), query);

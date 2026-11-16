@@ -201,6 +201,27 @@ describe('Game review', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
+  it('opens a chess.com game by its site and ID', async () => {
+    const chessComReview = { ...review(), game: card({ my: true, opponent: false }, { id: '145200000001', source: 'chesscom' }) }
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString()
+      requests.push({ url, init })
+      if (url === '/api/health') return json(200, { status: 'ok' })
+      if (url === '/api/lichess/session') return json(200, connectedSession())
+      if (url === '/api/analysis') return json(200, { job: null })
+      if (url === '/api/games/chesscom/145200000001/review') return json(200, chessComReview)
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    window.history.replaceState(null, '', '/#/games/chesscom/145200000001')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Game Review' })).toBeInTheDocument()
+    expect(await screen.findByText('LondonSystemEnthusiastWithAVeryLongName', { exact: false }))
+      .toBeInTheDocument()
+    expect(requests.some((request) => request.url === '/api/games/chesscom/145200000001/review')).toBe(true)
+    expect(requests.some((request) => request.url.includes('/lichess/145200000001'))).toBe(false)
+  })
+
   it('opens from Games with Open Game and shows the game, statistics, and findings', async () => {
     window.history.replaceState(null, '', '/#/games')
     render(<App />)

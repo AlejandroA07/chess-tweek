@@ -379,5 +379,6 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-16):**
 
-1. Stage 5 Part 1 (catalog for two sites) is merged. The owner reviews and merges Part 2 (chess.com retrieval, `feature/chesscom-retrieval`; see `docs/dev/2026-11-16-chesscom-retrieval.md`).
-2. Then Part 3 (interface): chess.com username on Admin, Get Chess.com Games on Games, source filter and badge, per-site ratings on the Dashboard.
+1. Stage 5 Parts 1 and 2 are merged. The owner reviews and merges Part 3 (interface, `feature/chesscom-interface`; see `docs/dev/2026-11-16-chesscom-interface.md`), which completes the Stage 5 implementation.
+2. The owner's live check: back up `var/chess-tweek.db` (the first start runs migrations V6 and V7), save the chess.com username on Admin, get chess.com games, filter by site, analyze and review one chess.com game, and check the Dashboard ratings.
+3. Then Stage 6 (training core).

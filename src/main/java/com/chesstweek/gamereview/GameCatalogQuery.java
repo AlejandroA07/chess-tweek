@@ -15,7 +15,8 @@ public record GameCatalogQuery(
         LocalDate playedTo,
         CatalogGame.Variant variant,
         AnalysisState analysisState,
-        Sort sort) {
+        Sort sort,
+        GameRef.Source source) {
 
     public GameCatalogQuery {
         if (offset < 0 || offset > 100_000 || limit < 1 || limit > 50) {
@@ -37,6 +38,24 @@ public record GameCatalogQuery(
             throw new IllegalArgumentException("Invalid catalog date range");
         }
         Objects.requireNonNull(sort, "sort");
+    }
+
+    /** Every filter except the source: games from both sites. */
+    public GameCatalogQuery(
+            int offset,
+            int limit,
+            CatalogGame.Result result,
+            CatalogGame.Color color,
+            String opening,
+            OpponentType opponentType,
+            CatalogGame.Speed speed,
+            LocalDate playedFrom,
+            LocalDate playedTo,
+            CatalogGame.Variant variant,
+            AnalysisState analysisState,
+            Sort sort) {
+        this(offset, limit, result, color, opening, opponentType, speed, playedFrom, playedTo,
+                variant, analysisState, sort, null);
     }
 
     public GameCatalogQuery(

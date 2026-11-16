@@ -365,9 +365,11 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0 through 3 are complete. Stage 3 was delivered in independently reviewed parts. Parts 1 through 9 cover manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record. Stage 3 is complete, including the owner's live check. Stage 4 is delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards.
+Stages 0 through 4 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15.
 
-**Next immediate action (2026-11-15):**
+This section is the only record of delivery status. Update it here when a stage or part completes.
 
-1. The owner reviews and merges Stage 4 Part 6 (`feature/tactic-labels-coach-cards`): conservative tactic labels and the deterministic coach cards. The "what I was thinking" note was dropped by the owner on 2026-11-15. This completes Stage 4.
-2. Then the re-scoped Stage 5 (chess.com games).
+**Next immediate action (2026-11-16):**
+
+1. The owner approves the part breakdown and any dependency proposal for the re-scoped Stage 5 (chess.com games, `feature/chesscom-games`).
+2. Then implement Stage 5.

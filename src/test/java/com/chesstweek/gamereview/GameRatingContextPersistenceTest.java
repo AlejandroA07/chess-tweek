@@ -113,6 +113,16 @@ class GameRatingContextPersistenceTest {
             assertThat(blitz.points()).containsExactly(new RatingPoint(START, 1508));
             assertThat(context.botRecord().total()).isEqualTo(Tally.EMPTY);
             assertThat(context.botRecord().groups()).isEmpty();
+
+            RatingContext chessCom = application.getBean(GameRatingContext.class)
+                    .ratingContext("ownerid", GameRef.Source.CHESSCOM);
+            SpeedHistory chessComBlitz = history(chessCom, CatalogGame.Speed.BLITZ);
+            assertThat(chessComBlitz.gamesCounted()).isEqualTo(2);
+            assertThat(chessComBlitz.latestChange()).isNull();
+            assertThat(chessComBlitz.points()).containsExactly(
+                    new RatingPoint(START.plusSeconds(3_600), 1300),
+                    new RatingPoint(START.plusSeconds(7_200), 1500));
+            assertThat(chessCom.botRecord().total().games()).isEqualTo(1);
         }
     }
 

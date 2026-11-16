@@ -20,6 +20,18 @@ export function GameCatalogFilters({
   return (
     <section className={styles.toolbar} aria-label="Game filters">
       <label>
+        <span>Site</span>
+        <select
+          value={filters.source}
+          onChange={(event) => update('source', event.target.value as CatalogFilters['source'])}
+        >
+          <option value="">All sites</option>
+          <option value="lichess">Lichess</option>
+          <option value="chesscom">Chess.com</option>
+        </select>
+      </label>
+
+      <label>
         <span>Result</span>
         <select
           value={filters.result}
@@ -85,7 +97,7 @@ export function GameCatalogFilters({
           <option value="blitz">Blitz</option>
           <option value="rapid">Rapid</option>
           <option value="classical">Classical</option>
-          <option value="correspondence">Correspondence</option>
+          <option value="correspondence">Correspondence (Daily on Chess.com)</option>
         </select>
       </label>
 

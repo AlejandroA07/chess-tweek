@@ -1,3 +1,5 @@
+import type { GameSource } from './gameRef'
+
 export type GameRetrievalResult = {
   requested: number
   received: number
@@ -12,7 +14,16 @@ export type GameRetrievalFailure =
   | 'not_connected'
   | 'rate_limited'
   | 'busy'
+  | 'username_missing'
+  | 'player_not_found'
   | 'unavailable'
+
+export type RetrievalSite = GameSource
+
+const ENDPOINTS: Record<RetrievalSite, string> = {
+  lichess: '/api/lichess/games/retrievals',
+  chesscom: '/api/chesscom/games/retrievals',
+}
 
 export class GameRetrievalError extends Error {
   constructor(
@@ -24,11 +35,12 @@ export class GameRetrievalError extends Error {
 }
 
 export async function retrieveGames(
+  site: RetrievalSite,
   count: number,
   before: string | null,
   signal: AbortSignal,
 ): Promise<GameRetrievalResult> {
-  const response = await fetch('/api/lichess/games/retrievals', {
+  const response = await fetch(ENDPOINTS[site], {
     method: 'POST',
     credentials: 'same-origin',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -40,9 +52,11 @@ export async function retrieveGames(
     if (response.status === 401 || code === 'not_connected') {
       throw new GameRetrievalError('not_connected')
     }
-    if (response.status === 429 || code === 'lichess_rate_limited') {
+    if (response.status === 429 || code === 'lichess_rate_limited' || code === 'chesscom_rate_limited') {
       throw new GameRetrievalError('rate_limited', retryDelay(response))
     }
+    if (code === 'chesscom_username_missing') throw new GameRetrievalError('username_missing')
+    if (code === 'chesscom_player_not_found') throw new GameRetrievalError('player_not_found')
     if (response.status === 409 || code === 'retrieval_already_running') {
       throw new GameRetrievalError('busy')
     }
@@ -54,11 +68,11 @@ export async function retrieveGames(
     !isRecord(body) ||
     !isInteger(body.requested, 1, 50) ||
     !isInteger(body.received, 0, body.requested) ||
-    !isInteger(body.rejected, 0, body.requested) ||
+    !isInteger(body.rejected, 0, site === 'lichess' ? body.requested : 10_000) ||
     !isInteger(body.created, 0, body.received) ||
     !isInteger(body.updated, 0, body.received) ||
     !isInteger(body.unchanged, 0, body.received) ||
-    body.received + body.rejected > body.requested ||
+    (site === 'lichess' && body.received + body.rejected > body.requested) ||
     body.created + body.updated + body.unchanged !== body.received ||
     !isBeforeDate(body.before)
   ) {

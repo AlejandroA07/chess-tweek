@@ -24,7 +24,7 @@ export type CatalogGame = {
     daysPerTurn: number | null
     label: string
   }
-  opening: { eco: string; name: string } | null
+  opening: { eco: string; name: string | null } | null
   analysis: {
     eligible: boolean
     status: 'not_analyzed' | 'analyzed' | 'unsupported_variant'
@@ -51,6 +51,7 @@ export type CatalogPage = {
 }
 
 export type CatalogFilters = {
+  source: '' | GameSource
   result: '' | 'win' | 'loss' | 'draw'
   color: '' | 'white' | 'black'
   opening: string
@@ -65,6 +66,7 @@ export type CatalogFilters = {
 }
 
 export const EMPTY_CATALOG_FILTERS: CatalogFilters = {
+  source: '',
   result: '',
   color: '',
   opening: '',
@@ -83,6 +85,16 @@ export class CatalogRequestError extends Error {
   constructor(readonly failure: CatalogFailure) {
     super(failure)
   }
+}
+
+/** `B12 · Caro-Kann Defense`, or just the ECO code when the name is unknown. */
+export function openingLabel(opening: { eco: string; name: string | null }): string {
+  return opening.name === null ? opening.eco : `${opening.eco} · ${opening.name}`
+}
+
+/** The site's name as shown in the interface. */
+export function sourceLabel(source: GameSource): string {
+  return source === 'chesscom' ? 'Chess.com' : 'Lichess'
 }
 
 export const CATALOG_PAGE_SIZE = 50
@@ -112,6 +124,7 @@ async function requestCatalogPage(
   filters: CatalogFilters,
 ): Promise<CatalogPage> {
   const parameters = new URLSearchParams({ offset: offset.toString(), limit: limit.toString() })
+  if (filters.source) parameters.set('source', filters.source)
   if (filters.result) parameters.set('result', filters.result)
   if (filters.color) parameters.set('color', filters.color)
   if (filters.opening) parameters.set('opening', filters.opening)
@@ -227,7 +240,7 @@ function isOpening(value: unknown) {
   return value === null || (
     isRecord(value) &&
     isBoundedText(value.eco, 3) &&
-    isBoundedText(value.name, 160)
+    (value.name === null || isBoundedText(value.name, 160))
   )
 }
 

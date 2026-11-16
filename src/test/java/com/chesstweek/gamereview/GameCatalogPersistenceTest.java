@@ -185,6 +185,12 @@ class GameCatalogPersistenceTest {
                     .games("ownerid", GameCatalogQuery.unfiltered(0, 50)).games())
                     .extracting(CatalogGame::ref)
                     .containsExactlyInAnyOrder(lichess, chessCom);
+            GameCatalogPage onlyChessCom = application.getBean(GameCatalog.class).games(
+                    "ownerid",
+                    new GameCatalogQuery(0, 50, null, null, null, null, null, null, null, null,
+                            null, GameCatalogQuery.Sort.NEWEST, GameRef.Source.CHESSCOM));
+            assertThat(onlyChessCom.total()).isEqualTo(1);
+            assertThat(onlyChessCom.games()).extracting(CatalogGame::ref).containsExactly(chessCom);
         }
     }
 

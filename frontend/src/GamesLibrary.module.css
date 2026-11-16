@@ -88,6 +88,14 @@
   color: var(--color-text-muted);
 }
 
+.headingActions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .heading button {
   flex: 0 0 auto;
   min-height: 2.75rem;
@@ -244,6 +252,26 @@
   font-family: var(--font-interface);
   font-size: 0.875rem;
   font-weight: 800;
+}
+
+.cardMeta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.source {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-family: var(--font-technical);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  line-height: 1.5rem;
 }
 
 .result[data-result='loss'] {
@@ -413,6 +441,10 @@
 @media (max-width: 639px) {
   .heading {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headingActions {
     flex-direction: column;
   }
 

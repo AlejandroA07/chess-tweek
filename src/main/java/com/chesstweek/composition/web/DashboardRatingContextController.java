@@ -9,9 +9,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.chesstweek.gamereview.GameRatingContext;
+import com.chesstweek.gamereview.GameRef;
 import com.chesstweek.gamereview.RatingContext;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 import com.chesstweek.identity.LichessSessionService;
@@ -32,21 +34,26 @@ public final class DashboardRatingContextController {
     @GetMapping("/api/dashboard/rating-context")
     public ResponseEntity<?> ratingContext(
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
-                    String sealedSession) {
+                    String sealedSession,
+            @RequestParam(name = "source", defaultValue = "lichess") String sourceText) {
+        GameRef.Source source = GameRef.Source.fromValue(sourceText).orElse(null);
+        if (source == null) {
+            return error(HttpStatus.BAD_REQUEST, "invalid_rating_context_request");
+        }
         var authorization = sessionAuthorizer.authorize(sealedSession);
         return switch (authorization.type()) {
-            case CONNECTED -> connected(authorization.accountId());
+            case CONNECTED -> connected(authorization.accountId(), source);
             case DISCONNECTED -> disconnected(authorization.clearCookie());
             case RATE_LIMITED, UPSTREAM_UNAVAILABLE -> error(
                     HttpStatus.SERVICE_UNAVAILABLE, "session_unavailable");
         };
     }
 
-    private ResponseEntity<?> connected(String accountId) {
+    private ResponseEntity<?> connected(String accountId, GameRef.Source source) {
         try {
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
-                    .body(toResponse(ratingContext.ratingContext(accountId)));
+                    .body(toResponse(ratingContext.ratingContext(accountId, source)));
         } catch (DataAccessException | IllegalArgumentException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "rating_context_unavailable");
         }

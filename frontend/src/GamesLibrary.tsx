@@ -3,12 +3,15 @@ import styles from './GamesLibrary.module.css'
 import { GameAnalysisPanel } from './GameAnalysisPanel'
 import { GameCatalogFilters } from './GameCatalogFilters'
 import { GameRetrievalPanel } from './GameRetrievalPanel'
+import type { RetrievalSite } from './gameRetrieval'
 import {
   CatalogRequestError,
   EMPTY_CATALOG_FILTERS,
   CATALOG_PAGE_SIZE,
   requestCatalog,
   requestEligibleSelectionTotal,
+  openingLabel,
+  sourceLabel,
   type CatalogFilters,
   type AnalysisVersionSummary,
   type CatalogGame,
@@ -48,7 +51,7 @@ export function GamesLibrary({
   const [refreshKey, setRefreshKey] = useState(0)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [olderError, setOlderError] = useState(false)
-  const [retrievalOpen, setRetrievalOpen] = useState(false)
+  const [retrievalSite, setRetrievalSite] = useState<RetrievalSite | null>(null)
   const [filters, setFilters] = useState<CatalogFilters>(EMPTY_CATALOG_FILTERS)
   const [selection, setSelection] = useState<GameSelection>(emptySelection)
   const [selectionLoading, setSelectionLoading] = useState(false)
@@ -59,7 +62,9 @@ export function GamesLibrary({
   const libraryRef = useRef<HTMLElement | null>(null)
   const countRef = useRef<HTMLParagraphElement | null>(null)
   const focusTarget = useRef<'library' | 'count' | null>(null)
-  const retrievalTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const lichessTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const chessComTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const retrievalTriggers: RetrievalTriggers = { lichess: lichessTriggerRef, chesscom: chessComTriggerRef }
   const lastAnalysisRequest = useRef<{
     gameKey: string
     perspective: AnalysisPerspective
@@ -129,14 +134,17 @@ export function GamesLibrary({
   }
 
   const closeRetrieval = () => {
-    setRetrievalOpen(false)
-    retrievalTriggerRef.current?.focus()
+    const site = retrievalSite
+    setRetrievalSite(null)
+    if (site !== null) retrievalTriggers[site].current?.focus()
   }
 
-  const retrievalPanel = retrievalOpen && accountUsername !== null
+  const retrievalPanel = retrievalSite !== null && accountUsername !== null
     ? (
         <GameRetrievalPanel
-          username={accountUsername}
+          key={retrievalSite}
+          site={retrievalSite}
+          lichessUsername={accountUsername}
           onClose={closeRetrieval}
           onComplete={() => {
             selectionRequest.current?.abort()
@@ -359,7 +367,7 @@ export function GamesLibrary({
   if (catalog.kind === 'loading') {
     return connectedView(
       <section ref={libraryRef} className={styles.library} aria-live="polite" tabIndex={-1}>
-        <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+        <LibraryHeading onGetGames={setRetrievalSite} triggers={retrievalTriggers} />
         <GameCatalogFilters
           filters={filters}
           onChange={changeFilters}
@@ -384,7 +392,7 @@ export function GamesLibrary({
   if (catalog.kind === 'error') {
     return connectedView(
       <section ref={libraryRef} className={styles.library} aria-live="polite" tabIndex={-1}>
-        <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+        <LibraryHeading onGetGames={setRetrievalSite} triggers={retrievalTriggers} />
         <GameCatalogFilters
           filters={filters}
           onChange={changeFilters}
@@ -411,7 +419,7 @@ export function GamesLibrary({
     if (hasNarrowingFilters(filters)) {
       return connectedView(
         <section ref={libraryRef} className={styles.library} tabIndex={-1}>
-          <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+          <LibraryHeading onGetGames={setRetrievalSite} triggers={retrievalTriggers} />
           <GameCatalogFilters
             filters={filters}
             onChange={changeFilters}
@@ -430,15 +438,15 @@ export function GamesLibrary({
     return connectedView(
       <EmptyCatalog
         libraryRef={libraryRef}
-        onGetGames={() => setRetrievalOpen(true)}
-        triggerRef={retrievalTriggerRef}
+        onGetGames={setRetrievalSite}
+        triggers={retrievalTriggers}
       />,
     )
   }
 
   return connectedView(
     <section ref={libraryRef} className={styles.library} tabIndex={-1}>
-      <LibraryHeading onGetGames={() => setRetrievalOpen(true)} triggerRef={retrievalTriggerRef} />
+      <LibraryHeading onGetGames={setRetrievalSite} triggers={retrievalTriggers} />
       <GameCatalogFilters
         filters={filters}
         onChange={changeFilters}
@@ -519,22 +527,31 @@ export function GamesLibrary({
   )
 }
 
+type RetrievalTriggers = Record<RetrievalSite, RefObject<HTMLButtonElement | null>>
+
 function LibraryHeading({
   onGetGames,
-  triggerRef,
+  triggers,
 }: {
-  onGetGames?: () => void
-  triggerRef?: RefObject<HTMLButtonElement | null>
+  onGetGames?: (site: RetrievalSite) => void
+  triggers?: RetrievalTriggers
 }) {
   return (
     <header className={styles.heading}>
       <div>
         <p className={styles.eyebrow}>Local game library</p>
-        <h2>Lichess games</h2>
-        <p>Completed games are stored locally on this Mac.</p>
+        <h2>Stored games</h2>
+        <p>Completed Lichess and Chess.com games are stored locally on this Mac.</p>
       </div>
       {onGetGames && (
-        <button ref={triggerRef} type="button" onClick={onGetGames}>Get Lichess Games</button>
+        <div className={styles.headingActions}>
+          <button ref={triggers?.lichess} type="button" onClick={() => onGetGames('lichess')}>
+            Get Lichess Games
+          </button>
+          <button ref={triggers?.chesscom} type="button" onClick={() => onGetGames('chesscom')}>
+            Get Chess.com Games
+          </button>
+        </div>
       )}
     </header>
   )
@@ -543,18 +560,18 @@ function LibraryHeading({
 function EmptyCatalog({
   libraryRef,
   onGetGames,
-  triggerRef,
+  triggers,
 }: {
   libraryRef: RefObject<HTMLElement | null>
-  onGetGames: () => void
-  triggerRef: RefObject<HTMLButtonElement | null>
+  onGetGames: (site: RetrievalSite) => void
+  triggers: RetrievalTriggers
 }) {
   return (
     <section ref={libraryRef} className={styles.library} tabIndex={-1}>
-      <LibraryHeading onGetGames={onGetGames} triggerRef={triggerRef} />
+      <LibraryHeading onGetGames={onGetGames} triggers={triggers} />
       <div className={styles.message}>
         <h3>No games stored on this Mac</h3>
-        <p>Connect Lichess, then choose Get Lichess Games to build your local library.</p>
+        <p>Choose Get Lichess Games or Get Chess.com Games to build your local library.</p>
       </div>
     </section>
   )
@@ -603,7 +620,7 @@ function GameCard({
     ? `${game.opponent.title} ${game.opponent.name}`
     : game.opponent.name
   const opening = game.opening
-    ? `${game.opening.eco} · ${game.opening.name}`
+    ? openingLabel(game.opening)
     : 'Opening unavailable'
 
   return (
@@ -626,7 +643,10 @@ function GameCard({
       </label>
       <div className={styles.cardHeading}>
         <span className={styles.result} data-result={game.result}>{result}</span>
-        <span>{formatDate(game.playedAt)}</span>
+        <span className={styles.cardMeta}>
+          <span className={styles.source} data-source={game.source}>{sourceLabel(game.source)}</span>
+          <span>{formatDate(game.playedAt)}</span>
+        </span>
       </div>
       <h3>{opponentName}</h3>
       <p className={styles.rating}>
@@ -856,7 +876,8 @@ function titleCase(value: string) {
 }
 
 function hasNarrowingFilters(filters: CatalogFilters) {
-  return filters.result !== ''
+  return filters.source !== ''
+    || filters.result !== ''
     || filters.color !== ''
     || filters.opening !== ''
     || filters.opponent !== ''

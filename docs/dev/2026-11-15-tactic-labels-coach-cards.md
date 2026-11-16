@@ -47,4 +47,4 @@ The card appears under the board when View Mistake shows a finding (second perso
 - `coach.test.ts` (5): the owner's Caro-Kann card word for word, opponent wording by color, positional mistakes and phase training, a hung piece, and label names.
 - `GameReview.test.tsx`: label chips and the three coach answers on the review page.
 
-Driven in a browser with mocked API responses; the owner's live check is still needed.
+Driven in a browser with mocked API responses. The owner's live check is recorded in `docs/planning/03-delivery-plan.md`.

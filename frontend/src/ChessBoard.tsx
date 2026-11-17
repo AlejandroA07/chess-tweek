@@ -178,7 +178,7 @@ export function InteractiveChessBoard({
             return (
               <button
                 key={square}
-                className={styles.moveSquare}
+                className={`${styles.square} ${styles.moveSquare}`}
                 type="button"
                 data-shade={(rankIndex + fileIndex) % 2 === 0 ? 'light' : 'dark'}
                 data-marked={marked.includes(square)}

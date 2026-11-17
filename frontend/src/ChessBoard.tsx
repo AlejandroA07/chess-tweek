@@ -129,6 +129,7 @@ export function InteractiveChessBoard({
   const [dragged, setDragged] = useState<string | null>(null)
   const [arrowStart, setArrowStart] = useState<string | null>(null)
   const [userArrow, setUserArrow] = useState<string | null>(null)
+  const [annotationMode, setAnnotationMode] = useState(false)
 
   useEffect(() => {
     const initial = parsePlacement(fen)
@@ -137,6 +138,7 @@ export function InteractiveChessBoard({
     setDragged(null)
     setArrowStart(null)
     setUserArrow(null)
+    setAnnotationMode(false)
   }, [fen, solution])
 
   if (placement === null) {
@@ -147,14 +149,24 @@ export function InteractiveChessBoard({
   const files = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
 
   const submit = async (move: string) => {
+    const previous = placement
+    setPlacement(applyMove(previous, move))
     const accepted = await onMove(move)
-    if (accepted !== false) {
-      setPlacement((current) => current === null ? null : applyMove(current, move))
-    }
+    if (accepted === false) setPlacement(previous)
   }
 
   const choose = (square: string, piece: Piece | null) => {
     if (disabled) return
+    if (annotationMode) {
+      if (arrowStart === null) {
+        setArrowStart(square)
+      } else {
+        setUserArrow(arrowStart === square ? null : `${arrowStart}${square}`)
+        setArrowStart(null)
+        setAnnotationMode(false)
+      }
+      return
+    }
     if (selected === null) {
       if (piece?.color === side) setSelected(square)
       return
@@ -189,6 +201,8 @@ export function InteractiveChessBoard({
   const startArrow = (event: ReactMouseEvent, square: string) => {
     if (event.button !== 2) return
     event.preventDefault()
+    setSelected(null)
+    setAnnotationMode(false)
     setArrowStart(square)
   }
 
@@ -196,6 +210,12 @@ export function InteractiveChessBoard({
     if (event.button !== 2 || arrowStart === null) return
     event.preventDefault()
     setUserArrow(arrowStart === square ? null : `${arrowStart}${square}`)
+    setArrowStart(null)
+  }
+
+  const toggleAnnotationMode = () => {
+    setAnnotationMode((active) => !active)
+    setSelected(null)
     setArrowStart(null)
   }
 
@@ -213,9 +233,9 @@ export function InteractiveChessBoard({
                 type="button"
                 data-shade={(rankIndex + fileIndex) % 2 === 0 ? 'light' : 'dark'}
                 data-marked="false"
-                data-selected={selected === square}
+                data-selected={selected === square || (annotationMode && arrowStart === square)}
                 disabled={disabled}
-                aria-pressed={selected === square}
+                aria-pressed={selected === square || (annotationMode && arrowStart === square)}
                 aria-label={squareLabel(square, piece)}
                 onClick={() => choose(square, piece)}
                 onMouseDown={(event) => startArrow(event, square)}
@@ -248,6 +268,22 @@ export function InteractiveChessBoard({
             markerId="board-user-arrow-head"
           />
         )}
+      </div>
+      <div className={styles.annotationControls}>
+        <button
+          className={styles.annotationToggle}
+          type="button"
+          aria-pressed={annotationMode}
+          disabled={disabled}
+          onClick={toggleAnnotationMode}
+        >
+          Draw arrow
+        </button>
+        <span className={styles.annotationStatus} aria-live="polite">
+          {annotationMode
+            ? arrowStart === null ? 'Choose the start square' : 'Choose the end square'
+            : 'Right-drag shortcut'}
+        </span>
       </div>
     </div>
   )

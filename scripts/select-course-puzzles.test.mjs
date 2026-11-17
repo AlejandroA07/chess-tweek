@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { Readable } from 'node:stream'
 
 import {
   applyUciToFen,
+  createInputGuard,
   parsePuzzleRecord,
   selectCandidates,
 } from './select-course-puzzles.mjs'
@@ -31,6 +33,13 @@ test('rejects malformed external records and non-Lichess source URLs', () => {
     'defensiveMove short', 'https://example.com/game', '', '',
   ].join(',')), null)
   assert.equal(parsePuzzleRecord('x'.repeat(4097)), null)
+})
+
+test('stops oversized records before readline can buffer them', async () => {
+  const guarded = Readable.from(['123456789\n']).pipe(createInputGuard(100, 8))
+  await assert.rejects(async () => {
+    for await (const chunk of guarded) void chunk
+  }, /oversized record/)
 })
 
 test('selects a bounded candidate with auditable source metadata', () => {

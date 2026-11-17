@@ -5,6 +5,7 @@ import { createReadStream, lstatSync, realpathSync, writeFileSync } from 'node:f
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import readline from 'node:readline'
+import { Transform } from 'node:stream'
 
 const HEADER = [
   'PuzzleId',
@@ -35,6 +36,9 @@ const LESSONS = [
 
 const UCI = /^[a-h][1-8][a-h][1-8][qrbn]?$/
 const SNAPSHOT_DATE = /^\d{4}-\d{2}-\d{2}$/
+const MAX_INPUT_BYTES = 10_000_000_000
+const MAX_DECOMPRESSED_BYTES = 20_000_000_000
+const MAX_LINE_BYTES = 4096
 
 export function parsePuzzleRecord(line) {
   if (line.length === 0 || line.length > 4096) return null
@@ -155,6 +159,36 @@ export function createCandidateSelector(perBucket, snapshotDate) {
     }
   }
   return { consider, result: () => buckets }
+}
+
+export function createInputGuard(maximumBytes = MAX_DECOMPRESSED_BYTES, maximumLineBytes = MAX_LINE_BYTES) {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1
+      || !Number.isSafeInteger(maximumLineBytes) || maximumLineBytes < 1) {
+    throw new Error('Puzzle input safety limits are invalid')
+  }
+  let totalBytes = 0
+  let lineBytes = 0
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      totalBytes += chunk.length
+      if (totalBytes > maximumBytes) {
+        callback(new Error('Puzzle export expands beyond the configured safety limit'))
+        return
+      }
+      for (const byte of chunk) {
+        if (byte === 10) {
+          lineBytes = 0
+        } else {
+          lineBytes += 1
+          if (lineBytes > maximumLineBytes) {
+            callback(new Error('Puzzle export contains an oversized record'))
+            return
+          }
+        }
+      }
+      callback(null, chunk)
+    },
+  })
 }
 
 function toCandidate(record, difficultyTier, matchedThemes, snapshotDate) {
@@ -283,14 +317,16 @@ function inputStream(inputPath) {
   const resolved = realpathSync(inputPath)
   const metadata = lstatSync(resolved)
   if (!metadata.isFile()) throw new Error('Input must be a regular file')
-  if (metadata.size > 10_000_000_000) throw new Error('Input is larger than 10 GB')
+  if (metadata.size > MAX_INPUT_BYTES) throw new Error('Input is larger than 10 GB')
   const extension = path.extname(resolved)
-  if (extension === '.csv') return { stream: createReadStream(resolved), completion: null }
+  if (extension === '.csv') {
+    return { stream: createReadStream(resolved).pipe(createInputGuard()), completion: null }
+  }
   if (extension !== '.zst') throw new Error('Input must end in .csv or .zst')
   const child = spawn('zstd', ['-dc', resolved], { shell: false, stdio: ['ignore', 'pipe', 'pipe'] })
   child.stderr.resume()
   const completion = new Promise((resolve) => child.once('close', resolve))
-  return { stream: child.stdout, completion }
+  return { stream: child.stdout.pipe(createInputGuard()), completion }
 }
 
 async function main() {

@@ -100,7 +100,7 @@ The fixed course should store enough information to replay a line instead of val
 }
 ```
 
-The first course version asks the learner to calculate the full line and submit its critical first move. The frontend should move that submitted piece immediately, while the validated full line supports the authored explanation. A correct answer must not draw a solution arrow. Board arrows should be a separate user annotation gesture, such as right-drag, and must not reveal or validate the solution. Interactive forced-reply playback can be added as a later course refinement without changing the sourced line data.
+The first course version asks the learner to calculate the full line and submit its critical first move. The frontend should move that submitted piece immediately and roll it back if the server rejects the attempt, while the validated full line supports the authored explanation. A correct answer must not draw a solution arrow. Board arrows should be a separate user annotation gesture: right-drag is the pointer shortcut and a labeled annotation mode provides keyboard access. An annotation must not reveal or validate the solution. Interactive forced-reply playback can be added as a later course refinement without changing the sourced line data.
 
 Replacing the exercise set changes authored content and should increment the course content version. The current “all exercises are original” attribution must also change so it distinguishes original Chess Tweek instruction from CC0-sourced positions.
 

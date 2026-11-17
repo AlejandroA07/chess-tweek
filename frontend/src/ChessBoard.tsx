@@ -1,8 +1,9 @@
+import { useState, type DragEvent } from 'react'
 import styles from './ChessBoard.module.css'
 
 export type BoardOrientation = 'white' | 'black'
 
-type Piece = { color: 'white' | 'black'; glyph: string }
+type Piece = { color: 'white' | 'black'; glyph: string; kind: string }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 // Filled glyphs for both colors; CSS colors them. U+FE0E keeps macOS from drawing emoji.
@@ -23,7 +24,11 @@ export function parsePlacement(fen: string): (Piece | null)[][] | null {
       } else {
         const glyph = GLYPHS[character.toLowerCase()]
         if (glyph === undefined) return null
-        squares.push({ color: character === character.toUpperCase() ? 'white' : 'black', glyph })
+        squares.push({
+          color: character === character.toUpperCase() ? 'white' : 'black',
+          glyph,
+          kind: character.toLowerCase(),
+        })
       }
     }
     if (squares.length !== 8) return null
@@ -98,6 +103,128 @@ export function ChessBoard({
       </div>
     </div>
   )
+}
+
+/**
+ * A controlled move-entry board. Click, keyboard, and drag all produce one UCI move; the server
+ * remains responsible for legality and answer validation.
+ */
+export function InteractiveChessBoard({
+  fen,
+  orientation,
+  label,
+  disabled,
+  solution,
+  onMove,
+}: {
+  fen: string
+  orientation: BoardOrientation
+  label: string
+  disabled: boolean
+  solution: string | null
+  onMove: (move: string) => void
+}) {
+  const placement = parsePlacement(fen)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [dragged, setDragged] = useState<string | null>(null)
+  if (placement === null) {
+    return <p className={styles.unreadable} role="alert">This position could not be drawn.</p>
+  }
+  const side = fen.split(' ')[1] === 'b' ? 'black' : 'white'
+  const ranks = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
+  const files = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
+  const marked = solution === null ? [] : [solution.slice(0, 2), solution.slice(2, 4)]
+
+  const choose = (square: string, piece: Piece | null) => {
+    if (disabled) return
+    if (selected === null) {
+      if (piece?.color === side) setSelected(square)
+      return
+    }
+    if (selected === square) {
+      setSelected(null)
+      return
+    }
+    if (piece?.color === side) {
+      setSelected(square)
+      return
+    }
+    const source = pieceForSquare(placement, selected)
+    const promotion = source?.kind === 'p' && (square.endsWith('1') || square.endsWith('8')) ? 'q' : ''
+    setSelected(null)
+    onMove(`${selected}${square}${promotion}`)
+  }
+
+  const drop = (event: DragEvent, square: string) => {
+    event.preventDefault()
+    if (disabled || dragged === null || dragged === square) {
+      setDragged(null)
+      return
+    }
+    const source = pieceForSquare(placement, dragged)
+    const promotion = source?.kind === 'p' && (square.endsWith('1') || square.endsWith('8')) ? 'q' : ''
+    setDragged(null)
+    setSelected(null)
+    onMove(`${dragged}${square}${promotion}`)
+  }
+
+  return (
+    <div className={styles.frame} role="group" aria-label={label}>
+      <div className={styles.board}>
+        {ranks.map((rankIndex, row) =>
+          files.map((fileIndex, column) => {
+            const square = squareName(rankIndex, fileIndex)
+            const piece = placement[rankIndex][fileIndex]
+            return (
+              <button
+                key={square}
+                className={styles.moveSquare}
+                type="button"
+                data-shade={(rankIndex + fileIndex) % 2 === 0 ? 'light' : 'dark'}
+                data-marked={marked.includes(square)}
+                data-selected={selected === square}
+                disabled={disabled}
+                aria-pressed={selected === square}
+                aria-label={squareLabel(square, piece)}
+                onClick={() => choose(square, piece)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => drop(event, square)}
+              >
+                {piece && (
+                  <span
+                    className={styles.piece}
+                    data-color={piece.color}
+                    draggable={!disabled && piece.color === side}
+                    onDragStart={() => setDragged(square)}
+                    onDragEnd={() => setDragged(null)}
+                  >
+                    {piece.glyph}{'︎'}
+                  </span>
+                )}
+                {column === 0 && <span className={styles.rankLabel}>{8 - rankIndex}</span>}
+                {row === 7 && <span className={styles.fileLabel}>{FILES[fileIndex]}</span>}
+              </button>
+            )
+          }),
+        )}
+        {solution !== null && <Arrow move={solution} orientation={orientation} />}
+      </div>
+    </div>
+  )
+}
+
+function pieceForSquare(placement: (Piece | null)[][], square: string) {
+  const file = FILES.indexOf(square[0])
+  const rank = 8 - Number(square[1])
+  return placement[rank]?.[file] ?? null
+}
+
+function squareLabel(square: string, piece: Piece | null) {
+  if (piece === null) return `${square}, empty`
+  const names: Record<string, string> = {
+    p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
+  }
+  return `${square}, ${piece.color} ${names[piece.kind]}`
 }
 
 function Arrow({ move, orientation }: { move: string; orientation: BoardOrientation }) {

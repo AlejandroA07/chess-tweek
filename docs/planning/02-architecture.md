@@ -8,7 +8,7 @@ This document records the boundaries that are expensive to reverse. Stage 1 must
 |---|---|---|
 | `identity` | Lichess PKCE, sealed session, current account, and authorization context. | Tokens and account identity from feature-specific persistence or accidental client exposure. |
 | `game-review` | Lichess and chess.com game catalog, Stockfish jobs and findings, individual reviews, and (maybe later) Overall Games Analysis and report-owned packages. | Versioned evidence and report immutability from unrelated training workflows. |
-| `training` | Spaced-repetition scheduler and attempts, My Mistakes drills (built from `game-review`'s public findings query), the pattern library, the opening explorer cache, and repertoires (re-scope of 2026-11-14). | Independent practice history from report-owned evidence and deletion lifecycles. |
+| `training` | Versioned guided-course content and progress, the spaced-repetition scheduler and attempts, My Mistakes drills (built from `game-review`'s public findings query), the pattern library, the opening explorer cache, and repertoires. | Independent instructional content and practice history from report-owned evidence and deletion lifecycles. |
 | `shared` | Configuration, database connection, safe HTTP errors, correlation IDs, clocks, and narrow primitives. | Cross-cutting mechanics without becoming a dumping ground for feature rules. |
 | composition | Spring MVC controllers, application wiring, and delivery of the built React interface. | Keeps feature modules independent while allowing the application to assemble them. |
 
@@ -34,7 +34,7 @@ Stage 1 encodes Java package boundaries with ArchUnit and keeps the frontend in 
 - **Ownership:**
   - `identity` owns local non-secret account/session metadata; OAuth tokens are not database data.
   - `game-review` owns games, analysis jobs, analysis versions/findings, reports, report-game references, and both report-owned package/attempt tables.
-  - `training` owns normal puzzle payloads and attempts.
+  - `training` owns guided-course lesson/exercise progress and attempts, plus normal puzzle payloads and attempts.
 - **Cross-boundary IDs:** External Lichess IDs and account IDs may be copied as scoped values. Do not create a database foreign key across module ownership.
 - **Rejected:** PostgreSQL/Docker adds a service without a v1 need. A single generic repository would make data ownership unenforceable. Separate SQLite files would complicate backup and transactional storage caps.
 - **Reopen when:** Concurrent writers or measured query volume exceed SQLite's local single-process operating envelope.
@@ -79,6 +79,16 @@ Stage 1 encodes Java package boundaries with ArchUnit and keeps the frontend in 
 - **Decision:** Do not implement Board API, live-game streams, in-app play, automatic retrieval, automatic analysis, or automatic reports. Every such action begins with an explicit owner control.
 - **Rejected:** Live play expands scope and creates a hard engine-isolation obligation. Background polling and analysis can consume battery, heat, disk, and upstream capacity unexpectedly.
 - **Reopen when:** The owner explicitly starts a separately planned feature and its fair-play, permission, lifecycle, and resource decisions are grilled from scratch.
+
+## ADR-008 — Guided course is a deep training-module capability
+
+- **Status:** Accepted 2026-11-16
+- **Context:** The thinking-method course must work before personalized game-driven recommendations exist, while preserving a clean seam for later evidence-based training.
+- **Decision:** Keep authored course definitions as validated, versioned application resources owned by `training`. Expose sanitized course content and authorized account-scoped progress through the public `GuidedCourses` interface. Persist only progress and attempts in SQLite; never send accepted moves or explanations before a correct attempt or explicit reveal. The first module has no dependency on `game-review`.
+- **Content rule:** Course prose, positions, hints, and feedback are original Chess Tweek material. Attribution describes inspiration from publicly stated GM Igor Smirnov principles without presenting the course as official or copying paid material.
+- **Future seam:** Personalized lesson recommendations may consume an explicit public evidence query from `game-review`; they must not import its repositories, couple course progress to analysis deletion, or claim causation from small samples.
+- **Rejected:** Storing authored lessons as mutable database rows adds editing and migration complexity with no v1 need. Building directly on analysis tables would make the standalone course unavailable before a player has games and would entangle deletion lifecycles.
+- **Reopen when:** The owner needs user-authored courses, downloadable course packs, or personalized focus selection with an approved evidence and lifecycle contract.
 
 ## Architecture test obligations for Stage 1
 

@@ -1,6 +1,6 @@
 # Training goals and scope review
 
-This is the owner's refresher: why Chess Tweek exists, what the owner wants to train, what the current plan delivers, what free tools already do, and which parts of the plan are worth building. It was written on 2026-11-14 after Stage 4 Part 5a. It records findings and options; it does not change the product specification by itself. Decisions taken from it must be copied into `01-chess-tweek.md` and `03-delivery-plan.md`.
+This is the owner's refresher: why Chess Tweek exists, what the owner wants to train, what the current plan delivers, what free tools already do, and which parts of the plan are worth building. It was written on 2026-11-14 after Stage 4 Part 5a. It records findings and options; it does not change the product specification by itself. Decisions taken from it must be copied into `01-chess-tweek.md` and `03-delivery-plan.md`. The later guided-course decision is recorded in section 8.1.
 
 ## 1. The goal
 
@@ -144,6 +144,16 @@ Drop or defer from the current plan:
 4. **Puzzle level.** Pattern puzzles rated about 1200 to 1700. The owner asked for an explanation of the possible patterns before choosing; see section 9.
 
 Decisions in this section are copied into `01-chess-tweek.md` and `03-delivery-plan.md`.
+
+### 8.1 Guided thinking course decision (2026-11-16)
+
+The owner chose to start the GM Igor investigation as a standalone, browseable course before building personalized recommendations:
+
+- Add Training to the main shell and a course shortcut to Dashboard.
+- Name the course **Grandmaster Thinking Method** and identify it as an independent Chess Tweek course inspired only by publicly described GM Igor Smirnov principles.
+- Start with one finished module: four lessons teaching a repeatable move routine, with three original exercises per lesson.
+- Keep authored material readable offline and save progress only for the authorized Lichess account.
+- Defer game-evidence personalization and spaced repetition. Stage 7 supplies the reusable repetition core; a later course extension may use game-review evidence only through an explicit public interface.
 
 ### How En Croissant does openings (the model we copy, without copying its code)
 

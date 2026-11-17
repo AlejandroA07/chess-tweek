@@ -110,7 +110,16 @@ Failure behavior:
 - Standard chess games are analysis-eligible exactly like Lichess games.
 - Failure behavior matches Lichess retrieval: one request at a time, 429 handling, per-game rejection of malformed or oversized data, and Retry on network failure.
 
-### Training core (owner decision, 2026-11-14)
+### Grandmaster Thinking Method guided course (owner decision, 2026-11-16)
+
+- Training is a first-class destination after Dashboard and a shortcut on Dashboard. It opens a standalone course dashboard titled **Grandmaster Thinking Method**.
+- The course is independent, original Chess Tweek material inspired by GM Igor Smirnov's publicly described principles. It does not copy paid lessons, branded curriculum, prose, videos, screenshots, or exercises.
+- The first release teaches one repeatable move routine in four browseable lessons: read the last move, generate serious candidates, test the opponent's strongest reply, and make a final safety check.
+- Each lesson has original explanation, a recall checklist, and three original board exercises. The 12 exercise solutions remain server-side until a correct attempt or an explicit reveal.
+- Course content is versioned with the application and remains readable offline. Starting lessons, hints, attempts, reveals, and completion require the authorized Lichess account so progress is account-scoped and durable.
+- The course roadmap may show later modules as **Planned**, but does not promise dates or simulate locked rewards. V1 is guided rather than personalized: it does not select lessons from game-review evidence or claim rating improvement.
+
+### Training repetition core (owner decision, 2026-11-14)
 
 - An interactive board drawn with project styles. The owner moves pieces by click or drag; the backend validates every move with the already approved `chessgame` library, so no frontend chess dependency is added.
 - One spaced-repetition scheduler serves every drill type (My Mistakes, pattern puzzles, repertoire moves). It is written in the project without a new dependency.
@@ -392,13 +401,14 @@ Admin exposes every project operation that exists in v1:
 - [x] **3. Lichess game catalog** — deliver Get Lichess Games, durable idempotent catalog, filters/cards, and bot/rating context. Needs 2.
 - [ ] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review, tactic labels, and coach cards. Needs 3.
 - [ ] **5. Chess.com games** — deliver Get Chess.com Games, the shared catalog with a source, per-site ratings, and analysis eligibility. Needs 3.
-- [ ] **6. Training core** — deliver the interactive board with backend move validation, the shared spaced-repetition scheduler, mastery states, hints, and attempts. Needs 4.
-- [ ] **7. My Mistakes deck** — deliver drills from every owner mistake and blunder, grouped by phase, opening, and tactic label. Needs 6.
-- [ ] **8. Pattern library** — deliver themed decks from the Lichess puzzle database at about 1200 to 1700, opening decks, mastery per theme, Practice weakest, and custom positions. Needs 6.
-- [ ] **9. Opening explorer** — deliver Masters, Lichess by rating and speed, and My games move statistics. Needs 5 and 6.
-- [ ] **10. Repertoire builder** — deliver London and Caro-Kann trees, coverage and gaps, notes, and PGN import/export. Needs 9.
-- [ ] **11. Repertoire trainer** — deliver spaced-repetition drilling of repertoire moves with popularity-weighted replies and notes. Needs 10.
-- [ ] **12. Backup and hardening** — deliver a simple local backup and restore, then security, accessibility, visual QA, a real drive, and full verification. Needs all prior slices.
+- [ ] **6. Grandmaster Thinking Method** — deliver the first-class guided-course dashboard, the four-lesson Repeatable Move Routine module, 12 original exercises, account-scoped progress, hints, reveals, and the Dashboard shortcut. Needs 4.
+- [ ] **7. Training repetition core** — deliver the shared spaced-repetition scheduler, mastery states, grading, and reusable attempt history for future drill types. Needs 6.
+- [ ] **8. My Mistakes deck** — deliver drills from every owner mistake and blunder, grouped by phase, opening, and tactic label. Needs 7.
+- [ ] **9. Pattern library** — deliver themed decks from the Lichess puzzle database at about 1200 to 1700, opening decks, mastery per theme, Practice weakest, and custom positions. Needs 7.
+- [ ] **10. Opening explorer** — deliver Masters, Lichess by rating and speed, and My games move statistics. Needs 5 and 7.
+- [ ] **11. Repertoire builder** — deliver London and Caro-Kann trees, coverage and gaps, notes, and PGN import/export. Needs 10.
+- [ ] **12. Repertoire trainer** — deliver spaced-repetition drilling of repertoire moves with popularity-weighted replies and notes. Needs 11.
+- [ ] **13. Backup and hardening** — deliver a simple local backup and restore, then security, accessibility, visual QA, a real drive, and full verification. Needs all prior slices.
 
 Maybe later (postponed by owner decision on 2026-11-14, not scheduled): bulk analysis queue with thermal pausing and low-heat mode; Overall Games Analysis exact-ten reports; report-owned Related Lichess Puzzles; Lichess Daily and Mixed puzzles; dependency-aware Admin deletion; the 5 GB storage cap and compaction.
 

@@ -16,9 +16,9 @@ Every handoff lists changed files, commands run, manual checks, and known limita
 
 ## Re-scoped plan (owner decision, 2026-11-14)
 
-The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, the wishes, the tool research, and the decisions. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12. Puzzles come before openings: Stages 6 to 8 precede Stages 9 to 11 (owner decision, 2026-11-14). The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
+The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, the wishes, the tool research, and the decisions. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12, with the standalone guided course inserted as Stage 6 by owner decision on 2026-11-16. Guided thinking comes before repetition infrastructure, puzzles, and openings. The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
 
-New views (Train, Patterns, Openings) have no Stitch prompt yet. They implement `docs/app-material/DESIGN.md` with project tokens and CSS Modules and follow the existing shell; no second visual system is introduced.
+Training follows its standalone prompt and `docs/app-material/DESIGN.md`; future Patterns and Openings views still need prompts. Every new view uses project tokens and CSS Modules in the existing shell; no second visual system is introduced.
 
 ### Stage 5 — Chess.com games
 
@@ -37,54 +37,64 @@ Delivered in three parts (owner approval, 2026-11-16):
 
 No new dependency is expected; if `chessgame` cannot read the PGN, a proposal comes to the owner first.
 
-### Stage 6 — Training core
+### Stage 6 — Grandmaster Thinking Method
 
-**Branch:** `feature/training-core` · **Needs:** Stage 4.
+**Branch:** `feature/guided-training-method` · **Needs:** Stage 4.
 
-- Interactive board in project styles with click and drag moves, validated server-side with the approved `chessgame` library.
-- Shared spaced-repetition scheduler (Again, Hard, Good, Easy set from the attempt), mastery states New, Learning, Mastered, Lapsed, two-level hints, and attempt history.
-- Acceptance: illegal moves are rejected server-side; solutions never reach the browser before validation or a hint; scheduling is deterministic under a fixed clock in tests.
+- Add Training as a first-class shell destination and a Dashboard shortcut into a standalone **Grandmaster Thinking Method** course dashboard.
+- Ship the complete first module, Repeatable Move Routine: four browseable lessons with original explanations, recall checklists, and three original exercises each.
+- Reuse the project-styled board for click, keyboard, and drag moves. Validate every submitted UCI move server-side with `chessgame`; keep solutions and explanations server-side until a correct attempt or explicit reveal.
+- Keep course content readable offline. Require the authorized Lichess account for lesson starts, hints, attempts, reveals, completion, and account-scoped durable progress.
+- Show later course modules as Planned. Do not personalize from game evidence, add spaced-repetition grading, or claim improvement in this stage.
+- Acceptance: anonymous callers can read only sanitized authored content; protected actions reject missing sessions and cross-origin writes; invalid lesson/exercise keys and illegal moves are rejected safely; progress survives restart; all 12 exercises are legal and solvable under content validation; the interface remains keyboard-operable and responsive.
 
-### Stage 7 — My Mistakes deck
+### Stage 7 — Training repetition core
 
-**Branch:** `feature/my-mistakes` · **Needs:** Stage 6.
+**Branch:** `feature/training-core` · **Needs:** Stage 6.
+
+- Shared spaced-repetition scheduler (Again, Hard, Good, Easy set from the attempt), mastery states New, Learning, Mastered, Lapsed, and reusable attempt history for future drills.
+- Acceptance: scheduling is deterministic under a fixed clock, account-scoped, and independent of guided-course completion.
+
+### Stage 8 — My Mistakes deck
+
+**Branch:** `feature/my-mistakes` · **Needs:** Stage 7.
 
 - One five-ply drill for every owner mistake and blunder in any completed owner analysis, with alternative-line acceptance.
 - Groups by phase, opening, tactic label, and source site; links back to the game review.
 - Acceptance: every eligible error yields exactly one drill per analysis version; attempts survive reanalysis.
 
-### Stage 8 — Pattern library
+### Stage 9 — Pattern library
 
-**Branch:** `feature/pattern-library` · **Needs:** Stage 6. Themes, rating range, and import through Homebrew `zstd` are decided (owner, 2026-11-14).
+**Branch:** `feature/pattern-library` · **Needs:** Stage 7. Themes, rating range, and import through Homebrew `zstd` are decided (owner, 2026-11-14).
 
 - Themed decks from the CC0 Lichess puzzle database, rating about 1200 to 1700, plus Caro-Kann and London opening decks.
 - Mastery percentage per deck, Practice weakest, fixed-set repetition sessions, and custom positions.
 - Acceptance: only chosen themes and ratings are stored; import is bounded and resumable; storage size is reported.
 
-### Stage 9 — Opening explorer
+### Stage 10 — Opening explorer
 
-**Branch:** `feature/opening-explorer` · **Needs:** Stages 5 and 6.
+**Branch:** `feature/opening-explorer` · **Needs:** Stages 5 and 7.
 
 - Move statistics for any position from Lichess Masters, Lichess by rating band and speed, and My games computed from stored games of both sites.
 - Acceptance: the Lichess token never reaches the browser; upstream failure and 429 leave My games usable; responses are cached.
 
-### Stage 10 — Repertoire builder
+### Stage 11 — Repertoire builder
 
-**Branch:** `feature/repertoire-builder` · **Needs:** Stage 9.
+**Branch:** `feature/repertoire-builder` · **Needs:** Stage 10.
 
 - White and Black repertoires starting with the London System and the Caro-Kann Defense; move tree, coverage target, next and biggest gap, transpositions, notes, PGN import and export.
 - Acceptance: imported PGN comments become notes; export round-trips; gaps match the coverage rule.
 
-### Stage 11 — Repertoire trainer
+### Stage 12 — Repertoire trainer
 
-**Branch:** `feature/repertoire-trainer` · **Needs:** Stage 10.
+**Branch:** `feature/repertoire-trainer` · **Needs:** Stage 11.
 
 - Due repertoire positions drilled with the shared scheduler, popularity-weighted opponent replies, notes after each move, and session statistics.
 - Acceptance: a wrong move shows the prepared move and is scheduled as Again; due counts are correct across restarts.
 
-### Stage 12 — Backup and hardening
+### Stage 13 — Backup and hardening
 
-**Branch:** `feature/product-hardening` · **Needs:** Stages 5 to 11.
+**Branch:** `feature/product-hardening` · **Needs:** Stages 5 to 12.
 
 - Simple timestamped local backup and guarded restore with a safety backup first.
 - The hardening checklist below.
@@ -251,10 +261,10 @@ Acceptance:
 - Deleting a referenced game is blocked with every blocking report returned.
 - All report queries are account-scoped.
 
-## Maybe later — Report-owned Mistake/Blunder Puzzle package (replaced by the new Stage 7 My Mistakes deck)
+## Maybe later — Report-owned Mistake/Blunder Puzzle package (replaced by the Stage 8 My Mistakes deck)
 
 **Branch:** `feature/report-mistake-puzzles`
-**Needs:** Stage 6.
+**Needs:** Stage 7.
 
 Deliver:
 
@@ -274,7 +284,7 @@ Acceptance:
 ## Maybe later — Related Lichess Puzzle package
 
 **Branch:** `feature/report-lichess-puzzles`
-**Needs:** Stage 6; follow Stage 7 to reuse the proven player.
+**Needs:** Stage 7; follow Stage 8 to reuse the proven player.
 
 Deliver:
 
@@ -296,7 +306,7 @@ Acceptance:
 ## Maybe later — Normal Daily and Mixed puzzles
 
 **Branch:** `feature/normal-puzzles`
-**Needs:** Stage 2 and the puzzle infrastructure proven through Stage 8.
+**Needs:** Stage 2 and the puzzle infrastructure proven through Stage 9.
 
 Deliver:
 
@@ -350,7 +360,7 @@ Acceptance:
 - A failed restore leaves the original database usable.
 - Compaction demonstrably reclaims deleted space.
 
-## Hardening checklist (used by the new Stage 12)
+## Hardening checklist (used by Stage 13)
 
 **Branch:** `feature/product-hardening`
 **Needs:** Every prior stage.
@@ -373,12 +383,12 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0 through 4 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15. The owner's live check on 2026-11-16 confirmed the Part 6 labels and findings on the stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; the opponent-side coach wording has no stored opponent analysis yet and was checked only in tests.
+Stages 0 through 5 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15. The owner's live check on 2026-11-16 confirmed the Part 6 labels and findings on the stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; the opponent-side coach wording has no stored opponent analysis yet and was checked only in tests. Stage 5 was delivered in three parts: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37), all merged on 2026-11-16.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-16):**
 
-1. Stage 5 Parts 1 and 2 are merged. The owner reviews and merges Part 3 (interface, `feature/chesscom-interface`; see `docs/dev/2026-11-16-chesscom-interface.md`), which completes the Stage 5 implementation.
-2. The owner's live check: back up `var/chess-tweek.db` (the first start runs migrations V6 and V7), save the chess.com username on Admin, get chess.com games, filter by site, analyze and review one chess.com game, and check the Dashboard ratings.
-3. Then Stage 6 (training core).
+1. The owner completes the Stage 5 live check: back up `var/chess-tweek.db`, save the chess.com username on Admin, get chess.com games, filter by site, analyze and review one chess.com game, and check the Dashboard ratings.
+2. The owner reviews and merges Stage 6, Grandmaster Thinking Method (PR #38). Before its first start, back up `var/chess-tweek.db`; migration V8 adds account-scoped guided-course progress.
+3. The Stage 6 live check opens Training, completes the four lessons with wrong moves, hints, and reveals, restarts the app, and confirms that progress persists.

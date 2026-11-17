@@ -18,7 +18,7 @@ This file is the source of truth for coding agents. Keep it aligned with the rep
 
 The application foundation is a Spring Boot process that serves the built React interface and a local API on `127.0.0.1`. SQLite persistence, Flyway migrations, and executable module boundaries are implemented under `shared.database` and `ArchitectureTest`. Every user-facing view must use `docs/app-material/DESIGN.md` as its only visual source of truth.
 
-The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Flyway, and a React 19/TypeScript/Vite 8 interface. Spring Boot serves the built interface as one local macOS application bound to `127.0.0.1`. The responsive shell uses self-hosted project fonts, a keyboard-operable compact navigation disclosure, and the five allowlisted routes.
+The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Flyway, and a React 19/TypeScript/Vite 8 interface. Spring Boot serves the built interface as one local macOS application bound to `127.0.0.1`. The responsive shell uses self-hosted project fonts, a keyboard-operable compact navigation disclosure, and six allowlisted routes, including the first-class Training course view.
 
 ## Commands
 

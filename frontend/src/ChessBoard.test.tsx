@@ -1,10 +1,28 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ChessBoard, InteractiveChessBoard } from './ChessBoard'
+import styles from './ChessBoard.module.css'
 
 const fen = '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1'
 
 describe('InteractiveChessBoard', () => {
+  it('uses the shared square layout for every interactive cell', () => {
+    render(
+      <InteractiveChessBoard
+        fen={fen}
+        orientation="white"
+        label="Training position"
+        disabled={false}
+        solution={null}
+        onMove={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('group', { name: 'Training position' }).firstElementChild).toHaveClass(styles.board)
+    expect(screen.getAllByRole('button')).toHaveLength(64)
+    expect(screen.getByRole('button', { name: 'e1, white king' })).toHaveClass(styles.square, styles.moveSquare)
+  })
+
   it('keeps the existing review board read-only', () => {
     render(<ChessBoard fen={fen} orientation="white" label="Review position" highlight={null} arrow={null} />)
 

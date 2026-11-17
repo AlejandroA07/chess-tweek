@@ -155,6 +155,8 @@ class GuidedCourseControllerTest {
                                             "answer-the-check",
                                             "4k3/8/8/8/8/8/4r3/4K3 w - - 0 1",
                                             Orientation.WHITE,
+                                            DifficultyTier.FOUNDATION,
+                                            1600,
                                             "Remove the checking piece.")))))));
         }
 

@@ -23,8 +23,22 @@ public record CourseContent(
             String lessonKey,
             String fen,
             List<String> acceptedMoves,
+            List<String> solutionLine,
             List<String> hints,
             String correctFeedback,
             String incorrectFeedback,
-            String explanation) {}
+            String explanation,
+            SourceMetadata source) {}
+
+    public record SourceMetadata(
+            String provider,
+            String puzzleId,
+            String gameUrl,
+            String license,
+            int ratingAtSelection,
+            int ratingDeviationAtSelection,
+            int popularityAtSelection,
+            int playsAtSelection,
+            List<String> themes,
+            String snapshotDate) {}
 }

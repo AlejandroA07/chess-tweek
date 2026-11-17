@@ -42,7 +42,7 @@ public final class GuidedCourseController {
         this.courses = courses;
     }
 
-    /** Course material is original, non-account data and remains readable when logged out. */
+    /** Authored course material is non-account data and remains readable when logged out. */
     @GetMapping
     public ResponseEntity<CourseResponse> course() {
         return ResponseEntity.ok()
@@ -250,6 +250,8 @@ public final class GuidedCourseController {
                                                                 exercise.key(),
                                                                 exercise.fen(),
                                                                 lower(exercise.orientation()),
+                                                                lower(exercise.difficultyTier()),
+                                                                exercise.sourceRating(),
                                                                 exercise.prompt()))
                                                         .toList()))
                                         .toList()))
@@ -337,7 +339,12 @@ public final class GuidedCourseController {
             List<ExerciseResponse> exercises) {}
 
     public record ExerciseResponse(
-            String key, String fen, String orientation, String prompt) {}
+            String key,
+            String fen,
+            String orientation,
+            String difficultyTier,
+            int sourceRating,
+            String prompt) {}
 
     public record ProgressResponse(
             String courseKey,

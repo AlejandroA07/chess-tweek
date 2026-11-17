@@ -1,9 +1,9 @@
 {
   "key": "grandmaster-thinking-method",
-  "version": 1,
+  "version": 2,
   "title": "Grandmaster Thinking Method",
   "subtitle": "A repeatable way to choose moves with purpose",
-  "attribution": "An independent Chess Tweek course inspired by GM Igor Smirnov's publicly described teaching principles. All explanations and exercises are original to Chess Tweek.",
+  "attribution": "Original Chess Tweek instruction with exercise positions adapted from the Lichess CC0 puzzle database. This independent course is inspired by GM Igor Smirnov's publicly described teaching principles; neither Lichess nor GM Igor Smirnov endorses it.",
   "modules": [
     {
       "key": "repeatable-move-routine",
@@ -15,7 +15,7 @@
           "key": "read-the-last-move",
           "title": "Read the last move",
           "summary": "Before looking for your move, identify what changed and what the opponent threatens now.",
-          "estimatedMinutes": 10,
+          "estimatedMinutes": 15,
           "explanation": [
             "Every position is different after the opponent moves. Start by naming the piece that moved, the lines it opened or closed, and every new attack it created.",
             "Deal with checks and immediate tactical threats before pursuing your own plan. A threat that can be removed while gaining time is usually stronger than passive defense."
@@ -28,37 +28,58 @@
           ],
           "exercises": [
             {
-              "key": "answer-the-check",
-              "fen": "4k3/8/8/8/8/8/4r3/4K3 w - - 0 1",
+              "key": "intermezzo-after-queen-capture",
+              "fen": "5rk1/5pb1/B1p4p/2p5/8/5q1P/PQ4P1/R5K1 w - - 0 27",
               "orientation": "white",
-              "prompt": "White is in check. Remove the checking piece immediately.",
-              "acceptedMoves": ["e1e2"],
-              "hints": ["Use the white king on e1.", "The destination is e2."],
-              "correctFeedback": "Correct. Checks come before every other candidate.",
-              "incorrectFeedback": "The king is still in check. Resolve the check before considering another plan.",
-              "explanation": "Kxe2 removes the rook and ends the immediate threat. The routine begins with checks because no unrelated move is legal."
+              "difficultyTier": "foundation",
+              "prompt": "Black's queen has just landed on f3. Reconstruct what changed, calculate the forcing sequence, and play White's first move.",
+              "acceptedMoves": ["b2g7"],
+              "solutionLine": ["b2g7", "g8g7", "g2f3"],
+              "hints": ["Do not recapture automatically; list every forcing move first.", "White can insert a queen capture with check before the g-pawn deals with the queen."],
+              "correctFeedback": "Correct. The intermediate check improves the recapture sequence.",
+              "incorrectFeedback": "Re-read the queen's last move and look for a forcing move before the obvious recapture.",
+              "explanation": "Qxg7+ forces Kxg7, and only then gxf3. White wins the bishop before removing the invading queen; 1.Qxg7+ Kxg7 2.gxf3 is the point.",
+              "source": {
+                "provider": "lichess", "puzzleId": "lDWH9", "gameUrl": "https://lichess.org/game/OHeXKNku/black#52", "license": "CC0-1.0",
+                "ratingAtSelection": 1536, "ratingDeviationAtSelection": 74, "popularityAtSelection": 100, "playsAtSelection": 3750,
+                "themes": ["advantage", "endgame", "intermezzo", "short"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "remove-the-mate-threat",
-              "fen": "6k1/5ppp/8/8/8/7q/6PP/5RK1 w - - 0 1",
+              "key": "counter-before-recapture",
+              "fen": "r2q1rk1/2pn1p2/3pb2p/p3pN2/1p2P3/1P1PP2P/1PP3P1/R2Q1RK1 w - - 0 18",
               "orientation": "white",
-              "prompt": "Black's queen threatens the king from h3. Find the active answer that removes it.",
-              "acceptedMoves": ["g2h3"],
-              "hints": ["Use the pawn on g2.", "The destination is h3."],
-              "correctFeedback": "Correct. You removed the attacking queen instead of defending passively.",
-              "incorrectFeedback": "The queen on h3 remains the urgent problem. Look for a direct capture.",
-              "explanation": "gxh3 wins the exposed queen and removes every threat it created. First understand the threat, then look for the most active answer."
+              "difficultyTier": "development",
+              "prompt": "Black's g-pawn has just captured on h6. Before recapturing automatically, find White's strongest continuation and calculate the queen trade.",
+              "acceptedMoves": ["d1g4"],
+              "solutionLine": ["d1g4", "d8g5", "f5h6", "g8h7", "g4g5"],
+              "hints": ["Compare the immediate knight recapture with a move that attacks Black's queen first.", "The white queen can use the g-file geometry and force Black's queen onto g5."],
+              "correctFeedback": "Correct. You inserted the queen attack before recovering material.",
+              "incorrectFeedback": "The natural recapture misses a stronger move with tempo against Black's queen.",
+              "explanation": "Qg4! forces ...Qg5, after which Nxh6+ displaces the king and Qxg5 wins the queen. The full line is 1.Qg4 Qg5 2.Nxh6+ Kh7 3.Qxg5.",
+              "source": {
+                "provider": "lichess", "puzzleId": "xrHJJ", "gameUrl": "https://lichess.org/game/BmCP9xZ1/black#34", "license": "CC0-1.0",
+                "ratingAtSelection": 1754, "ratingDeviationAtSelection": 74, "popularityAtSelection": 100, "playsAtSelection": 2747,
+                "themes": ["crushing", "intermezzo", "kingsideAttack", "long", "middlegame", "pin"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "save-with-tempo",
-              "fen": "4k3/8/8/8/1q6/2N5/8/6K1 w - - 0 1",
-              "orientation": "white",
-              "prompt": "The queen attacks the knight on c3. Save the knight while attacking the queen.",
-              "acceptedMoves": ["c3d5"],
-              "hints": ["Use the knight on c3.", "The destination is d5."],
-              "correctFeedback": "Correct. The threatened knight moves with tempo against the queen.",
-              "incorrectFeedback": "Look for a safe knight square that also attacks the queen on b4.",
-              "explanation": "Nd5 moves the attacked knight and attacks the queen on b4. An active defense solves the opponent's threat while creating one of your own."
+              "key": "advanced-pawn-race",
+              "fen": "8/8/1N6/8/6kp/P1P3p1/6K1/8 b - - 0 74",
+              "orientation": "black",
+              "difficultyTier": "stretch",
+              "prompt": "White's knight has just moved to b6. Calculate the king-and-pawn race to the end and find Black's only winning first move.",
+              "acceptedMoves": ["h4h3"],
+              "solutionLine": ["h4h3", "g2g1", "g4f3", "b6d5", "h3h2", "g1h1", "g3g2", "h1h2", "f3f2"],
+              "hints": ["Calculate both passed pawns before moving the king; move order is everything.", "Black must advance the h-pawn before using the king to escort the g-pawn."],
+              "correctFeedback": "Correct. The pawn push fixes the move order of the winning race.",
+              "incorrectFeedback": "A natural king move lets White reorganize. Calculate the h-pawn push through every forced king reply.",
+              "explanation": "74...h3! starts a precise nine-ply sequence: Kg1 Kf3, Nd5 h2, Kh1 g2+, Kxh2 Kf2. Black uses the h-pawn to displace the king before the g-pawn decides the game.",
+              "source": {
+                "provider": "lichess", "puzzleId": "fReXg", "gameUrl": "https://lichess.org/game/dRywXuXw#147", "license": "CC0-1.0",
+                "ratingAtSelection": 2025, "ratingDeviationAtSelection": 75, "popularityAtSelection": 100, "playsAtSelection": 1366,
+                "themes": ["advancedPawn", "crushing", "defensiveMove", "endgame", "exposedKing", "knightEndgame", "veryLong"], "snapshotDate": "2026-11-01"
+              }
             }
           ]
         },
@@ -66,7 +87,7 @@
           "key": "generate-candidates",
           "title": "Generate serious candidates",
           "summary": "Search forcing moves first, then add active moves that improve your position or restrict the opponent.",
-          "estimatedMinutes": 10,
+          "estimatedMinutes": 15,
           "explanation": [
             "Checks, captures, and direct threats deserve attention because they limit the opponent's replies. They are candidates, not automatic choices.",
             "If no forcing move works, prefer a move with a clear job: activate a piece, enter the center, gain space, or reduce the opponent's activity."
@@ -79,37 +100,58 @@
           ],
           "exercises": [
             {
-              "key": "forcing-queen-check",
-              "fen": "6k1/5ppp/8/8/8/3Q4/8/6K1 w - - 0 1",
-              "orientation": "white",
-              "prompt": "Find the queen check that reaches the back rank and leaves the king no safe square.",
-              "acceptedMoves": ["d3d8"],
-              "hints": ["Use the queen on d3.", "The destination is d8."],
-              "correctFeedback": "Correct. The forcing check decides the position immediately.",
-              "incorrectFeedback": "List the queen checks before choosing a quieter move.",
-              "explanation": "Qd8 is checkmate: the king's own pawns cover its lower escape squares and the queen controls the back rank."
+              "key": "quiet-pawn-break",
+              "fen": "8/1kpK4/3p4/2P1p3/1P6/3P4/8/8 b - - 0 48",
+              "orientation": "black",
+              "difficultyTier": "foundation",
+              "prompt": "No check or capture solves this pawn ending. Compare the candidate pawn pushes and choose the move that creates a winning king route.",
+              "acceptedMoves": ["d6d5"],
+              "solutionLine": ["d6d5", "d7e6", "e5e4"],
+              "hints": ["Calculate which pawn move takes key squares away from White's king.", "The central pawn must advance while Black's king holds the queenside."],
+              "correctFeedback": "Correct. The quiet break creates the decisive opposition geometry.",
+              "incorrectFeedback": "Forcing moves are absent. Compare the resulting king routes after each central pawn push.",
+              "explanation": "...d5! fixes the structure and meets Ke6 with ...e4. Black creates an outside passer while the king contains White's queenside pawns.",
+              "source": {
+                "provider": "lichess", "puzzleId": "HIEi8", "gameUrl": "https://lichess.org/game/XvcTl6cY#95", "license": "CC0-1.0",
+                "ratingAtSelection": 1681, "ratingDeviationAtSelection": 75, "popularityAtSelection": 100, "playsAtSelection": 4486,
+                "themes": ["crushing", "endgame", "pawnEndgame", "quietMove", "short"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "valuable-capture",
-              "fen": "4k3/8/8/3q4/8/8/3R4/4K3 w - - 0 1",
-              "orientation": "white",
-              "prompt": "A valuable black piece is unprotected. Take it before looking for a slower plan.",
-              "acceptedMoves": ["d2d5"],
-              "hints": ["Use the rook on d2.", "The destination is d5."],
-              "correctFeedback": "Correct. The safe capture of the queen outranks positional improvements.",
-              "incorrectFeedback": "Check every safe capture. The queen on d5 is on the rook's file.",
-              "explanation": "Rxd5 wins the queen. Candidate generation prevents a player from overlooking a direct tactical gain while thinking about general plans."
+              "key": "anastasia-sacrifice",
+              "fen": "3r1r2/pp2k1p1/3b4/3Q4/4NP1q/8/PP2n1PP/1B2RR1K b - - 4 25",
+              "orientation": "black",
+              "difficultyTier": "development",
+              "prompt": "Black has several checks around the exposed king. Generate them all, then calculate the forcing mating line before choosing.",
+              "acceptedMoves": ["h4h2"],
+              "solutionLine": ["h4h2", "h1h2", "f8h8", "d5h5", "h8h5"],
+              "hints": ["The best check offers the queen so a rook can enter on the h-file.", "After the king captures on h2, calculate ...Rh8+ and White's only block."],
+              "correctFeedback": "Correct. The queen sacrifice forces the king onto the mating file.",
+              "incorrectFeedback": "List every check and reject any line that gives White an escape after the first reply.",
+              "explanation": "...Qxh2+! attracts the king: Kxh2 Rh8+ Qh5 Rxh5#. The sacrifice works because the knight on e2 and rook on h8 seal the mating net.",
+              "source": {
+                "provider": "lichess", "puzzleId": "fDwSk", "gameUrl": "https://lichess.org/game/iPWn7JFf#49", "license": "CC0-1.0",
+                "ratingAtSelection": 1836, "ratingDeviationAtSelection": 79, "popularityAtSelection": 100, "playsAtSelection": 5739,
+                "themes": ["anastasiaMate", "attraction", "kingsideAttack", "long", "mate", "mateIn3", "middlegame", "sacrifice"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "rook-entry-check",
-              "fen": "6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1",
+              "key": "forced-kingside-mate",
+              "fen": "rnbq1rk1/pp1pb1p1/2n1p3/2p1P1P1/2P5/PP6/1B1P1PP1/RN1QK2R w KQ - 1 13",
               "orientation": "white",
-              "prompt": "Find the rook move that enters the opponent's position with check.",
-              "acceptedMoves": ["a1a8"],
-              "hints": ["Use the rook on a1.", "The destination is a8."],
-              "correctFeedback": "Correct. The active rook move forces the opponent to respond.",
-              "incorrectFeedback": "Look for a rook check along the open a-file.",
-              "explanation": "Ra8+ uses the open file and reaches the eighth rank with tempo. Forward activity matters when it is tactically sound."
+              "difficultyTier": "stretch",
+              "prompt": "White's attack looks promising but every tempo matters. Generate the sacrifices and calculate the forced king hunt to mate.",
+              "acceptedMoves": ["h1h8"],
+              "solutionLine": ["h1h8", "g8h8", "d1h5", "h8g8", "g5g6", "f8f5", "h5h7", "g8f8", "h7h8"],
+              "hints": ["Removing the h-file rook opens the queen's route and drags the king into the corner.", "Calculate Rxh8+, Qh5+, g6, and the final queen entry before committing."],
+              "correctFeedback": "Correct. The exchange sacrifice starts a fully forced mating sequence.",
+              "incorrectFeedback": "A direct queen move is too slow. Look for a forcing sacrifice that changes the king's square first.",
+              "explanation": "Rxh8+! Kxh8 Qh5+ Kg8 g6! forces ...Rf5, then Qh7+ Kf8 Qh8#. The first sacrifice is justified only after the entire nine-ply line is visible.",
+              "source": {
+                "provider": "lichess", "puzzleId": "iR2Lv", "gameUrl": "https://lichess.org/game/UEKUkLBV/black#24", "license": "CC0-1.0",
+                "ratingAtSelection": 2119, "ratingDeviationAtSelection": 79, "popularityAtSelection": 100, "playsAtSelection": 1776,
+                "themes": ["attraction", "kingsideAttack", "mate", "mateIn5", "opening", "sacrifice", "veryLong"], "snapshotDate": "2026-11-01"
+              }
             }
           ]
         },
@@ -117,7 +159,7 @@
           "key": "test-the-reply",
           "title": "Test the strongest reply",
           "summary": "Do not stop when your idea looks attractive. Ask what the opponent will do against it.",
-          "estimatedMinutes": 10,
+          "estimatedMinutes": 15,
           "explanation": [
             "Wishful thinking evaluates only your threat. Reliable calculation gives the opponent the strongest check, capture, or counter-threat after each candidate.",
             "A move is a serious candidate only after it survives that reply. Sometimes the right move is a quiet preparation; sometimes it is a forcing move that removes the opponent's resource."
@@ -130,37 +172,58 @@
           ],
           "exercises": [
             {
-              "key": "decline-the-poisoned-pawn",
-              "fen": "4k3/8/8/3q4/4p3/5n2/4Q3/7K w - - 0 1",
-              "orientation": "white",
-              "prompt": "Qxe4 would be met by Qxe4. Keep the queen safe while increasing pressure on e4.",
-              "acceptedMoves": ["e2e3"],
-              "hints": ["Use the queen on e2.", "The destination is e3."],
-              "correctFeedback": "Correct. You rejected a capture that failed to the opponent's best reply.",
-              "incorrectFeedback": "Before taking on e4, calculate Black's queen recapture from d5.",
-              "explanation": "Qe3 keeps the queen safe and continues to contest e4. A tempting capture is not a candidate once the opponent's reply refutes it."
+              "key": "deflect-then-win",
+              "fen": "5r1k/2p3p1/P3p2p/1Pb5/8/r3PB2/4KP1P/1R5R b - - 0 31",
+              "orientation": "black",
+              "difficultyTier": "foundation",
+              "prompt": "Black can win material, but the immediate capture is not best. Find the move that changes White's king placement first.",
+              "acceptedMoves": ["a3a2"],
+              "solutionLine": ["a3a2", "e2d3", "f8f3"],
+              "hints": ["Ask which forcing move makes the bishop on f3 lose its protection.", "Use the advanced a-pawn to force the king away before the rook captures."],
+              "correctFeedback": "Correct. The pawn move deflects the king before the material win.",
+              "incorrectFeedback": "Calculate White's strongest response to an immediate rook capture, then look for a forcing preparation.",
+              "explanation": "...a2! forces Kd3, removing the king's support of f3; only then ...Rxf3+ wins the bishop. The strongest reply explains why move order matters.",
+              "source": {
+                "provider": "lichess", "puzzleId": "t2mmB", "gameUrl": "https://lichess.org/game/YsdUCNCF#61", "license": "CC0-1.0",
+                "ratingAtSelection": 1503, "ratingDeviationAtSelection": 75, "popularityAtSelection": 100, "playsAtSelection": 4857,
+                "themes": ["advantage", "deflection", "endgame", "short"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "attack-before-capturing",
-              "fen": "4k3/8/8/3r4/3p4/2P5/3R4/6K1 w - - 0 1",
-              "orientation": "white",
-              "prompt": "Rxd4 would be answered by Rxd4. Attack the rook first with the pawn.",
-              "acceptedMoves": ["c3c4"],
-              "hints": ["Use the pawn on c3.", "The destination is c4."],
-              "correctFeedback": "Correct. The pawn attacks the defender before you consider taking on d4.",
-              "incorrectFeedback": "Calculate Black's recapture after Rxd4, then look for a move with tempo.",
-              "explanation": "c4 attacks the rook on d5. Moving the defender first changes the calculation and avoids the immediate exchange that spoiled Rxd4."
+              "key": "queen-sacrifice-passer",
+              "fen": "3r2k1/4qp2/6p1/5b2/8/3p1N2/1Q3PPP/4R1K1 b - - 1 39",
+              "orientation": "black",
+              "difficultyTier": "development",
+              "prompt": "Black's passed pawn is close, but White appears to control the promotion route. Calculate the forcing liquidation through White's best defense.",
+              "acceptedMoves": ["e7e1"],
+              "solutionLine": ["e7e1", "f3e1", "d3d2", "b2d2", "d8d2"],
+              "hints": ["The defender of d2 can be overloaded by a forcing queen sacrifice.", "After ...Qxe1+ Nxe1, calculate the passer and the rook's entry on d2."],
+              "correctFeedback": "Correct. The queen sacrifice clears the promotion file and wins back decisive material.",
+              "incorrectFeedback": "A direct pawn push lets White blockade. Test a forcing check that removes the knight from f3.",
+              "explanation": "...Qxe1+! forces Nxe1, then ...d2. After Qxd2, ...Rxd2 wins the queen and reaches a winning ending. Every step depends on White's strongest forced reply.",
+              "source": {
+                "provider": "lichess", "puzzleId": "kZxNy", "gameUrl": "https://lichess.org/game/vBKLC37G#77", "license": "CC0-1.0",
+                "ratingAtSelection": 1814, "ratingDeviationAtSelection": 75, "popularityAtSelection": 100, "playsAtSelection": 2621,
+                "themes": ["advancedPawn", "advantage", "endgame", "long", "sacrifice"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "remove-the-defender",
-              "fen": "4k3/8/8/3q4/4p3/2N5/4Q3/6K1 w - - 0 1",
-              "orientation": "white",
-              "prompt": "Nxe4 would allow the queen to recapture. Find the forcing knight move that removes the defender.",
-              "acceptedMoves": ["c3d5"],
-              "hints": ["Use the knight on c3.", "The destination is d5."],
-              "correctFeedback": "Correct. You removed the defender instead of entering its recapture line.",
-              "incorrectFeedback": "The queen on d5 is the defender of e4. Can the knight take it first?",
-              "explanation": "Nxd5 wins the queen and eliminates the recapture on e4. Calculate the opponent's resource, then look for a move that removes it."
+              "key": "rook-net-calculation",
+              "fen": "1r6/8/R6R/6p1/5k2/1Pr4P/P5P1/7K b - - 0 40",
+              "orientation": "black",
+              "difficultyTier": "stretch",
+              "prompt": "Black's king is exposed among four rooks. Calculate White's strongest checks and find the move that turns the geometry into a forced mate.",
+              "acceptedMoves": ["f4g3"],
+              "solutionLine": ["f4g3", "a6c6", "b8c8", "c6c8", "c3c8", "h6f6", "c8c1", "f6f1", "c1f1"],
+              "hints": ["The king must approach the white pawns while keeping the rook checks under control.", "After ...Kg3, calculate Rc6, ...Rc8, the rook exchanges, and the final back-rank mate."],
+              "correctFeedback": "Correct. The king step survives every rook check and starts the mating net.",
+              "incorrectFeedback": "Do not judge the exposed king by appearance. Calculate White's most forcing rook check after each king move.",
+              "explanation": "...Kg3! survives Rc6 with ...Rc8 and forces a sequence of rook exchanges. The line ends ...Rc1, Rf1 Rxf1#, so the apparently exposed king is safe because Black controls the checking files.",
+              "source": {
+                "provider": "lichess", "puzzleId": "8d5je", "gameUrl": "https://lichess.org/game/PDZU6qCk#79", "license": "CC0-1.0",
+                "ratingAtSelection": 2013, "ratingDeviationAtSelection": 75, "popularityAtSelection": 100, "playsAtSelection": 1488,
+                "themes": ["endgame", "mate", "mateIn5", "rookEndgame", "veryLong", "xRayAttack"], "snapshotDate": "2026-11-01"
+              }
             }
           ]
         },
@@ -168,7 +231,7 @@
           "key": "final-safety-check",
           "title": "Make the final safety check",
           "summary": "Before committing, verify that your chosen move does not leave a piece or square undefended.",
-          "estimatedMinutes": 10,
+          "estimatedMinutes": 15,
           "explanation": [
             "The final check is deliberately short. Look once more at the piece you are moving, the piece or square it used to protect, and every forcing reply available afterward.",
             "This habit catches one-move losses without restarting the whole calculation. It is a last verification step, not an invitation to search forever."
@@ -181,37 +244,58 @@
           ],
           "exercises": [
             {
-              "key": "move-the-attacked-rook",
-              "fen": "4k3/8/8/8/8/2b5/3R4/6K1 w - - 0 1",
-              "orientation": "white",
-              "prompt": "The bishop attacks the rook. Move the rook to the safe back-rank square.",
-              "acceptedMoves": ["d2d1"],
-              "hints": ["Use the rook on d2.", "The destination is d1."],
-              "correctFeedback": "Correct. The rook leaves the bishop's diagonal safely.",
-              "incorrectFeedback": "Check the bishop's diagonal from c3 before placing the rook.",
-              "explanation": "Rd1 steps off the c3-d2-e1 diagonal. A final geometry check confirms that the destination is not attacked by the bishop."
+              "key": "trap-the-queen",
+              "fen": "2q1kb1r/Qp3ppp/2r1p3/3n4/3N4/2P5/PP3PPP/R1B1K2R b KQk - 2 14",
+              "orientation": "black",
+              "difficultyTier": "foundation",
+              "prompt": "White's last move centralized the knight but changed the queen's escape squares. Find the precise move that proves the queen is trapped.",
+              "acceptedMoves": ["c6a6"],
+              "solutionLine": ["c6a6", "a7a6", "b7a6"],
+              "hints": ["Map every square available to the queen on a7 before calculating captures.", "A rook move to the a-file leaves the queen only one capture, after which the b-pawn recaptures."],
+              "correctFeedback": "Correct. The geometry check reveals that the queen has no safe retreat.",
+              "incorrectFeedback": "Do not grab material immediately. First restrict the queen and verify every escape square.",
+              "explanation": "...Ra6! traps the queen. Qxa6 is forced and ...bxa6 wins it; the move works because all other queen squares are controlled or occupied.",
+              "source": {
+                "provider": "lichess", "puzzleId": "ZThvJ", "gameUrl": "https://lichess.org/game/KeGwjDNE#27", "license": "CC0-1.0",
+                "ratingAtSelection": 1658, "ratingDeviationAtSelection": 76, "popularityAtSelection": 100, "playsAtSelection": 5497,
+                "themes": ["advantage", "master", "middlegame", "short", "trappedPiece"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "leave-the-bishop-line",
-              "fen": "4k3/8/8/8/2b5/8/4R3/6K1 w - - 0 1",
+              "key": "escape-the-knight-fork",
+              "fen": "3N3k/7p/1P4p1/4b3/8/3nP2P/5KP1/8 w - - 3 30",
               "orientation": "white",
-              "prompt": "The bishop attacks the rook on e2. Move the rook one square to safety.",
-              "acceptedMoves": ["e2e3"],
-              "hints": ["Use the rook on e2.", "The destination is e3."],
-              "correctFeedback": "Correct. The rook leaves the diagonal without creating a new weakness.",
-              "incorrectFeedback": "Trace the bishop's diagonal through d3 and e2, then choose a square outside it.",
-              "explanation": "Re3 leaves the c4-d3-e2 diagonal. The last check confirms that the rook is no longer exposed to the bishop."
+              "difficultyTier": "development",
+              "prompt": "Black's knight has just jumped to d3 with check. Choose the king move only after verifying the knight fork and the resulting endgame line.",
+              "acceptedMoves": ["f2e2"],
+              "solutionLine": ["f2e2", "d3c5", "d8f7", "h8g7", "f7e5"],
+              "hints": ["List the knight's attacks and preserve White's advanced knight before choosing a king square.", "The king should step toward the center rather than the back rank; then the d8-knight can escape with tempo."],
+              "correctFeedback": "Correct. The king move answers the check while preserving the knight's route.",
+              "incorrectFeedback": "A legal king move is not enough. Verify what Black's knight attacks next and whether White's d8-knight survives.",
+              "explanation": "Ke2! meets ...Nc5 with Nf7+, then ...Kg7 Ne5. White answers the check, avoids the fork geometry, and activates the advanced knight with tempo.",
+              "source": {
+                "provider": "lichess", "puzzleId": "6FXMr", "gameUrl": "https://lichess.org/game/wMaYrCF6/black#58", "license": "CC0-1.0",
+                "ratingAtSelection": 1774, "ratingDeviationAtSelection": 76, "popularityAtSelection": 100, "playsAtSelection": 1985,
+                "themes": ["advantage", "defensiveMove", "endgame", "fork", "long"], "snapshotDate": "2026-11-01"
+              }
             },
             {
-              "key": "save-the-queen",
-              "fen": "4k3/8/8/8/8/2n5/4Q3/6K1 w - - 0 1",
+              "key": "countercheck-defense",
+              "fen": "7k/5Qp1/p2P3p/1p6/8/4KPP1/PPq5/5b2 w - - 0 39",
               "orientation": "white",
-              "prompt": "The knight attacks the queen. Move the queen to the safe central square.",
-              "acceptedMoves": ["e2e3"],
-              "hints": ["Use the queen on e2.", "The destination is e3."],
-              "correctFeedback": "Correct. The queen leaves every square attacked by the knight.",
-              "incorrectFeedback": "List the knight's attacks from c3 before choosing the queen's destination.",
-              "explanation": "Qe3 is outside the knight's attack pattern. The final safety check verifies the destination rather than assuming every queen move is safe."
+              "difficultyTier": "stretch",
+              "prompt": "Black's bishop has just moved to f1 and the white king is under severe pressure. Calculate every check and find the only sequence that keeps control.",
+              "acceptedMoves": ["f7e8"],
+              "solutionLine": ["f7e8", "h8h7", "e8e4", "c2e4", "e3e4", "f1h3", "g3g4"],
+              "hints": ["Passive king moves fail; use a countercheck to force the black king before addressing the queen.", "The queen checks from the eighth rank, then returns to e4 to force a liquidation."],
+              "correctFeedback": "Correct. The countercheck controls Black's reply and reaches the winning liquidation.",
+              "incorrectFeedback": "A defensive move that does not check gives Black time. Calculate the forcing queen checks first.",
+              "explanation": "Qe8+! forces ...Kh7, then Qe4+ Qxe4+ Kxe4. After ...Bh3, g4 secures the king and leaves White's advanced d-pawn and queenside majority decisive.",
+              "source": {
+                "provider": "lichess", "puzzleId": "SAWsQ", "gameUrl": "https://lichess.org/game/S5ZIC0Lb/black#76", "license": "CC0-1.0",
+                "ratingAtSelection": 2112, "ratingDeviationAtSelection": 75, "popularityAtSelection": 100, "playsAtSelection": 1220,
+                "themes": ["crushing", "defensiveMove", "endgame", "veryLong"], "snapshotDate": "2026-11-01"
+              }
             }
           ]
         }

@@ -151,9 +151,11 @@ The owner chose to start the GM Igor investigation as a standalone, browseable c
 
 - Add Training to the main shell and a course shortcut to Dashboard.
 - Name the course **Grandmaster Thinking Method** and identify it as an independent Chess Tweek course inspired only by publicly described GM Igor Smirnov principles.
-- Start with one finished module: four lessons teaching a repeatable move routine, with three original exercises per lesson.
+- Start with one finished module: four lessons teaching a repeatable move routine, with original Chess Tweek instruction and three curated CC0 Lichess puzzle positions per lesson.
 - Keep authored material readable offline and save progress only for the authorized Lichess account.
 - Defer game-evidence personalization and spaced repetition. Stage 7 supplies the reusable repetition core; a later course extension may use game-review evidence only through an explicit public interface.
+
+The owner's first live review on 2026-11-17 replaced the placeholder difficulty decision for this course. The goal is progression toward 2000, so every lesson now ladders from a Foundation exercise selected around Lichess 1500–1700, through Development at 1750–1950, to Stretch at 2000–2200. Those are source-puzzle curation bands, not a claim that Lichess puzzle ratings equal chess.com rapid ratings. The separate Stage 9 pattern-library range remains its own decision.
 
 ### How En Croissant does openings (the model we copy, without copying its code)
 

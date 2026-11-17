@@ -91,6 +91,8 @@ describe('App', () => {
                   key: 'answer-the-check',
                   fen: '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1',
                   orientation: 'white',
+                  difficultyTier: 'foundation',
+                  sourceRating: 1600,
                   prompt: 'Remove the checking piece.',
                 }],
               }],

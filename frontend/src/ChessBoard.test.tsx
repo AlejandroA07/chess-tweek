@@ -32,7 +32,7 @@ describe('InteractiveChessBoard', () => {
 
   it('submits the same UCI move by square selection and drag', () => {
     const onMove = vi.fn()
-    const { rerender } = render(
+    const { unmount } = render(
       <InteractiveChessBoard
         fen={fen}
         orientation="white"
@@ -50,7 +50,8 @@ describe('InteractiveChessBoard', () => {
     fireEvent.click(rook)
     expect(onMove).toHaveBeenLastCalledWith('e1e2')
 
-    rerender(
+    unmount()
+    render(
       <InteractiveChessBoard
         fen={fen}
         orientation="white"
@@ -70,6 +71,58 @@ describe('InteractiveChessBoard', () => {
     expect(onMove).toHaveBeenLastCalledWith('e1e2')
   })
 
+  it('shows the submitted move without drawing an automatic answer arrow', async () => {
+    const onMove = vi.fn()
+    const { rerender } = render(
+      <InteractiveChessBoard
+        fen={fen}
+        orientation="white"
+        label="Training position"
+        disabled={false}
+        solution={null}
+        onMove={onMove}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'e1, white king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'e2, black rook' }))
+    expect(await screen.findByRole('button', { name: 'e1, empty' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e2, white king' })).toBeInTheDocument()
+    rerender(
+      <InteractiveChessBoard
+        fen={fen}
+        orientation="white"
+        label="Training position"
+        disabled={false}
+        solution="e1e2"
+        onMove={onMove}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'e1, empty' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e2, white king' })).toBeInTheDocument()
+    expect(screen.queryByTestId('best-move-arrow')).not.toBeInTheDocument()
+  })
+
+  it('draws an arrow only after a right-button drag', () => {
+    render(
+      <InteractiveChessBoard
+        fen={fen}
+        orientation="white"
+        label="Training position"
+        disabled={false}
+        solution={null}
+        onMove={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('user-drawn-arrow')).not.toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'e1, white king' }), { button: 2 })
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'e2, black rook' }), { button: 2 })
+
+    expect(screen.getByTestId('user-drawn-arrow')).toBeInTheDocument()
+  })
+
   it('disables move entry while keeping the position labelled', () => {
     render(
       <InteractiveChessBoard
@@ -83,7 +136,8 @@ describe('InteractiveChessBoard', () => {
     )
 
     expect(screen.getByRole('group', { name: 'Offline training position' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'e1, white king' })).toBeDisabled()
-    expect(screen.getByTestId('best-move-arrow')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e1, empty' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'e2, white king' })).toBeDisabled()
+    expect(screen.queryByTestId('best-move-arrow')).not.toBeInTheDocument()
   })
 })

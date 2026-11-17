@@ -59,7 +59,15 @@ public interface GuidedCourses {
             String key,
             String fen,
             Orientation orientation,
+            DifficultyTier difficultyTier,
+            int sourceRating,
             String prompt) {}
+
+    enum DifficultyTier {
+        FOUNDATION,
+        DEVELOPMENT,
+        STRETCH
+    }
 
     enum Orientation {
         WHITE,

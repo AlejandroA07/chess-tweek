@@ -29,6 +29,8 @@ export type Exercise = {
   key: string
   fen: string
   orientation: 'white' | 'black'
+  difficultyTier: 'foundation' | 'development' | 'stretch'
+  sourceRating: number
   prompt: string
 }
 
@@ -205,12 +207,17 @@ function parseExercise(value: unknown): Exercise {
   if (
     !isRecord(value) || !isKey(value.key) || !isText(value.fen, 100) ||
     (value.orientation !== 'white' && value.orientation !== 'black') ||
+    (value.difficultyTier !== 'foundation' && value.difficultyTier !== 'development' &&
+      value.difficultyTier !== 'stretch') ||
+    !isInteger(value.sourceRating, 100, 4000) ||
     !isText(value.prompt, 300)
   ) throw new TrainingRequestError('unavailable')
   return {
     key: value.key,
     fen: value.fen,
     orientation: value.orientation,
+    difficultyTier: value.difficultyTier,
+    sourceRating: value.sourceRating,
     prompt: value.prompt,
   }
 }

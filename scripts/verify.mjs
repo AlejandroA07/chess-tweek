@@ -34,6 +34,7 @@ if (!existsSync(path.join(javaHome, 'bin', 'java'))) {
 }
 
 run('locked frontend install', 'pnpm', ['install', '--frozen-lockfile'])
+run('course puzzle selector tests', 'node', ['--test', 'scripts/select-course-puzzles.test.mjs'])
 run('frontend tests', 'pnpm', ['frontend:test'])
 run('frontend production build', 'pnpm', ['frontend:build'])
 run('backend tests and package', './mvnw', ['clean', 'verify'], {

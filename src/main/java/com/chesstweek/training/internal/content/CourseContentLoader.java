@@ -2,6 +2,8 @@ package com.chesstweek.training.internal.content;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.chesstweek.training.GuidedCourses;
 
 import io.github.wolfraam.chessgame.ChessGame;
+import io.github.wolfraam.chessgame.move.Move;
 import io.github.wolfraam.chessgame.notation.NotationType;
 
 @Component
@@ -26,6 +29,10 @@ public final class CourseContentLoader {
     private static final String RESOURCE = "/training/grandmaster-thinking-method.json";
     private static final Pattern KEY = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
     private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
+    private static final Pattern PUZZLE_ID = Pattern.compile("[A-Za-z0-9]{5,8}");
+    private static final Pattern GAME_URL = Pattern.compile(
+            "https://lichess\\.org/game/[A-Za-z0-9]{8}(?:/(?:white|black))?#\\d+");
+    private static final Pattern THEME = Pattern.compile("[A-Za-z0-9]{1,40}");
 
     private final CourseContent content;
 
@@ -123,23 +130,34 @@ public final class CourseContentLoader {
             requireText(exercise.fen(), 20, 100, "exercise FEN");
             requireText(exercise.prompt(), 1, 300, "exercise prompt");
             GuidedCourses.Orientation orientation = orientation(exercise.orientation());
+            GuidedCourses.DifficultyTier difficultyTier = difficultyTier(exercise.difficultyTier());
             List<String> acceptedMoves = validateMoves(exercise.fen(), exercise.acceptedMoves());
+            List<String> solutionLine = validateLine(
+                    exercise.fen(), exercise.solutionLine(), difficultyTier, acceptedMoves);
+            CourseContent.SourceMetadata source = source(exercise.source(), difficultyTier);
             List<String> hints = textList(exercise.hints(), 2, 2, 180, "exercise hints");
             requireText(exercise.correctFeedback(), 1, 300, "correct feedback");
             requireText(exercise.incorrectFeedback(), 1, 300, "incorrect feedback");
             requireText(exercise.explanation(), 1, 500, "exercise explanation");
             exercises.add(new GuidedCourses.Exercise(
-                    exercise.key(), exercise.fen(), orientation, exercise.prompt()));
+                    exercise.key(),
+                    exercise.fen(),
+                    orientation,
+                    difficultyTier,
+                    source.ratingAtSelection(),
+                    exercise.prompt()));
             answers.put(
                     exercise.key(),
                     new CourseContent.ExerciseAnswer(
                             lesson.key(),
                             exercise.fen(),
                             acceptedMoves,
+                            solutionLine,
                             hints,
                             exercise.correctFeedback(),
                             exercise.incorrectFeedback(),
-                            exercise.explanation()));
+                            exercise.explanation(),
+                            source));
         }
         return new GuidedCourses.Lesson(
                 lesson.key(),
@@ -178,6 +196,87 @@ public final class CourseContentLoader {
         return List.copyOf(result);
     }
 
+    private static List<String> validateLine(
+            String fen,
+            List<String> moves,
+            GuidedCourses.DifficultyTier difficultyTier,
+            List<String> acceptedMoves) {
+        int minimum = switch (difficultyTier) {
+            case FOUNDATION -> 3;
+            case DEVELOPMENT -> 5;
+            case STRETCH -> 7;
+        };
+        if (moves == null || moves.size() < minimum || moves.size() > 15
+                || !acceptedMoves.contains(moves.getFirst())) {
+            throw new IllegalStateException("Exercise solution line is invalid");
+        }
+        try {
+            ChessGame game = new ChessGame(fen);
+            for (String uci : moves) {
+                if (uci == null || !UCI.matcher(uci).matches()) {
+                    throw new IllegalStateException("Exercise solution line is invalid");
+                }
+                Move move = game.getMove(NotationType.UCI, uci);
+                if (move == null || !game.isLegalMove(move)) {
+                    throw new IllegalStateException("Exercise solution line is illegal: " + uci);
+                }
+                game.playMove(move);
+            }
+            return List.copyOf(moves);
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException("Exercise solution line is illegal", exception);
+        }
+    }
+
+    private static CourseContent.SourceMetadata source(
+            CourseDefinition.SourceDefinition source,
+            GuidedCourses.DifficultyTier difficultyTier) {
+        if (source == null
+                || !"lichess".equals(source.provider())
+                || !"CC0-1.0".equals(source.license())
+                || source.puzzleId() == null
+                || !PUZZLE_ID.matcher(source.puzzleId()).matches()
+                || source.gameUrl() == null
+                || !GAME_URL.matcher(source.gameUrl()).matches()
+                || source.ratingDeviationAtSelection() < 0
+                || source.ratingDeviationAtSelection() > 500
+                || source.popularityAtSelection() < -100
+                || source.popularityAtSelection() > 100
+                || source.playsAtSelection() < 0
+                || !ratingMatches(difficultyTier, source.ratingAtSelection())
+                || source.themes() == null
+                || source.themes().isEmpty()
+                || source.themes().size() > 30
+                || source.themes().stream().anyMatch(theme -> theme == null || !THEME.matcher(theme).matches())) {
+            throw new IllegalStateException("Exercise source metadata is invalid");
+        }
+        try {
+            LocalDate.parse(source.snapshotDate());
+        } catch (DateTimeParseException | NullPointerException exception) {
+            throw new IllegalStateException("Exercise source snapshot date is invalid", exception);
+        }
+        return new CourseContent.SourceMetadata(
+                source.provider(),
+                source.puzzleId(),
+                source.gameUrl(),
+                source.license(),
+                source.ratingAtSelection(),
+                source.ratingDeviationAtSelection(),
+                source.popularityAtSelection(),
+                source.playsAtSelection(),
+                List.copyOf(source.themes()),
+                source.snapshotDate());
+    }
+
+    private static boolean ratingMatches(
+            GuidedCourses.DifficultyTier difficultyTier, int rating) {
+        return switch (difficultyTier) {
+            case FOUNDATION -> rating >= 1500 && rating <= 1700;
+            case DEVELOPMENT -> rating >= 1750 && rating <= 1950;
+            case STRETCH -> rating >= 2000 && rating <= 2200;
+        };
+    }
+
     private static GuidedCourses.ModuleStatus status(String value) {
         if (value == null) {
             throw new IllegalStateException("Module status is missing");
@@ -197,6 +296,17 @@ public final class CourseContentLoader {
             return GuidedCourses.Orientation.valueOf(value.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException exception) {
             throw new IllegalStateException("Exercise orientation is invalid", exception);
+        }
+    }
+
+    private static GuidedCourses.DifficultyTier difficultyTier(String value) {
+        if (value == null) {
+            throw new IllegalStateException("Exercise difficulty tier is missing");
+        }
+        try {
+            return GuidedCourses.DifficultyTier.valueOf(value.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException("Exercise difficulty tier is invalid", exception);
         }
     }
 

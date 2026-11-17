@@ -30,10 +30,25 @@ record CourseDefinition(
             String key,
             String fen,
             String orientation,
+            String difficultyTier,
             String prompt,
             List<String> acceptedMoves,
+            List<String> solutionLine,
             List<String> hints,
             String correctFeedback,
             String incorrectFeedback,
-            String explanation) {}
+            String explanation,
+            SourceDefinition source) {}
+
+    record SourceDefinition(
+            String provider,
+            String puzzleId,
+            String gameUrl,
+            String license,
+            int ratingAtSelection,
+            int ratingDeviationAtSelection,
+            int popularityAtSelection,
+            int playsAtSelection,
+            List<String> themes,
+            String snapshotDate) {}
 }

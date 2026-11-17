@@ -64,6 +64,9 @@ describe('TrainingCourse', () => {
 
     expect(await screen.findByText('Reference move: e1e2')).toBeInTheDocument()
     expect(screen.getByText('Kxe2 removes the checking rook.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e1, empty' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e2, white king' })).toBeInTheDocument()
+    expect(screen.queryByTestId('best-move-arrow')).not.toBeInTheDocument()
     await waitFor(() => expect(requests.filter((request) => request.endsWith('/progress')).length).toBeGreaterThan(1))
   })
 })
@@ -98,6 +101,8 @@ function course() {
                 key: 'answer-the-check',
                 fen: '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1',
                 orientation: 'white',
+                difficultyTier: 'foundation',
+                sourceRating: 1600,
                 prompt: 'Remove the checking piece.',
               },
             ],

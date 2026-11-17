@@ -42,11 +42,11 @@ No new dependency is expected; if `chessgame` cannot read the PGN, a proposal co
 **Branch:** `feature/guided-training-method` · **Needs:** Stage 4.
 
 - Add Training as a first-class shell destination and a Dashboard shortcut into a standalone **Grandmaster Thinking Method** course dashboard.
-- Ship the complete first module, Repeatable Move Routine: four browseable lessons with original explanations, recall checklists, and three original exercises each.
-- Reuse the project-styled board for click, keyboard, and drag moves. Validate every submitted UCI move server-side with `chessgame`; keep solutions and explanations server-side until a correct attempt or explicit reveal.
+- Ship the complete first module, Repeatable Move Routine: four browseable lessons with original explanations and recall checklists. Each lesson has a Foundation (Lichess 1500–1700), Development (1750–1950), and Stretch (2000–2200) exercise curated from the CC0 Lichess puzzle database; the bands are source-puzzle selection bands, not rating equivalence claims.
+- Reuse the project-styled board for click, keyboard, and drag moves. A submitted move changes the board immediately and rolls back when the server rejects it; answer revelation never draws an automatic arrow. Right-button drag is the pointer shortcut for annotations, with a labeled Draw arrow mode for keyboard use. Validate every submitted UCI move server-side with `chessgame`; keep solutions and explanations server-side until a correct attempt or explicit reveal.
 - Keep course content readable offline. Require the authorized Lichess account for lesson starts, hints, attempts, reveals, completion, and account-scoped durable progress.
 - Show later course modules as Planned. Do not personalize from game evidence, add spaced-repetition grading, or claim improvement in this stage.
-- Acceptance: anonymous callers can read only sanitized authored content; protected actions reject missing sessions and cross-origin writes; invalid lesson/exercise keys and illegal moves are rejected safely; progress survives restart; all 12 exercises are legal and solvable under content validation; the interface remains keyboard-operable and responsive.
+- Acceptance: anonymous callers can read only sanitized authored content; protected actions reject missing sessions and cross-origin writes; invalid lesson/exercise keys and illegal moves are rejected safely; progress survives restart; all 12 exercises, complete source lines, rating tiers, and Lichess source records pass content validation; the interface remains keyboard-operable and responsive.
 
 ### Stage 7 — Training repetition core
 
@@ -383,12 +383,12 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0 through 5 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15. The owner's live check on 2026-11-16 confirmed the Part 6 labels and findings on the stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; the opponent-side coach wording has no stored opponent analysis yet and was checked only in tests. Stage 5 was delivered in three parts: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37), all merged on 2026-11-16.
+Stages 0 through 6 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15. The owner's live check on 2026-11-16 confirmed the Part 6 labels and findings on the stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; the opponent-side coach wording has no stored opponent analysis yet and was checked only in tests. Stage 5 was delivered in three parts: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37), all merged on 2026-11-16. Stage 6 merged in PR #38 on 2026-11-17. Its first visual check found the interactive-square layout, static move display, automatic answer arrow, and placeholder exercise difficulty. The layout fix merged in follow-up PR #39; immediate board movement, accessible user arrows, and the version 2 Lichess exercise ladder are in PR #40.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
-**Next immediate action (2026-11-16):**
+**Next immediate action (2026-11-17):**
 
 1. The owner completes the Stage 5 live check: back up `var/chess-tweek.db`, save the chess.com username on Admin, get chess.com games, filter by site, analyze and review one chess.com game, and check the Dashboard ratings.
-2. The owner reviews and merges Stage 6, Grandmaster Thinking Method (PR #38). Before its first start, back up `var/chess-tweek.db`; migration V8 adds account-scoped guided-course progress.
-3. The Stage 6 live check opens Training, completes the four lessons with wrong moves, hints, and reveals, restarts the app, and confirms that progress persists.
+2. Review and merge Stage 6 follow-up PR #40: immediate board movement, accessible user annotations, and the version 2 Lichess-sourced Foundation/Development/Stretch exercise ladder.
+3. Before the Stage 6 live check, back up `var/chess-tweek.db`; migration V8 adds account-scoped guided-course progress. Open Training, complete the four lessons with wrong moves, hints, right-drag arrows, and reveals, restart the app, and confirm that progress persists.

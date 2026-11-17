@@ -375,10 +375,13 @@ function ExerciseCard({
         setSolution(answer.solutionMove)
         setExplanation(answer.explanation)
         await onResolved()
+        return true
       }
+      return false
     } catch (requestError) {
       handleFailure(requestError, onSessionFailure)
       setError('That move could not be checked. Try again.')
+      return false
     } finally {
       setAction('idle')
     }
@@ -425,11 +428,13 @@ function ExerciseCard({
           label={`Position ${number}: ${exercise.prompt}`}
           disabled={!connected || action !== 'idle' || resolved}
           solution={solution}
-          onMove={(uci) => void move(uci)}
+          onMove={move}
         />
       </div>
       <div className={styles.exerciseBody}>
-        <p className={styles.eyebrow}>Position {number}</p>
+        <p className={styles.eyebrow}>
+          Position {number} · {difficultyLabel(exercise.difficultyTier)} · Lichess {exercise.sourceRating}
+        </p>
         <h4 id={`${exercise.key}-title`}>{exercise.prompt}</h4>
         <p className={styles.statusText}>{exerciseStatus(savedState, solution)}</p>
         {result && (
@@ -453,7 +458,7 @@ function ExerciseCard({
             disabled={!connected || action !== 'idle' || resolved || hint?.level === 2}
             onClick={() => void askHint()}
           >
-            {action === 'hint' ? 'Loading hint…' : hint === null ? 'Hint: piece' : 'Hint: destination'}
+            {action === 'hint' ? 'Loading hint…' : hint === null ? 'Hint: thinking step' : 'Hint: tactical area'}
           </button>
           <button
             className={styles.textButton}
@@ -467,6 +472,12 @@ function ExerciseCard({
       </div>
     </article>
   )
+}
+
+function difficultyLabel(tier: Exercise['difficultyTier']) {
+  if (tier === 'foundation') return 'Foundation'
+  if (tier === 'development') return 'Development'
+  return 'Stretch'
 }
 
 function lessonState(progress: Progress | null, lessonKey: string) {

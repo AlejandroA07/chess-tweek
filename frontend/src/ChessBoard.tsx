@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react'
+import { useEffect, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import styles from './ChessBoard.module.css'
 
 export type BoardOrientation = 'white' | 'black'
@@ -106,8 +106,8 @@ export function ChessBoard({
 }
 
 /**
- * A controlled move-entry board. Click, keyboard, and drag all produce one UCI move; the server
- * remains responsible for legality and answer validation.
+ * A move-entry board. Click, keyboard, and drag all produce one UCI move; the server remains
+ * responsible for legality and answer validation while accepted moves update the displayed board.
  */
 export function InteractiveChessBoard({
   fen,
@@ -122,21 +122,51 @@ export function InteractiveChessBoard({
   label: string
   disabled: boolean
   solution: string | null
-  onMove: (move: string) => void
+  onMove: (move: string) => void | boolean | Promise<void | boolean>
 }) {
-  const placement = parsePlacement(fen)
+  const [placement, setPlacement] = useState(() => parsePlacement(fen))
   const [selected, setSelected] = useState<string | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
+  const [arrowStart, setArrowStart] = useState<string | null>(null)
+  const [userArrow, setUserArrow] = useState<string | null>(null)
+  const [annotationMode, setAnnotationMode] = useState(false)
+
+  useEffect(() => {
+    const initial = parsePlacement(fen)
+    setPlacement(solution === null || initial === null ? initial : applyMove(initial, solution))
+    setSelected(null)
+    setDragged(null)
+    setArrowStart(null)
+    setUserArrow(null)
+    setAnnotationMode(false)
+  }, [fen, solution])
+
   if (placement === null) {
     return <p className={styles.unreadable} role="alert">This position could not be drawn.</p>
   }
   const side = fen.split(' ')[1] === 'b' ? 'black' : 'white'
   const ranks = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
   const files = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
-  const marked = solution === null ? [] : [solution.slice(0, 2), solution.slice(2, 4)]
+
+  const submit = async (move: string) => {
+    const previous = placement
+    setPlacement(applyMove(previous, move))
+    const accepted = await onMove(move)
+    if (accepted === false) setPlacement(previous)
+  }
 
   const choose = (square: string, piece: Piece | null) => {
     if (disabled) return
+    if (annotationMode) {
+      if (arrowStart === null) {
+        setArrowStart(square)
+      } else {
+        setUserArrow(arrowStart === square ? null : `${arrowStart}${square}`)
+        setArrowStart(null)
+        setAnnotationMode(false)
+      }
+      return
+    }
     if (selected === null) {
       if (piece?.color === side) setSelected(square)
       return
@@ -152,7 +182,7 @@ export function InteractiveChessBoard({
     const source = pieceForSquare(placement, selected)
     const promotion = source?.kind === 'p' && (square.endsWith('1') || square.endsWith('8')) ? 'q' : ''
     setSelected(null)
-    onMove(`${selected}${square}${promotion}`)
+    void submit(`${selected}${square}${promotion}`)
   }
 
   const drop = (event: DragEvent, square: string) => {
@@ -165,12 +195,33 @@ export function InteractiveChessBoard({
     const promotion = source?.kind === 'p' && (square.endsWith('1') || square.endsWith('8')) ? 'q' : ''
     setDragged(null)
     setSelected(null)
-    onMove(`${dragged}${square}${promotion}`)
+    void submit(`${dragged}${square}${promotion}`)
+  }
+
+  const startArrow = (event: ReactMouseEvent, square: string) => {
+    if (event.button !== 2) return
+    event.preventDefault()
+    setSelected(null)
+    setAnnotationMode(false)
+    setArrowStart(square)
+  }
+
+  const finishArrow = (event: ReactMouseEvent, square: string) => {
+    if (event.button !== 2 || arrowStart === null) return
+    event.preventDefault()
+    setUserArrow(arrowStart === square ? null : `${arrowStart}${square}`)
+    setArrowStart(null)
+  }
+
+  const toggleAnnotationMode = () => {
+    setAnnotationMode((active) => !active)
+    setSelected(null)
+    setArrowStart(null)
   }
 
   return (
     <div className={styles.frame} role="group" aria-label={label}>
-      <div className={styles.board}>
+      <div className={styles.board} onContextMenu={(event) => event.preventDefault()}>
         {ranks.map((rankIndex, row) =>
           files.map((fileIndex, column) => {
             const square = squareName(rankIndex, fileIndex)
@@ -181,12 +232,14 @@ export function InteractiveChessBoard({
                 className={`${styles.square} ${styles.moveSquare}`}
                 type="button"
                 data-shade={(rankIndex + fileIndex) % 2 === 0 ? 'light' : 'dark'}
-                data-marked={marked.includes(square)}
-                data-selected={selected === square}
+                data-marked="false"
+                data-selected={selected === square || (annotationMode && arrowStart === square)}
                 disabled={disabled}
-                aria-pressed={selected === square}
+                aria-pressed={selected === square || (annotationMode && arrowStart === square)}
                 aria-label={squareLabel(square, piece)}
                 onClick={() => choose(square, piece)}
+                onMouseDown={(event) => startArrow(event, square)}
+                onMouseUp={(event) => finishArrow(event, square)}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => drop(event, square)}
               >
@@ -207,7 +260,30 @@ export function InteractiveChessBoard({
             )
           }),
         )}
-        {solution !== null && <Arrow move={solution} orientation={orientation} />}
+        {userArrow !== null && (
+          <Arrow
+            move={userArrow}
+            orientation={orientation}
+            testId="user-drawn-arrow"
+            markerId="board-user-arrow-head"
+          />
+        )}
+      </div>
+      <div className={styles.annotationControls}>
+        <button
+          className={styles.annotationToggle}
+          type="button"
+          aria-pressed={annotationMode}
+          disabled={disabled}
+          onClick={toggleAnnotationMode}
+        >
+          Draw arrow
+        </button>
+        <span className={styles.annotationStatus} aria-live="polite">
+          {annotationMode
+            ? arrowStart === null ? 'Choose the start square' : 'Choose the end square'
+            : 'Right-drag shortcut'}
+        </span>
       </div>
     </div>
   )
@@ -219,6 +295,33 @@ function pieceForSquare(placement: (Piece | null)[][], square: string) {
   return placement[rank]?.[file] ?? null
 }
 
+function applyMove(placement: (Piece | null)[][], move: string) {
+  const fromFile = FILES.indexOf(move[0])
+  const fromRank = 8 - Number(move[1])
+  const toFile = FILES.indexOf(move[2])
+  const toRank = 8 - Number(move[3])
+  const source = placement[fromRank]?.[fromFile]
+  if (source === undefined || source === null || placement[toRank]?.[toFile] === undefined) return placement
+
+  const next = placement.map((rank) => [...rank])
+  if (source.kind === 'p' && fromFile !== toFile && next[toRank][toFile] === null) {
+    next[fromRank][toFile] = null
+  }
+  if (source.kind === 'k' && Math.abs(toFile - fromFile) === 2) {
+    const rookFile = toFile > fromFile ? 7 : 0
+    const rookDestination = toFile > fromFile ? 5 : 3
+    next[fromRank][rookDestination] = next[fromRank][rookFile]
+    next[fromRank][rookFile] = null
+  }
+
+  const promotion = move[4]
+  next[fromRank][fromFile] = null
+  next[toRank][toFile] = promotion === undefined
+    ? source
+    : { ...source, kind: promotion, glyph: GLYPHS[promotion] }
+  return next
+}
+
 function squareLabel(square: string, piece: Piece | null) {
   if (piece === null) return `${square}, empty`
   const names: Record<string, string> = {
@@ -227,7 +330,17 @@ function squareLabel(square: string, piece: Piece | null) {
   return `${square}, ${piece.color} ${names[piece.kind]}`
 }
 
-function Arrow({ move, orientation }: { move: string; orientation: BoardOrientation }) {
+function Arrow({
+  move,
+  orientation,
+  testId = 'best-move-arrow',
+  markerId = 'board-arrow-head',
+}: {
+  move: string
+  orientation: BoardOrientation
+  testId?: string
+  markerId?: string
+}) {
   const from = screenPosition(move.slice(0, 2), orientation)
   const to = screenPosition(move.slice(2, 4), orientation)
   const dx = to.x - from.x
@@ -237,9 +350,9 @@ function Arrow({ move, orientation }: { move: string; orientation: BoardOrientat
   // Stop short of the destination centre so the head sits inside the square.
   const shorten = 0.3 / length
   return (
-    <svg className={styles.arrow} viewBox="0 0 8 8" data-testid="best-move-arrow">
+    <svg className={styles.arrow} viewBox="0 0 8 8" data-testid={testId}>
       <defs>
-        <marker id="board-arrow-head" viewBox="0 0 4 4" refX="2" refY="2" markerWidth="3" markerHeight="3" orient="auto">
+        <marker id={markerId} viewBox="0 0 4 4" refX="2" refY="2" markerWidth="3" markerHeight="3" orient="auto">
           <path d="M0 0 4 2 0 4z" />
         </marker>
       </defs>
@@ -248,7 +361,7 @@ function Arrow({ move, orientation }: { move: string; orientation: BoardOrientat
         y1={from.y + 0.5}
         x2={to.x + 0.5 - dx * shorten}
         y2={to.y + 0.5 - dy * shorten}
-        markerEnd="url(#board-arrow-head)"
+        markerEnd={`url(#${markerId})`}
       />
     </svg>
   )

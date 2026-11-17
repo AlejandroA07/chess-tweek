@@ -24,16 +24,16 @@ class GuidedCoursePersistenceTest {
             assertThat(courses.progress("owner-id").completedLessons()).isZero();
 
             assertThat(courses.startLesson("owner-id", "read-the-last-move")).isPresent();
-            assertThat(courses.hint("owner-id", "answer-the-check", 1).text())
-                    .isEqualTo("Use the white king on e1.");
-            assertThat(courses.attempt("owner-id", "answer-the-check", "e1e8").outcome())
+            assertThat(courses.hint("owner-id", "intermezzo-after-queen-capture", 1).text())
+                    .isEqualTo("Do not recapture automatically; list every forcing move first.");
+            assertThat(courses.attempt("owner-id", "intermezzo-after-queen-capture", "b2b9").outcome())
                     .isEqualTo(GuidedCourses.AttemptOutcome.INVALID_MOVE);
-            assertThat(courses.attempt("owner-id", "answer-the-check", "e1d1").outcome())
+            assertThat(courses.attempt("owner-id", "intermezzo-after-queen-capture", "b2b1").outcome())
                     .isEqualTo(GuidedCourses.AttemptOutcome.INCORRECT);
-            assertThat(courses.attempt("owner-id", "answer-the-check", "e1e2").outcome())
+            assertThat(courses.attempt("owner-id", "intermezzo-after-queen-capture", "b2g7").outcome())
                     .isEqualTo(GuidedCourses.AttemptOutcome.CORRECT);
-            courses.reveal("owner-id", "remove-the-mate-threat");
-            courses.reveal("owner-id", "save-with-tempo");
+            courses.reveal("owner-id", "counter-before-recapture");
+            courses.reveal("owner-id", "advanced-pawn-race");
             assertThat(courses.completeLesson("owner-id", "read-the-last-move").outcome())
                     .isEqualTo(GuidedCourses.CompletionOutcome.COMPLETED);
 
@@ -50,7 +50,7 @@ class GuidedCoursePersistenceTest {
             assertThat(progress.lessons().get("read-the-last-move").state())
                     .isEqualTo(GuidedCourses.LessonState.COMPLETED);
             assertThat(progress.lessons().get("read-the-last-move").exercises()
-                            .get("answer-the-check"))
+                            .get("intermezzo-after-queen-capture"))
                     .isEqualTo(new GuidedCourses.ExerciseProgress(
                             GuidedCourses.ExerciseState.SOLVED, 2, 1));
             assertThat(progress.recommendedLessonKey()).isEqualTo("generate-candidates");

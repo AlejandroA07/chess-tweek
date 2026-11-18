@@ -28,6 +28,8 @@ The course is independent Chess Tweek material inspired by GM Igor Smirnov's pub
 - The course dashboard shows durable progress, the four-step routine, available lessons, planned modules, offline behavior, and source/independence attribution.
 - Lessons remain readable when disconnected. Exercise actions explain that connection is required.
 - The project chessboard now has a reusable interactive variant supporting click, keyboard, and drag input while leaving the existing read-only review board unchanged.
+- Answered positions remain interactive for local exploration. The board records each explored position, alternates the side to move, and uses the mouse wheel to move backward and forward through that local history without changing saved course progress.
+- User annotations stack, accept only movement shapes available to the piece on the source square while deliberately ignoring blockers, and render knight moves with a right-angle path.
 - Exercise states include retry feedback, two progressive hints, reveal, correct solution, persisted solved/revealed status, and Review answer on return.
 
 ## Intentional limits

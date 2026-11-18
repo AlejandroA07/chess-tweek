@@ -69,6 +69,7 @@ describe('TrainingCourse', () => {
     expect(screen.getByText('Kxe2 removes the checking rook.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'e1, empty' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'e2, white king' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e8, black king' })).toBeEnabled()
     expect(screen.queryByTestId('best-move-arrow')).not.toBeInTheDocument()
     await waitFor(() => expect(requests.filter((request) => request.endsWith('/progress')).length).toBeGreaterThan(1))
   })

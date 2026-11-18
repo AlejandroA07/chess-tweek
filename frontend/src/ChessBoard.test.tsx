@@ -112,6 +112,35 @@ describe('InteractiveChessBoard', () => {
     expect(screen.queryByTestId('best-move-arrow')).not.toBeInTheDocument()
   })
 
+  it('continues with local moves after the answer and scrolls through board history', () => {
+    const onMove = vi.fn()
+    render(
+      <InteractiveChessBoard
+        fen={fen}
+        orientation="white"
+        label="Training position"
+        disabled={false}
+        solution="e1e2"
+        onMove={onMove}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'e8, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'd8, empty' }))
+    expect(screen.getByRole('button', { name: 'd8, black king' })).toBeInTheDocument()
+    expect(onMove).not.toHaveBeenCalled()
+
+    const board = screen.getByRole('group', { name: 'Training position' }).firstElementChild!
+    fireEvent.wheel(board, { deltaY: -100 })
+    expect(screen.getByRole('button', { name: 'e8, black king' })).toBeInTheDocument()
+    fireEvent.wheel(board, { deltaY: -100 })
+    expect(screen.getByRole('button', { name: 'e1, white king' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e2, black rook' })).toBeInTheDocument()
+    fireEvent.wheel(board, { deltaY: 100 })
+    fireEvent.wheel(board, { deltaY: 100 })
+    expect(screen.getByRole('button', { name: 'd8, black king' })).toBeInTheDocument()
+  })
+
   it('moves optimistically and restores a rejected attempt', async () => {
     let finish: ((accepted: boolean) => void) | undefined
     const onMove = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve }))
@@ -160,6 +189,50 @@ describe('InteractiveChessBoard', () => {
     expect(screen.getByTestId('user-drawn-arrow').querySelectorAll('line')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'e1, white king' }))
     expect(screen.queryByTestId('user-drawn-arrow')).not.toBeInTheDocument()
+  })
+
+  it('accepts only source-piece movement geometry and bends knight arrows', () => {
+    const knightFen = '4k3/8/8/8/8/8/8/1N2K3 w - - 0 1'
+    render(
+      <InteractiveChessBoard
+        fen={knightFen}
+        orientation="white"
+        label="Knight annotations"
+        disabled={false}
+        solution={null}
+        onMove={vi.fn()}
+      />,
+    )
+
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'b1, white knight' }), { button: 2 })
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'c4, empty' }), { button: 2 })
+    expect(screen.queryByTestId('user-drawn-arrow')).not.toBeInTheDocument()
+    expect(screen.getByText('That piece cannot move that way')).toBeInTheDocument()
+
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'b1, white knight' }), { button: 2 })
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'c3, empty' }), { button: 2 })
+    const overlay = screen.getByTestId('user-drawn-arrow')
+    expect(overlay.querySelectorAll('polyline')).toHaveLength(1)
+    expect(overlay.querySelectorAll('line')).toHaveLength(0)
+    expect(overlay.querySelector('polyline')?.getAttribute('points')?.trim().split(/\s+/))
+      .toHaveLength(3)
+  })
+
+  it('allows straight and diagonal annotations through occupied squares', () => {
+    render(
+      <InteractiveChessBoard
+        fen="4k3/8/8/8/8/8/P7/R3K3 w Q - 0 1"
+        orientation="white"
+        label="Blocked annotation"
+        disabled={false}
+        solution={null}
+        onMove={vi.fn()}
+      />,
+    )
+
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'a1, white rook' }), { button: 2 })
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'a8, empty' }), { button: 2 })
+    expect(screen.getByTestId('user-drawn-arrow').querySelectorAll('line')).toHaveLength(1)
   })
 
   it('offers a keyboard-operable arrow mode without submitting a move', () => {

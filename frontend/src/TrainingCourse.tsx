@@ -387,7 +387,7 @@ function ExerciseCard({
   const [explanation, setExplanation] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const savedResolved = savedState === 'solved' || savedState === 'revealed'
-  const resolved = savedResolved || solution !== null
+  const resolved = solution !== null
 
   const move = async (uci: string) => {
     setAction('move')

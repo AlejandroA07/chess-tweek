@@ -157,6 +157,8 @@ The owner chose to start the GM Igor investigation as a standalone, browseable c
 
 The owner's first live review on 2026-11-17 replaced the placeholder difficulty decision for this course. The goal is progression toward 2000, so every lesson now ladders from a Foundation exercise selected around Lichess 1500–1700, through Development at 1750–1950, to Stretch at 2000–2200. Those are source-puzzle curation bands, not a claim that Lichess puzzle ratings equal chess.com rapid ratings. The separate Stage 9 pattern-library range remains its own decision.
 
+The owner's follow-up decision on 2026-11-18 makes the Puzzle Library global to `training`, not private to this method. The complete current Lichess theme catalog appears by its recognizable Lichess names; opening families and variations remain a separate browsing dimension. A normal named collection targets 50 curated Puzzles, may use 20 when the source is scarce, and may grow to 100 for high-value, high-volume material. The Grandmaster Thinking Method and every future method reference exact shared Puzzle IDs while keeping their own teaching text and order. Named training and random mixed practice are separate entry points. See `06-puzzle-library-taxonomy-and-sizing.md` and ADR-009.
+
 ### How En Croissant does openings (the model we copy, without copying its code)
 
 En Croissant is GPL-3.0 licensed, so we reimplement its ideas in our own stack and never copy its code.

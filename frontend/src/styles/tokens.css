@@ -15,7 +15,8 @@
   --color-error: #ba1a1a;
   --color-board-light: #f3dcc6;
   --color-board-dark: #b98563;
-  --color-board-marked: rgb(108 47 0 / 30%);
+  --color-board-last-move-from: rgb(108 47 0 / 18%);
+  --color-board-last-move-to: rgb(108 47 0 / 32%);
   --color-board-arrow: rgb(62 76 49 / 85%);
   --color-eval-white: #f3dcc6;
   --color-eval-black: #54433a;

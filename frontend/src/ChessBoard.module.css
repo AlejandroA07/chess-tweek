@@ -59,12 +59,12 @@
   background: var(--color-board-dark);
 }
 
-.square[data-marked='true'] {
-  box-shadow: inset 0 0 0 100cqh var(--color-board-marked);
+.square[data-last-move='from'] {
+  box-shadow: inset 0 0 0 100cqh var(--color-board-last-move-from);
 }
 
-.moveSquare[data-marked='true'] {
-  box-shadow: inset 0 0 0 100cqh var(--color-board-marked);
+.square[data-last-move='to'] {
+  box-shadow: inset 0 0 0 100cqh var(--color-board-last-move-to);
 }
 
 .moveSquare[data-selected='true'] {

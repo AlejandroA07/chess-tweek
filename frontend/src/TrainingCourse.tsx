@@ -244,6 +244,9 @@ function LessonView({
 }) {
   const [completionError, setCompletionError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
+
+  useEffect(() => setActiveExerciseIndex(0), [lesson.key])
 
   useEffect(() => {
     if (!connected) return
@@ -270,6 +273,8 @@ function LessonView({
       setCompleting(false)
     }
   }
+
+  const activeExercise = lesson.exercises[activeExerciseIndex]
 
   return (
     <article className={styles.lessonPage}>
@@ -309,17 +314,36 @@ function LessonView({
           </div>
           <span>{lesson.exercises.length} positions</span>
         </div>
-        {lesson.exercises.map((exercise, index) => (
-          <ExerciseCard
-            key={exercise.key}
-            exercise={exercise}
-            number={index + 1}
-            connected={connected}
-            savedState={progress?.lessons[lesson.key]?.exercises[exercise.key]?.state ?? 'not_started'}
-            onResolved={onRefreshProgress}
-            onSessionFailure={onSessionFailure}
-          />
-        ))}
+        <ExerciseCard
+          key={activeExercise.key}
+          exercise={activeExercise}
+          number={activeExerciseIndex + 1}
+          connected={connected}
+          savedState={progress?.lessons[lesson.key]?.exercises[activeExercise.key]?.state ?? 'not_started'}
+          onResolved={onRefreshProgress}
+          onSessionFailure={onSessionFailure}
+        />
+        <nav className={styles.exerciseNavigation} aria-label="Lesson positions">
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={activeExerciseIndex === 0}
+            onClick={() => setActiveExerciseIndex((current) => current - 1)}
+          >
+            Previous position
+          </button>
+          <span aria-live="polite">
+            Position {activeExerciseIndex + 1} of {lesson.exercises.length}
+          </span>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={activeExerciseIndex === lesson.exercises.length - 1}
+            onClick={() => setActiveExerciseIndex((current) => current + 1)}
+          >
+            Next position
+          </button>
+        </nav>
       </section>
 
       <footer className={styles.lessonFooter}>

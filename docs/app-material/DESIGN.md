@@ -61,8 +61,9 @@ Chessboard and evaluation tokens (added 2026-11-14 for game review):
 |---|---:|---|
 | `--color-board-light` | `#F3DCC6` | Light board squares (maple). |
 | `--color-board-dark` | `#B98563` | Dark board squares (mahogany). |
-| `--color-board-marked` | `rgb(108 47 0 / 30%)` | Overlay for the from and to squares of the shown move. |
-| `--color-board-arrow` | `rgb(62 76 49 / 85%)` | The single engine best-move arrow and the engine-line banner rule. |
+| `--color-board-last-move-from` | `rgb(108 47 0 / 18%)` | Quiet overlay for the square a shown move left. |
+| `--color-board-last-move-to` | `rgb(108 47 0 / 32%)` | Stronger overlay for the destination of the shown move. |
+| `--color-board-arrow` | `rgb(62 76 49 / 85%)` | Engine best-move and user-annotation arrows, plus the engine-line banner rule. |
 | `--color-eval-white` | `#F3DCC6` | White's share of the evaluation bar. |
 | `--color-eval-black` | `#54433A` | Black's share of the evaluation bar. |
 
@@ -207,7 +208,7 @@ The selected navigation item uses a primary-brown left rule, solid or subtle war
 
 - The board is the primary visual element in review and puzzle views.
 - Board orientation always has a visible indicator and a labeled Flip Board control.
-- Highlight the selected or last move and at most one primary engine line by default.
+- Highlight both squares of the selected or last move, with the destination stronger than the origin. Show at most one primary engine line by default. User-created annotation arrows may stack until the next normal left interaction or move clears them.
 - Move notation, clocks, and evaluations use the technical typeface and tabular numbers.
 - Board controls are keyboard operable and do not rely on drag-only interaction.
 

@@ -450,7 +450,7 @@ function ExerciseCard({
           fen={exercise.fen}
           orientation={exercise.orientation}
           label={`Position ${number}: ${exercise.prompt}`}
-          disabled={!connected || action !== 'idle' || resolved}
+          disabled={!connected || action !== 'idle'}
           solution={solution}
           onMove={move}
         />

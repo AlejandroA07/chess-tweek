@@ -1,9 +1,23 @@
-import { useEffect, useId, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  useEffect,
+  useId,
+  useState,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type WheelEvent as ReactWheelEvent,
+} from 'react'
 import styles from './ChessBoard.module.css'
 
 export type BoardOrientation = 'white' | 'black'
 
 type Piece = { color: 'white' | 'black'; glyph: string; kind: string }
+type Side = Piece['color']
+type Placement = (Piece | null)[][]
+type BoardStep = { placement: Placement; side: Side; lastMove: string | null }
+type Point = { x: number; y: number }
+type ArrowGeometry =
+  | { kind: 'knight'; move: string; points: Point[] }
+  | { kind: 'straight'; move: string; start: Point; end: Point }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 // Filled glyphs for both colors; CSS colors them. U+FE0E keeps macOS from drawing emoji.
@@ -100,7 +114,7 @@ export function ChessBoard({
             )
           }),
         )}
-        {arrow !== null && <ArrowOverlay moves={[arrow]} orientation={orientation} />}
+        {arrow !== null && <ArrowOverlay moves={[arrow]} orientation={orientation} placement={placement} />}
       </div>
     </div>
   )
@@ -125,56 +139,85 @@ export function InteractiveChessBoard({
   solution: string | null
   onMove: (move: string) => void | boolean | Promise<void | boolean>
 }) {
-  const [placement, setPlacement] = useState(() => parsePlacement(fen))
+  const [history, setHistory] = useState<BoardStep[]>(() => createHistory(fen, solution))
+  const [historyIndex, setHistoryIndex] = useState(() => Math.max(0, createHistory(fen, solution).length - 1))
   const [selected, setSelected] = useState<string | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
   const [arrowStart, setArrowStart] = useState<string | null>(null)
   const [userArrows, setUserArrows] = useState<string[]>([])
   const [annotationMode, setAnnotationMode] = useState(false)
-  const [lastMove, setLastMove] = useState<string | null>(solution)
+  const [annotationMessage, setAnnotationMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    const initial = parsePlacement(fen)
-    setPlacement(solution === null || initial === null ? initial : applyMove(initial, solution))
+    const nextHistory = createHistory(fen, solution)
+    setHistory(nextHistory)
+    setHistoryIndex(Math.max(0, nextHistory.length - 1))
     setSelected(null)
     setDragged(null)
     setArrowStart(null)
     setUserArrows([])
     setAnnotationMode(false)
-    setLastMove(solution)
+    setAnnotationMessage(null)
   }, [fen, solution])
 
-  if (placement === null) {
+  const step = history[historyIndex]
+  if (step === undefined) {
     return <p className={styles.unreadable} role="alert">This position could not be drawn.</p>
   }
-  const side = fen.split(' ')[1] === 'b' ? 'black' : 'white'
+  const { placement, side, lastMove } = step
   const ranks = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
   const files = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
 
   const submit = async (move: string) => {
-    const previous = placement
-    const previousLastMove = lastMove
+    const previousHistory = history
+    const previousIndex = historyIndex
+    const nextHistory = [
+      ...history.slice(0, historyIndex + 1),
+      { placement: applyMove(placement, move), side: oppositeSide(side), lastMove: move },
+    ]
     setUserArrows([])
-    setPlacement(applyMove(previous, move))
-    setLastMove(move)
+    setAnnotationMessage(null)
+    setHistory(nextHistory)
+    setHistoryIndex(nextHistory.length - 1)
+    if (solution !== null) return
     const accepted = await onMove(move)
     if (accepted === false) {
-      setPlacement(previous)
-      setLastMove(previousLastMove)
+      setHistory(previousHistory)
+      setHistoryIndex(previousIndex)
     }
   }
 
   const addArrow = (from: string, to: string) => {
     if (from === to) return
+    const source = pieceForSquare(placement, from)
+    if (source === null) {
+      setAnnotationMessage('Start from a piece')
+      return
+    }
+    if (!canPieceTrace(source, from, to)) {
+      setAnnotationMessage('That piece cannot move that way')
+      return
+    }
     const move = `${from}${to}`
     setUserArrows((current) => current.includes(move) ? current : [...current, move])
+    setAnnotationMessage(null)
+  }
+
+  const beginArrow = (square: string) => {
+    if (pieceForSquare(placement, square) === null) {
+      setArrowStart(null)
+      setAnnotationMessage('Start from a piece')
+      return
+    }
+    setArrowStart(square)
+    setAnnotationMessage(null)
   }
 
   const choose = (square: string, piece: Piece | null) => {
     if (disabled) return
     if (annotationMode) {
       if (arrowStart === null) {
-        setArrowStart(square)
+        beginArrow(square)
       } else {
         addArrow(arrowStart, square)
         setArrowStart(null)
@@ -182,6 +225,7 @@ export function InteractiveChessBoard({
       return
     }
     setUserArrows([])
+    setAnnotationMessage(null)
     if (selected === null) {
       if (piece?.color === side) setSelected(square)
       return
@@ -218,7 +262,7 @@ export function InteractiveChessBoard({
     event.preventDefault()
     setSelected(null)
     setAnnotationMode(false)
-    setArrowStart(square)
+    beginArrow(square)
   }
 
   const finishArrow = (event: ReactMouseEvent, square: string) => {
@@ -232,11 +276,30 @@ export function InteractiveChessBoard({
     setAnnotationMode((active) => !active)
     setSelected(null)
     setArrowStart(null)
+    setAnnotationMessage(null)
+  }
+
+  const scrollHistory = (event: ReactWheelEvent<HTMLDivElement>) => {
+    if (event.deltaY === 0) return
+    const nextIndex = historyIndex + (event.deltaY > 0 ? 1 : -1)
+    if (nextIndex < 0 || nextIndex >= history.length) return
+    event.preventDefault()
+    setHistoryIndex(nextIndex)
+    setSelected(null)
+    setDragged(null)
+    setArrowStart(null)
+    setUserArrows([])
+    setAnnotationMode(false)
+    setAnnotationMessage(null)
   }
 
   return (
     <div className={styles.frame} role="group" aria-label={label}>
-      <div className={styles.board} onContextMenu={(event) => event.preventDefault()}>
+      <div
+        className={styles.board}
+        onContextMenu={(event) => event.preventDefault()}
+        onWheel={scrollHistory}
+      >
         {ranks.map((rankIndex, row) =>
           files.map((fileIndex, column) => {
             const square = squareName(rankIndex, fileIndex)
@@ -284,6 +347,7 @@ export function InteractiveChessBoard({
           <ArrowOverlay
             moves={userArrows}
             orientation={orientation}
+            placement={placement}
             testId="user-drawn-arrow"
           />
         )}
@@ -299,9 +363,9 @@ export function InteractiveChessBoard({
           Draw arrow
         </button>
         <span className={styles.annotationStatus} aria-live="polite">
-          {annotationMode
+          {annotationMessage ?? (annotationMode
             ? arrowStart === null ? 'Choose the start square' : 'Choose the end square'
-            : 'Right-drag shortcut'}
+            : `Right-drag shortcut · History ${historyIndex + 1} of ${history.length}`)}
         </span>
       </div>
     </div>
@@ -312,6 +376,67 @@ function pieceForSquare(placement: (Piece | null)[][], square: string) {
   const file = FILES.indexOf(square[0])
   const rank = 8 - Number(square[1])
   return placement[rank]?.[file] ?? null
+}
+
+function sideFromFen(fen: string): Side {
+  return fen.split(' ')[1] === 'b' ? 'black' : 'white'
+}
+
+function oppositeSide(side: Side): Side {
+  return side === 'white' ? 'black' : 'white'
+}
+
+function createHistory(fen: string, solution: string | null): BoardStep[] {
+  const initial = parsePlacement(fen)
+  if (initial === null) return []
+  const side = sideFromFen(fen)
+  const history: BoardStep[] = [{ placement: initial, side, lastMove: null }]
+  if (solution !== null) {
+    history.push({
+      placement: applyMove(initial, solution),
+      side: oppositeSide(side),
+      lastMove: solution,
+    })
+  }
+  return history
+}
+
+function squareVector(from: string, to: string) {
+  return {
+    file: FILES.indexOf(to[0]) - FILES.indexOf(from[0]),
+    rank: Number(to[1]) - Number(from[1]),
+  }
+}
+
+function isKnightVector(file: number, rank: number) {
+  const absoluteFile = Math.abs(file)
+  const absoluteRank = Math.abs(rank)
+  return (absoluteFile === 1 && absoluteRank === 2) || (absoluteFile === 2 && absoluteRank === 1)
+}
+
+function canPieceTrace(piece: Piece, from: string, to: string) {
+  const { file, rank } = squareVector(from, to)
+  const absoluteFile = Math.abs(file)
+  const absoluteRank = Math.abs(rank)
+  if (absoluteFile === 0 && absoluteRank === 0) return false
+  if (piece.kind === 'n') return isKnightVector(file, rank)
+  if (piece.kind === 'b') return absoluteFile === absoluteRank
+  if (piece.kind === 'r') return file === 0 || rank === 0
+  if (piece.kind === 'q') return file === 0 || rank === 0 || absoluteFile === absoluteRank
+  if (piece.kind === 'k') {
+    const castlingVector = from[0] === 'e'
+      && (from[1] === '1' || from[1] === '8')
+      && rank === 0
+      && absoluteFile === 2
+    return castlingVector || (absoluteFile <= 1 && absoluteRank <= 1)
+  }
+  if (piece.kind === 'p') {
+    const direction = piece.color === 'white' ? 1 : -1
+    const startRank = piece.color === 'white' ? '2' : '7'
+    if (file === 0) return rank === direction || (from[1] === startRank && rank === direction * 2)
+    return absoluteFile === 1 && rank === direction
+  }
+  return false
 }
 
 function applyMove(placement: (Piece | null)[][], move: string) {
@@ -359,25 +484,55 @@ function moveSquareRole(move: string | null, square: string): 'from' | 'to' | 'n
 function ArrowOverlay({
   moves,
   orientation,
+  placement,
   testId = 'best-move-arrow',
 }: {
   moves: string[]
   orientation: BoardOrientation
+  placement: Placement
   testId?: string
 }) {
   const reactId = useId()
   const markerId = `board-arrow-head-${reactId.replace(/:/g, '')}`
-  const arrows = moves.flatMap((move) => {
+  const arrows = moves.reduce<ArrowGeometry[]>((current, move) => {
     const from = screenPosition(move.slice(0, 2), orientation)
     const to = screenPosition(move.slice(2, 4), orientation)
-    const dx = to.x - from.x
-    const dy = to.y - from.y
+    const start = { x: from.x + 0.5, y: from.y + 0.5 }
+    const destination = { x: to.x + 0.5, y: to.y + 0.5 }
+    const dx = destination.x - start.x
+    const dy = destination.y - start.y
     const length = Math.hypot(dx, dy)
-    if (length === 0) return []
+    if (length === 0) return current
+    const source = pieceForSquare(placement, move.slice(0, 2))
+    if (source?.kind === 'n' && isKnightVector(dx, dy)) {
+      const corner = Math.abs(dx) > Math.abs(dy)
+        ? { x: destination.x, y: start.y }
+        : { x: start.x, y: destination.y }
+      const finalDx = destination.x - corner.x
+      const finalDy = destination.y - corner.y
+      const finalLength = Math.hypot(finalDx, finalDy)
+      const shorten = 0.3 / finalLength
+      current.push({
+        kind: 'knight',
+        move,
+        points: [
+          start,
+          corner,
+          { x: destination.x - finalDx * shorten, y: destination.y - finalDy * shorten },
+        ],
+      })
+      return current
+    }
     // Stop short of the destination centre so the head sits inside the square.
     const shorten = 0.3 / length
-    return [{ move, from, to, dx, dy, shorten }]
-  })
+    current.push({
+      kind: 'straight',
+      move,
+      start,
+      end: { x: destination.x - dx * shorten, y: destination.y - dy * shorten },
+    })
+    return current
+  }, [])
   if (arrows.length === 0) return null
   return (
     <svg className={styles.arrow} viewBox="0 0 8 8" data-testid={testId}>
@@ -386,16 +541,24 @@ function ArrowOverlay({
           <path d="M0 0 4 2 0 4z" />
         </marker>
       </defs>
-      {arrows.map(({ move, from, to, dx, dy, shorten }) => (
-        <line
-          key={move}
-          x1={from.x + 0.5}
-          y1={from.y + 0.5}
-          x2={to.x + 0.5 - dx * shorten}
-          y2={to.y + 0.5 - dy * shorten}
-          markerEnd={`url(#${markerId})`}
-        />
-      ))}
+      {arrows.map((arrow) => arrow.kind === 'knight'
+        ? (
+            <polyline
+              key={arrow.move}
+              points={arrow.points.map(({ x, y }) => `${x},${y}`).join(' ')}
+              markerEnd={`url(#${markerId})`}
+            />
+          )
+        : (
+            <line
+              key={arrow.move}
+              x1={arrow.start.x}
+              y1={arrow.start.y}
+              x2={arrow.end.x}
+              y2={arrow.end.y}
+              markerEnd={`url(#${markerId})`}
+            />
+          ))}
     </svg>
   )
 }

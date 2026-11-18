@@ -62,8 +62,10 @@ class ArchitectureTest {
                     "com.zaxxer.hikari..");
 
     @ArchTest
-    static final ArchRule only_the_engine_adapter_starts_processes = noClasses()
-            .that().resideOutsideOfPackage("..gamereview.internal.engine..")
+    static final ArchRule only_approved_local_adapters_start_processes = noClasses()
+            .that().resideOutsideOfPackages(
+                    "..gamereview.internal.engine..",
+                    "..training.internal.library.process..")
             .should().dependOnClassesThat().haveFullyQualifiedName("java.lang.ProcessBuilder")
             .orShould().dependOnClassesThat().haveFullyQualifiedName("java.lang.Process")
             .orShould().dependOnClassesThat().haveFullyQualifiedName("java.lang.Runtime");

@@ -40,3 +40,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-16-chesscom-retrieval.md` | Records bounded chess.com retrieval, username persistence, parsing, and catalog storage. | dated report |
 | `2026-11-16-chesscom-interface.md` | Records chess.com controls on Admin, Games, and Dashboard. | dated report |
 | `2026-11-16-guided-training-method.md` | Records the standalone Grandmaster Thinking Method course, protected progress boundary, original content, and interface. | dated report |
+| `2026-11-18-puzzle-library-foundation.md` | Records the shared Puzzle Library schema, bounded local importer, stable course references, and security limits. | dated report |

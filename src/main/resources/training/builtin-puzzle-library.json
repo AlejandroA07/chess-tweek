@@ -1,0 +1,559 @@
+{
+  "snapshot": {
+    "provider": "lichess-puzzle-database",
+    "snapshotDate": "2026-11-01",
+    "downloadChecksum": null,
+    "importerVersion": "guided-course-v2",
+    "importedAt": "2026-11-18T00:00:00Z"
+  },
+  "puzzles": [
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "lDWH9",
+      "sourceFen": "5rk1/5pb1/B1p4p/2p5/8/5RqP/PQ4P1/R5K1 b - - 0 26",
+      "sourceMoves": [
+        "g3f3",
+        "b2g7",
+        "g8g7",
+        "g2f3"
+      ],
+      "setupMove": "g3f3",
+      "positionFen": "5rk1/5pb1/B1p4p/2p5/8/5q1P/PQ4P1/R5K1 w - - 0 27",
+      "solutionMoves": [
+        "b2g7",
+        "g8g7",
+        "g2f3"
+      ],
+      "gameUrl": "https://lichess.org/game/OHeXKNku/black#52",
+      "license": "CC0-1.0",
+      "rating": 1536,
+      "ratingDeviation": 74,
+      "popularity": 100,
+      "playCount": 3750,
+      "themes": [
+        "advantage",
+        "endgame",
+        "intermezzo",
+        "short"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "xrHJJ",
+      "sourceFen": "r2q1rk1/2pn1pp1/3pb2N/p3pN2/1p2P3/1P1PP2P/1PP3P1/R2Q1RK1 b - - 0 17",
+      "sourceMoves": [
+        "g7h6",
+        "d1g4",
+        "d8g5",
+        "f5h6",
+        "g8h7",
+        "g4g5"
+      ],
+      "setupMove": "g7h6",
+      "positionFen": "r2q1rk1/2pn1p2/3pb2p/p3pN2/1p2P3/1P1PP2P/1PP3P1/R2Q1RK1 w - - 0 18",
+      "solutionMoves": [
+        "d1g4",
+        "d8g5",
+        "f5h6",
+        "g8h7",
+        "g4g5"
+      ],
+      "gameUrl": "https://lichess.org/game/BmCP9xZ1/black#34",
+      "license": "CC0-1.0",
+      "rating": 1754,
+      "ratingDeviation": 74,
+      "popularity": 100,
+      "playCount": 2747,
+      "themes": [
+        "crushing",
+        "intermezzo",
+        "kingsideAttack",
+        "long",
+        "middlegame",
+        "pin"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "fReXg",
+      "sourceFen": "8/8/1p6/3N4/6kp/P1P3p1/6K1/8 w - - 9 74",
+      "sourceMoves": [
+        "d5b6",
+        "h4h3",
+        "g2g1",
+        "g4f3",
+        "b6d5",
+        "h3h2",
+        "g1h1",
+        "g3g2",
+        "h1h2",
+        "f3f2"
+      ],
+      "setupMove": "d5b6",
+      "positionFen": "8/8/1N6/8/6kp/P1P3p1/6K1/8 b - - 0 74",
+      "solutionMoves": [
+        "h4h3",
+        "g2g1",
+        "g4f3",
+        "b6d5",
+        "h3h2",
+        "g1h1",
+        "g3g2",
+        "h1h2",
+        "f3f2"
+      ],
+      "gameUrl": "https://lichess.org/game/dRywXuXw#147",
+      "license": "CC0-1.0",
+      "rating": 2025,
+      "ratingDeviation": 75,
+      "popularity": 100,
+      "playCount": 1366,
+      "themes": [
+        "advancedPawn",
+        "crushing",
+        "defensiveMove",
+        "endgame",
+        "exposedKing",
+        "knightEndgame",
+        "veryLong"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "HIEi8",
+      "sourceFen": "8/1kpK4/3p4/4p3/1PP5/3P4/8/8 w - - 1 48",
+      "sourceMoves": [
+        "c4c5",
+        "d6d5",
+        "d7e6",
+        "e5e4"
+      ],
+      "setupMove": "c4c5",
+      "positionFen": "8/1kpK4/3p4/2P1p3/1P6/3P4/8/8 b - - 0 48",
+      "solutionMoves": [
+        "d6d5",
+        "d7e6",
+        "e5e4"
+      ],
+      "gameUrl": "https://lichess.org/game/XvcTl6cY#95",
+      "license": "CC0-1.0",
+      "rating": 1681,
+      "ratingDeviation": 75,
+      "popularity": 100,
+      "playCount": 4486,
+      "themes": [
+        "crushing",
+        "endgame",
+        "pawnEndgame",
+        "quietMove",
+        "short"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "fDwSk",
+      "sourceFen": "3r1r2/pp2k1p1/3b4/3Q4/4NP1q/8/PP2n1PP/1BR2R1K w - - 3 25",
+      "sourceMoves": [
+        "c1e1",
+        "h4h2",
+        "h1h2",
+        "f8h8",
+        "d5h5",
+        "h8h5"
+      ],
+      "setupMove": "c1e1",
+      "positionFen": "3r1r2/pp2k1p1/3b4/3Q4/4NP1q/8/PP2n1PP/1B2RR1K b - - 4 25",
+      "solutionMoves": [
+        "h4h2",
+        "h1h2",
+        "f8h8",
+        "d5h5",
+        "h8h5"
+      ],
+      "gameUrl": "https://lichess.org/game/iPWn7JFf#49",
+      "license": "CC0-1.0",
+      "rating": 1836,
+      "ratingDeviation": 79,
+      "popularity": 100,
+      "playCount": 5739,
+      "themes": [
+        "anastasiaMate",
+        "attraction",
+        "kingsideAttack",
+        "long",
+        "mate",
+        "mateIn3",
+        "middlegame",
+        "sacrifice"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "iR2Lv",
+      "sourceFen": "rnbq1r2/pp1pb1pk/2n1p3/2p1P1P1/2P5/PP6/1B1P1PP1/RN1QK2R b KQ - 0 12",
+      "sourceMoves": [
+        "h7g8",
+        "h1h8",
+        "g8h8",
+        "d1h5",
+        "h8g8",
+        "g5g6",
+        "f8f5",
+        "h5h7",
+        "g8f8",
+        "h7h8"
+      ],
+      "setupMove": "h7g8",
+      "positionFen": "rnbq1rk1/pp1pb1p1/2n1p3/2p1P1P1/2P5/PP6/1B1P1PP1/RN1QK2R w KQ - 1 13",
+      "solutionMoves": [
+        "h1h8",
+        "g8h8",
+        "d1h5",
+        "h8g8",
+        "g5g6",
+        "f8f5",
+        "h5h7",
+        "g8f8",
+        "h7h8"
+      ],
+      "gameUrl": "https://lichess.org/game/UEKUkLBV/black#24",
+      "license": "CC0-1.0",
+      "rating": 2119,
+      "ratingDeviation": 79,
+      "popularity": 100,
+      "playCount": 1776,
+      "themes": [
+        "attraction",
+        "kingsideAttack",
+        "mate",
+        "mateIn5",
+        "opening",
+        "sacrifice",
+        "veryLong"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "t2mmB",
+      "sourceFen": "5r1k/2p3p1/4p2p/PPb5/8/r3PB2/4KP1P/1R5R w - - 2 31",
+      "sourceMoves": [
+        "a5a6",
+        "a3a2",
+        "e2d3",
+        "f8f3"
+      ],
+      "setupMove": "a5a6",
+      "positionFen": "5r1k/2p3p1/P3p2p/1Pb5/8/r3PB2/4KP1P/1R5R b - - 0 31",
+      "solutionMoves": [
+        "a3a2",
+        "e2d3",
+        "f8f3"
+      ],
+      "gameUrl": "https://lichess.org/game/YsdUCNCF#61",
+      "license": "CC0-1.0",
+      "rating": 1503,
+      "ratingDeviation": 75,
+      "popularity": 100,
+      "playCount": 4857,
+      "themes": [
+        "advantage",
+        "deflection",
+        "endgame",
+        "short"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "kZxNy",
+      "sourceFen": "3r2k1/4qp2/6p1/5b2/8/3p1N2/1Q3PPP/R5K1 w - - 0 39",
+      "sourceMoves": [
+        "a1e1",
+        "e7e1",
+        "f3e1",
+        "d3d2",
+        "b2d2",
+        "d8d2"
+      ],
+      "setupMove": "a1e1",
+      "positionFen": "3r2k1/4qp2/6p1/5b2/8/3p1N2/1Q3PPP/4R1K1 b - - 1 39",
+      "solutionMoves": [
+        "e7e1",
+        "f3e1",
+        "d3d2",
+        "b2d2",
+        "d8d2"
+      ],
+      "gameUrl": "https://lichess.org/game/vBKLC37G#77",
+      "license": "CC0-1.0",
+      "rating": 1814,
+      "ratingDeviation": 75,
+      "popularity": 100,
+      "playCount": 2621,
+      "themes": [
+        "advancedPawn",
+        "advantage",
+        "endgame",
+        "long",
+        "sacrifice"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "8d5je",
+      "sourceFen": "1r6/8/R3R2p/6p1/5k2/1Pr4P/P5P1/7K w - - 0 40",
+      "sourceMoves": [
+        "e6h6",
+        "f4g3",
+        "a6c6",
+        "b8c8",
+        "c6c8",
+        "c3c8",
+        "h6f6",
+        "c8c1",
+        "f6f1",
+        "c1f1"
+      ],
+      "setupMove": "e6h6",
+      "positionFen": "1r6/8/R6R/6p1/5k2/1Pr4P/P5P1/7K b - - 0 40",
+      "solutionMoves": [
+        "f4g3",
+        "a6c6",
+        "b8c8",
+        "c6c8",
+        "c3c8",
+        "h6f6",
+        "c8c1",
+        "f6f1",
+        "c1f1"
+      ],
+      "gameUrl": "https://lichess.org/game/PDZU6qCk#79",
+      "license": "CC0-1.0",
+      "rating": 2013,
+      "ratingDeviation": 75,
+      "popularity": 100,
+      "playCount": 1488,
+      "themes": [
+        "endgame",
+        "mate",
+        "mateIn5",
+        "rookEndgame",
+        "veryLong",
+        "xRayAttack"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "ZThvJ",
+      "sourceFen": "2q1kb1r/Qp3ppp/2r1p3/3n4/8/2P2N2/PP3PPP/R1B1K2R w KQk - 1 14",
+      "sourceMoves": [
+        "f3d4",
+        "c6a6",
+        "a7a6",
+        "b7a6"
+      ],
+      "setupMove": "f3d4",
+      "positionFen": "2q1kb1r/Qp3ppp/2r1p3/3n4/3N4/2P5/PP3PPP/R1B1K2R b KQk - 2 14",
+      "solutionMoves": [
+        "c6a6",
+        "a7a6",
+        "b7a6"
+      ],
+      "gameUrl": "https://lichess.org/game/KeGwjDNE#27",
+      "license": "CC0-1.0",
+      "rating": 1658,
+      "ratingDeviation": 76,
+      "popularity": 100,
+      "playCount": 5497,
+      "themes": [
+        "advantage",
+        "master",
+        "middlegame",
+        "short",
+        "trappedPiece"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "6FXMr",
+      "sourceFen": "3N3k/7p/1P4p1/4b3/8/4P2P/5KP1/2n5 b - - 2 29",
+      "sourceMoves": [
+        "c1d3",
+        "f2e2",
+        "d3c5",
+        "d8f7",
+        "h8g7",
+        "f7e5"
+      ],
+      "setupMove": "c1d3",
+      "positionFen": "3N3k/7p/1P4p1/4b3/8/3nP2P/5KP1/8 w - - 3 30",
+      "solutionMoves": [
+        "f2e2",
+        "d3c5",
+        "d8f7",
+        "h8g7",
+        "f7e5"
+      ],
+      "gameUrl": "https://lichess.org/game/wMaYrCF6/black#58",
+      "license": "CC0-1.0",
+      "rating": 1774,
+      "ratingDeviation": 76,
+      "popularity": 100,
+      "playCount": 1985,
+      "themes": [
+        "advantage",
+        "defensiveMove",
+        "endgame",
+        "fork",
+        "long"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    },
+    {
+      "provider": "lichess-puzzle-database",
+      "externalId": "SAWsQ",
+      "sourceFen": "7k/5Qp1/p2P3p/1p6/8/4KPPb/PPq5/5R2 b - - 4 38",
+      "sourceMoves": [
+        "h3f1",
+        "f7e8",
+        "h8h7",
+        "e8e4",
+        "c2e4",
+        "e3e4",
+        "f1h3",
+        "g3g4"
+      ],
+      "setupMove": "h3f1",
+      "positionFen": "7k/5Qp1/p2P3p/1p6/8/4KPP1/PPq5/5b2 w - - 0 39",
+      "solutionMoves": [
+        "f7e8",
+        "h8h7",
+        "e8e4",
+        "c2e4",
+        "e3e4",
+        "f1h3",
+        "g3g4"
+      ],
+      "gameUrl": "https://lichess.org/game/S5ZIC0Lb/black#76",
+      "license": "CC0-1.0",
+      "rating": 2112,
+      "ratingDeviation": 75,
+      "popularity": 100,
+      "playCount": 1220,
+      "themes": [
+        "crushing",
+        "defensiveMove",
+        "endgame",
+        "veryLong"
+      ],
+      "openingTags": [],
+      "dailyDate": null
+    }
+  ],
+  "exerciseReferences": [
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "intermezzo-after-queen-capture",
+      "provider": "lichess-puzzle-database",
+      "externalId": "lDWH9"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "counter-before-recapture",
+      "provider": "lichess-puzzle-database",
+      "externalId": "xrHJJ"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "advanced-pawn-race",
+      "provider": "lichess-puzzle-database",
+      "externalId": "fReXg"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "quiet-pawn-break",
+      "provider": "lichess-puzzle-database",
+      "externalId": "HIEi8"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "anastasia-sacrifice",
+      "provider": "lichess-puzzle-database",
+      "externalId": "fDwSk"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "forced-kingside-mate",
+      "provider": "lichess-puzzle-database",
+      "externalId": "iR2Lv"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "deflect-then-win",
+      "provider": "lichess-puzzle-database",
+      "externalId": "t2mmB"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "queen-sacrifice-passer",
+      "provider": "lichess-puzzle-database",
+      "externalId": "kZxNy"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "rook-net-calculation",
+      "provider": "lichess-puzzle-database",
+      "externalId": "8d5je"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "trap-the-queen",
+      "provider": "lichess-puzzle-database",
+      "externalId": "ZThvJ"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "escape-the-knight-fork",
+      "provider": "lichess-puzzle-database",
+      "externalId": "6FXMr"
+    },
+    {
+      "methodKey": "grandmaster-thinking-method",
+      "contentVersion": 2,
+      "exerciseKey": "countercheck-defense",
+      "provider": "lichess-puzzle-database",
+      "externalId": "SAWsQ"
+    }
+  ]
+}

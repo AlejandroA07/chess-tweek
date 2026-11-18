@@ -171,7 +171,7 @@ Keep Chess Tweek's original teaching text, hints, labels, and method instruction
 
 ## Implementation consequence
 
-The focused-practice UI can ship first because it does not change puzzle ownership: one active board, shared last-move highlights, and stacked user annotations operate against the existing exercise contract. The following Stage 7 slice must create the central library schema and bounded importer, then migrate the 12 guided-course exercises to references before adding the full taxonomy catalog. This prevents the Grandmaster Thinking Method from becoming the first of several duplicated method-specific puzzle stores and gives future methods a stable way to invoke a precise Puzzle by internal ID.
+Stage 7 Part 1 implements the central library schema and bounded local importer and migrates the 12 guided-course exercises to stable references. The 74 theme names are seeded up front; opening families and variations are derived from the selected snapshot without flattening them into themes. The full taxonomy catalog remains a later interface slice, and Stage 7 Part 2 adds repetition state. This prevents the Grandmaster Thinking Method from becoming the first of several duplicated method-specific puzzle stores and gives future methods a stable way to invoke a precise Puzzle by internal ID.
 
 ## Primary sources
 

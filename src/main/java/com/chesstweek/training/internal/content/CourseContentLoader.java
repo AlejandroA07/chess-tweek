@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 import com.chesstweek.training.GuidedCourses;
+import com.chesstweek.training.PuzzleLibrary;
 
 import io.github.wolfraam.chessgame.ChessGame;
 import io.github.wolfraam.chessgame.move.Move;
@@ -30,32 +31,30 @@ public final class CourseContentLoader {
     private static final Pattern KEY = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
     private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
     private static final Pattern PUZZLE_ID = Pattern.compile("[A-Za-z0-9]{5,8}");
-    private static final Pattern GAME_URL = Pattern.compile(
-            "https://lichess\\.org/game/[A-Za-z0-9]{8}(?:/(?:white|black))?#\\d+");
-    private static final Pattern THEME = Pattern.compile("[A-Za-z0-9]{1,40}");
 
     private final CourseContent content;
 
-    public CourseContentLoader(ObjectMapper mapper) {
-        this.content = load(mapper);
+    public CourseContentLoader(ObjectMapper mapper, PuzzleLibrary puzzleLibrary) {
+        this.content = load(mapper, puzzleLibrary);
     }
 
     public CourseContent content() {
         return content;
     }
 
-    private static CourseContent load(ObjectMapper mapper) {
+    private static CourseContent load(ObjectMapper mapper, PuzzleLibrary puzzleLibrary) {
         try (InputStream input = CourseContentLoader.class.getResourceAsStream(RESOURCE)) {
             if (input == null) {
                 throw new IllegalStateException("Guided course content is missing");
             }
-            return validateAndMap(mapper.readValue(input, CourseDefinition.class));
+            return validateAndMap(mapper.readValue(input, CourseDefinition.class), puzzleLibrary);
         } catch (IOException exception) {
             throw new IllegalStateException("Guided course content could not be loaded", exception);
         }
     }
 
-    private static CourseContent validateAndMap(CourseDefinition definition) {
+    private static CourseContent validateAndMap(
+            CourseDefinition definition, PuzzleLibrary puzzleLibrary) {
         requireKey(definition.key(), "course key");
         if (!GuidedCourses.COURSE_KEY.equals(definition.key())
                 || definition.version() < 1
@@ -85,7 +84,8 @@ public final class CourseContentLoader {
             }
             List<GuidedCourses.Lesson> mappedLessons = new ArrayList<>();
             for (CourseDefinition.LessonDefinition lesson : sourceLessons) {
-                GuidedCourses.Lesson mapped = mapLesson(lesson, keys, answers);
+                GuidedCourses.Lesson mapped = mapLesson(
+                        lesson, keys, answers, puzzleLibrary, definition.key(), definition.version());
                 lessons.put(mapped.key(), mapped);
                 mappedLessons.add(mapped);
             }
@@ -112,7 +112,10 @@ public final class CourseContentLoader {
     private static GuidedCourses.Lesson mapLesson(
             CourseDefinition.LessonDefinition lesson,
             Set<String> keys,
-            Map<String, CourseContent.ExerciseAnswer> answers) {
+            Map<String, CourseContent.ExerciseAnswer> answers,
+            PuzzleLibrary puzzleLibrary,
+            String courseKey,
+            int contentVersion) {
         requireUniqueKey(lesson.key(), keys, "lesson");
         requireText(lesson.title(), 1, 100, "lesson title");
         requireText(lesson.summary(), 1, 300, "lesson summary");
@@ -127,30 +130,32 @@ public final class CourseContentLoader {
         List<GuidedCourses.Exercise> exercises = new ArrayList<>();
         for (CourseDefinition.ExerciseDefinition exercise : lesson.exercises()) {
             requireUniqueKey(exercise.key(), keys, "exercise");
-            requireText(exercise.fen(), 20, 100, "exercise FEN");
             requireText(exercise.prompt(), 1, 300, "exercise prompt");
-            GuidedCourses.Orientation orientation = orientation(exercise.orientation());
             GuidedCourses.DifficultyTier difficultyTier = difficultyTier(exercise.difficultyTier());
-            List<String> acceptedMoves = validateMoves(exercise.fen(), exercise.acceptedMoves());
+            PuzzleLibrary.Puzzle source = resolvePuzzle(
+                    puzzleLibrary, courseKey, contentVersion, exercise);
+            List<String> acceptedMoves = List.of(source.solutionMoves().getFirst());
             List<String> solutionLine = validateLine(
-                    exercise.fen(), exercise.solutionLine(), difficultyTier, acceptedMoves);
-            CourseContent.SourceMetadata source = source(exercise.source(), difficultyTier);
+                    source.positionFen(), source.solutionMoves(), difficultyTier, acceptedMoves);
+            if (!ratingMatches(difficultyTier, source.rating())) {
+                throw new IllegalStateException("Exercise source rating does not match its difficulty");
+            }
             List<String> hints = textList(exercise.hints(), 2, 2, 180, "exercise hints");
             requireText(exercise.correctFeedback(), 1, 300, "correct feedback");
             requireText(exercise.incorrectFeedback(), 1, 300, "incorrect feedback");
             requireText(exercise.explanation(), 1, 500, "exercise explanation");
             exercises.add(new GuidedCourses.Exercise(
                     exercise.key(),
-                    exercise.fen(),
-                    orientation,
+                    source.positionFen(),
+                    orientation(source.positionFen()),
                     difficultyTier,
-                    source.ratingAtSelection(),
+                    source.rating(),
                     exercise.prompt()));
             answers.put(
                     exercise.key(),
                     new CourseContent.ExerciseAnswer(
                             lesson.key(),
-                            exercise.fen(),
+                            source.positionFen(),
                             acceptedMoves,
                             solutionLine,
                             hints,
@@ -167,33 +172,6 @@ public final class CourseContentLoader {
                 explanation,
                 checklist,
                 List.copyOf(exercises));
-    }
-
-    private static List<String> validateMoves(String fen, List<String> moves) {
-        if (moves == null || moves.isEmpty() || moves.size() > 3) {
-            throw new IllegalStateException("Exercise needs one to three accepted moves");
-        }
-        ChessGame game;
-        try {
-            game = new ChessGame(fen);
-        } catch (RuntimeException exception) {
-            throw new IllegalStateException("Exercise FEN is invalid", exception);
-        }
-        List<String> result = new ArrayList<>();
-        for (String move : moves) {
-            if (move == null || !UCI.matcher(move).matches()) {
-                throw new IllegalStateException("Exercise move is invalid");
-            }
-            try {
-                if (!game.getLegalMoves().contains(game.getMove(NotationType.UCI, move))) {
-                    throw new IllegalStateException("Exercise solution is illegal: " + move);
-                }
-            } catch (RuntimeException exception) {
-                throw new IllegalStateException("Exercise solution is illegal: " + move, exception);
-            }
-            result.add(move);
-        }
-        return List.copyOf(result);
     }
 
     private static List<String> validateLine(
@@ -228,44 +206,33 @@ public final class CourseContentLoader {
         }
     }
 
-    private static CourseContent.SourceMetadata source(
-            CourseDefinition.SourceDefinition source,
-            GuidedCourses.DifficultyTier difficultyTier) {
-        if (source == null
-                || !"lichess".equals(source.provider())
-                || !"CC0-1.0".equals(source.license())
-                || source.puzzleId() == null
-                || !PUZZLE_ID.matcher(source.puzzleId()).matches()
-                || source.gameUrl() == null
-                || !GAME_URL.matcher(source.gameUrl()).matches()
-                || source.ratingDeviationAtSelection() < 0
-                || source.ratingDeviationAtSelection() > 500
-                || source.popularityAtSelection() < -100
-                || source.popularityAtSelection() > 100
-                || source.playsAtSelection() < 0
-                || !ratingMatches(difficultyTier, source.ratingAtSelection())
-                || source.themes() == null
-                || source.themes().isEmpty()
-                || source.themes().size() > 30
-                || source.themes().stream().anyMatch(theme -> theme == null || !THEME.matcher(theme).matches())) {
-            throw new IllegalStateException("Exercise source metadata is invalid");
+    private static PuzzleLibrary.Puzzle resolvePuzzle(
+            PuzzleLibrary puzzleLibrary,
+            String courseKey,
+            int contentVersion,
+            CourseDefinition.ExerciseDefinition exercise) {
+        CourseDefinition.PuzzleReferenceDefinition reference = exercise.puzzleRef();
+        if (reference == null
+                || !"lichess-puzzle-database".equals(reference.provider())
+                || reference.externalId() == null
+                || !PUZZLE_ID.matcher(reference.externalId()).matches()) {
+            throw new IllegalStateException("Exercise puzzle reference is invalid");
         }
+        LocalDate snapshotDate;
         try {
-            LocalDate.parse(source.snapshotDate());
+            snapshotDate = LocalDate.parse(reference.snapshotDate());
         } catch (DateTimeParseException | NullPointerException exception) {
-            throw new IllegalStateException("Exercise source snapshot date is invalid", exception);
+            throw new IllegalStateException("Exercise puzzle snapshot date is invalid", exception);
         }
-        return new CourseContent.SourceMetadata(
-                source.provider(),
-                source.puzzleId(),
-                source.gameUrl(),
-                source.license(),
-                source.ratingAtSelection(),
-                source.ratingDeviationAtSelection(),
-                source.popularityAtSelection(),
-                source.playsAtSelection(),
-                List.copyOf(source.themes()),
-                source.snapshotDate());
+        PuzzleLibrary.Puzzle puzzle = puzzleLibrary
+                .exercisePuzzle(courseKey, contentVersion, exercise.key())
+                .orElseThrow(() -> new IllegalStateException("Exercise puzzle is missing"));
+        if (!reference.provider().equals(puzzle.provider())
+                || !reference.externalId().equals(puzzle.externalId())
+                || !snapshotDate.equals(puzzle.snapshotDate())) {
+            throw new IllegalStateException("Exercise puzzle reference does not match the library");
+        }
+        return puzzle;
     }
 
     private static boolean ratingMatches(
@@ -288,15 +255,14 @@ public final class CourseContentLoader {
         }
     }
 
-    private static GuidedCourses.Orientation orientation(String value) {
-        if (value == null) {
-            throw new IllegalStateException("Exercise orientation is missing");
+    private static GuidedCourses.Orientation orientation(String fen) {
+        String[] fields = fen.split(" ");
+        if (fields.length != 6 || !(fields[1].equals("w") || fields[1].equals("b"))) {
+            throw new IllegalStateException("Exercise FEN is invalid");
         }
-        try {
-            return GuidedCourses.Orientation.valueOf(value.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalStateException("Exercise orientation is invalid", exception);
-        }
+        return fields[1].equals("w")
+                ? GuidedCourses.Orientation.WHITE
+                : GuidedCourses.Orientation.BLACK;
     }
 
     private static GuidedCourses.DifficultyTier difficultyTier(String value) {

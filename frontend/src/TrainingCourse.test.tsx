@@ -73,6 +73,48 @@ describe('TrainingCourse', () => {
     await waitFor(() => expect(requests.filter((request) => request.endsWith('/progress')).length).toBeGreaterThan(1))
   })
 
+  it('lets a saved solved position be practiced again', async () => {
+    const requests: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString()
+      requests.push(`${init?.method ?? 'GET'} ${url}`)
+      if (url.endsWith('/progress')) return response(progress('in_progress', 'solved'))
+      if (url.endsWith('/lessons/read-the-last-move/start')) {
+        return response(progress('in_progress', 'solved'))
+      }
+      if (url.endsWith('/exercises/answer-the-check/attempts')) {
+        return response({
+          outcome: 'correct',
+          feedback: 'Correct. Checks come first.',
+          solutionMove: 'e1e2',
+          explanation: 'Kxe2 removes the checking rook.',
+        })
+      }
+      if (url === '/api/training/courses/grandmaster-thinking-method') return response(course())
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+
+    render(
+      <TrainingCourse
+        connectionState="connected"
+        lessonKey="read-the-last-move"
+        onSessionFailure={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText('Solved')).toBeInTheDocument()
+    const king = screen.getByRole('button', { name: 'e1, white king' })
+    const rook = screen.getByRole('button', { name: 'e2, black rook' })
+    expect(king).toBeEnabled()
+    expect(rook).toBeEnabled()
+    fireEvent.click(king)
+    fireEvent.click(rook)
+
+    await waitFor(() => expect(requests).toContain(
+      'POST /api/training/courses/grandmaster-thinking-method/exercises/answer-the-check/attempts',
+    ))
+  })
+
   it('shows one exercise board and moves through the lesson in order', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => response(course())))
 
@@ -167,7 +209,10 @@ function course() {
   }
 }
 
-function progress(state: 'not_started' | 'in_progress' = 'not_started') {
+function progress(
+  state: 'not_started' | 'in_progress' = 'not_started',
+  exerciseState: 'not_started' | 'in_progress' | 'solved' | 'revealed' = 'not_started',
+) {
   return {
     courseKey: 'grandmaster-thinking-method',
     contentVersion: 1,
@@ -178,7 +223,7 @@ function progress(state: 'not_started' | 'in_progress' = 'not_started') {
       'read-the-last-move': {
         state,
         exercises: {
-          'answer-the-check': { state: 'not_started', attempts: 0, hintLevel: 0 },
+          'answer-the-check': { state: exerciseState, attempts: 0, hintLevel: 0 },
           'forcing-reply': { state: 'not_started', attempts: 0, hintLevel: 0 },
           'safety-check': { state: 'not_started', attempts: 0, hintLevel: 0 },
         },

@@ -141,6 +141,90 @@ describe('InteractiveChessBoard', () => {
     expect(screen.getByRole('button', { name: 'd8, black king' })).toBeInTheDocument()
   })
 
+  it('rejects illegal king exploration moves after the answer', () => {
+    const onMove = vi.fn()
+    render(
+      <InteractiveChessBoard
+        fen="4k3/8/8/8/8/8/P7/K3R3 w - - 0 1"
+        orientation="white"
+        label="Legal exploration"
+        disabled={false}
+        solution="a2a3"
+        onMove={onMove}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'e8, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'd6, empty' }))
+    expect(screen.getByRole('button', { name: 'e8, black king' })).toBeInTheDocument()
+    expect(screen.getByText('That move is not legal in this position')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'e8, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'e7, empty' }))
+    expect(screen.getByRole('button', { name: 'e8, black king' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'e8, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'd8, empty' }))
+    expect(screen.getByRole('button', { name: 'd8, black king' })).toBeInTheDocument()
+    expect(onMove).not.toHaveBeenCalled()
+  })
+
+  it('rejects blocked exploration moves without consuming the turn', () => {
+    render(
+      <InteractiveChessBoard
+        fen="4k3/8/8/8/K7/8/P3p3/4r3 w - - 0 1"
+        orientation="white"
+        label="Blocked exploration"
+        disabled={false}
+        solution="a2a3"
+        onMove={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'e1, black rook' }))
+    fireEvent.click(screen.getByRole('button', { name: 'e3, empty' }))
+    expect(screen.getByRole('button', { name: 'e1, black rook' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'e8, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'd8, empty' }))
+    expect(screen.getByRole('button', { name: 'd8, black king' })).toBeInTheDocument()
+  })
+
+  it('preserves castling and en passant state during exploration', () => {
+    const { unmount } = render(
+      <InteractiveChessBoard
+        fen="4k2r/8/8/8/8/8/P7/K7 w k - 0 1"
+        orientation="white"
+        label="Castling exploration"
+        disabled={false}
+        solution="a2a3"
+        onMove={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'e8, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'g8, empty' }))
+    expect(screen.getByRole('button', { name: 'g8, black king' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'f8, black rook' })).toBeInTheDocument()
+
+    unmount()
+    render(
+      <InteractiveChessBoard
+        fen="4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1"
+        orientation="white"
+        label="En passant exploration"
+        disabled={false}
+        solution="e2e4"
+        onMove={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'd4, black pawn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'e3, empty' }))
+    expect(screen.getByRole('button', { name: 'e3, black pawn' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e4, empty' })).toBeInTheDocument()
+  })
+
   it('moves optimistically and restores a rejected attempt', async () => {
     let finish: ((accepted: boolean) => void) | undefined
     const onMove = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve }))
@@ -191,8 +275,8 @@ describe('InteractiveChessBoard', () => {
     expect(screen.queryByTestId('user-drawn-arrow')).not.toBeInTheDocument()
   })
 
-  it('accepts only source-piece movement geometry and bends knight arrows', () => {
-    const knightFen = '4k3/8/8/8/8/8/8/1N2K3 w - - 0 1'
+  it('accepts chess movement geometry from empty squares and bends knight arrows', () => {
+    const knightFen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1'
     render(
       <InteractiveChessBoard
         fen={knightFen}
@@ -204,12 +288,12 @@ describe('InteractiveChessBoard', () => {
       />,
     )
 
-    fireEvent.mouseDown(screen.getByRole('button', { name: 'b1, white knight' }), { button: 2 })
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'b1, empty' }), { button: 2 })
     fireEvent.mouseUp(screen.getByRole('button', { name: 'c4, empty' }), { button: 2 })
     expect(screen.queryByTestId('user-drawn-arrow')).not.toBeInTheDocument()
-    expect(screen.getByText('That piece cannot move that way')).toBeInTheDocument()
+    expect(screen.getByText('That arrow does not match a chess move')).toBeInTheDocument()
 
-    fireEvent.mouseDown(screen.getByRole('button', { name: 'b1, white knight' }), { button: 2 })
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'b1, empty' }), { button: 2 })
     fireEvent.mouseUp(screen.getByRole('button', { name: 'c3, empty' }), { button: 2 })
     const overlay = screen.getByTestId('user-drawn-arrow')
     expect(overlay.querySelectorAll('polyline')).toHaveLength(1)

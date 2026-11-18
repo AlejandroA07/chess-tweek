@@ -13,7 +13,13 @@ export type BoardOrientation = 'white' | 'black'
 type Piece = { color: 'white' | 'black'; glyph: string; kind: string }
 type Side = Piece['color']
 type Placement = (Piece | null)[][]
-type BoardStep = { placement: Placement; side: Side; lastMove: string | null }
+type BoardStep = {
+  placement: Placement
+  side: Side
+  lastMove: string | null
+  castling: string
+  enPassant: string | null
+}
 type Point = { x: number; y: number }
 type ArrowGeometry =
   | { kind: 'knight'; move: string; points: Point[] }
@@ -114,7 +120,7 @@ export function ChessBoard({
             )
           }),
         )}
-        {arrow !== null && <ArrowOverlay moves={[arrow]} orientation={orientation} placement={placement} />}
+        {arrow !== null && <ArrowOverlay moves={[arrow]} orientation={orientation} />}
       </div>
     </div>
   )
@@ -169,11 +175,15 @@ export function InteractiveChessBoard({
   const files = orientation === 'white' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
 
   const submit = async (move: string) => {
+    if (!isLegalMove(step, move)) {
+      setAnnotationMessage('That move is not legal in this position')
+      return
+    }
     const previousHistory = history
     const previousIndex = historyIndex
     const nextHistory = [
       ...history.slice(0, historyIndex + 1),
-      { placement: applyMove(placement, move), side: oppositeSide(side), lastMove: move },
+      applyMove(step, move),
     ]
     setUserArrows([])
     setAnnotationMessage(null)
@@ -189,13 +199,8 @@ export function InteractiveChessBoard({
 
   const addArrow = (from: string, to: string) => {
     if (from === to) return
-    const source = pieceForSquare(placement, from)
-    if (source === null) {
-      setAnnotationMessage('Start from a piece')
-      return
-    }
-    if (!canPieceTrace(source, from, to)) {
-      setAnnotationMessage('That piece cannot move that way')
+    if (!isChessMovementVector(from, to)) {
+      setAnnotationMessage('That arrow does not match a chess move')
       return
     }
     const move = `${from}${to}`
@@ -204,11 +209,6 @@ export function InteractiveChessBoard({
   }
 
   const beginArrow = (square: string) => {
-    if (pieceForSquare(placement, square) === null) {
-      setArrowStart(null)
-      setAnnotationMessage('Start from a piece')
-      return
-    }
     setArrowStart(square)
     setAnnotationMessage(null)
   }
@@ -347,7 +347,6 @@ export function InteractiveChessBoard({
           <ArrowOverlay
             moves={userArrows}
             orientation={orientation}
-            placement={placement}
             testId="user-drawn-arrow"
           />
         )}
@@ -389,14 +388,18 @@ function oppositeSide(side: Side): Side {
 function createHistory(fen: string, solution: string | null): BoardStep[] {
   const initial = parsePlacement(fen)
   if (initial === null) return []
+  const fields = fen.split(' ')
   const side = sideFromFen(fen)
-  const history: BoardStep[] = [{ placement: initial, side, lastMove: null }]
+  const initialStep: BoardStep = {
+    placement: initial,
+    side,
+    lastMove: null,
+    castling: fields[2] === undefined || fields[2] === '-' ? '' : fields[2],
+    enPassant: fields[3] === undefined || fields[3] === '-' ? null : fields[3],
+  }
+  const history: BoardStep[] = [initialStep]
   if (solution !== null) {
-    history.push({
-      placement: applyMove(initial, solution),
-      side: oppositeSide(side),
-      lastMove: solution,
-    })
+    history.push(applyMove(initialStep, solution))
   }
   return history
 }
@@ -414,41 +417,25 @@ function isKnightVector(file: number, rank: number) {
   return (absoluteFile === 1 && absoluteRank === 2) || (absoluteFile === 2 && absoluteRank === 1)
 }
 
-function canPieceTrace(piece: Piece, from: string, to: string) {
+function isChessMovementVector(from: string, to: string) {
   const { file, rank } = squareVector(from, to)
   const absoluteFile = Math.abs(file)
   const absoluteRank = Math.abs(rank)
   if (absoluteFile === 0 && absoluteRank === 0) return false
-  if (piece.kind === 'n') return isKnightVector(file, rank)
-  if (piece.kind === 'b') return absoluteFile === absoluteRank
-  if (piece.kind === 'r') return file === 0 || rank === 0
-  if (piece.kind === 'q') return file === 0 || rank === 0 || absoluteFile === absoluteRank
-  if (piece.kind === 'k') {
-    const castlingVector = from[0] === 'e'
-      && (from[1] === '1' || from[1] === '8')
-      && rank === 0
-      && absoluteFile === 2
-    return castlingVector || (absoluteFile <= 1 && absoluteRank <= 1)
-  }
-  if (piece.kind === 'p') {
-    const direction = piece.color === 'white' ? 1 : -1
-    const startRank = piece.color === 'white' ? '2' : '7'
-    if (file === 0) return rank === direction || (from[1] === startRank && rank === direction * 2)
-    return absoluteFile === 1 && rank === direction
-  }
-  return false
+  return file === 0 || rank === 0 || absoluteFile === absoluteRank || isKnightVector(file, rank)
 }
 
-function applyMove(placement: (Piece | null)[][], move: string) {
+function applyMove(step: BoardStep, move: string): BoardStep {
+  const { placement } = step
   const fromFile = FILES.indexOf(move[0])
   const fromRank = 8 - Number(move[1])
   const toFile = FILES.indexOf(move[2])
   const toRank = 8 - Number(move[3])
   const source = placement[fromRank]?.[fromFile]
-  if (source === undefined || source === null || placement[toRank]?.[toFile] === undefined) return placement
+  if (source === undefined || source === null || placement[toRank]?.[toFile] === undefined) return step
 
   const next = placement.map((rank) => [...rank])
-  if (source.kind === 'p' && fromFile !== toFile && next[toRank][toFile] === null) {
+  if (source.kind === 'p' && fromFile !== toFile && next[toRank][toFile] === null && step.enPassant === move.slice(2, 4)) {
     next[fromRank][toFile] = null
   }
   if (source.kind === 'k' && Math.abs(toFile - fromFile) === 2) {
@@ -463,7 +450,163 @@ function applyMove(placement: (Piece | null)[][], move: string) {
   next[toRank][toFile] = promotion === undefined
     ? source
     : { ...source, kind: promotion, glyph: GLYPHS[promotion] }
+
+  let castling = step.castling
+  const removeCastling = (rights: string) => {
+    castling = [...castling].filter((right) => !rights.includes(right)).join('')
+  }
+  if (source.kind === 'k') removeCastling(source.color === 'white' ? 'KQ' : 'kq')
+  if (move.slice(0, 2) === 'a1' || move.slice(2, 4) === 'a1') removeCastling('Q')
+  if (move.slice(0, 2) === 'h1' || move.slice(2, 4) === 'h1') removeCastling('K')
+  if (move.slice(0, 2) === 'a8' || move.slice(2, 4) === 'a8') removeCastling('q')
+  if (move.slice(0, 2) === 'h8' || move.slice(2, 4) === 'h8') removeCastling('k')
+
+  const enPassant = source.kind === 'p' && Math.abs(Number(move[3]) - Number(move[1])) === 2
+    ? `${move[0]}${(Number(move[1]) + Number(move[3])) / 2}`
+    : null
+  return {
+    placement: next,
+    side: oppositeSide(step.side),
+    lastMove: move,
+    castling,
+    enPassant,
+  }
+}
+
+function isLegalMove(step: BoardStep, move: string) {
+  if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move)) return false
+  const from = move.slice(0, 2)
+  const to = move.slice(2, 4)
+  const source = pieceForSquare(step.placement, from)
+  const target = pieceForSquare(step.placement, to)
+  if (source === null || source.color !== step.side || target?.color === source.color || target?.kind === 'k') return false
+
+  const { file, rank } = squareVector(from, to)
+  const absoluteFile = Math.abs(file)
+  const absoluteRank = Math.abs(rank)
+  const promotion = move[4]
+  const reachesLastRank = source.kind === 'p' && (to[1] === '1' || to[1] === '8')
+  if ((promotion !== undefined) !== reachesLastRank) return false
+
+  let followsPieceRules = false
+  if (source.kind === 'p') {
+    const direction = source.color === 'white' ? 1 : -1
+    const startRank = source.color === 'white' ? '2' : '7'
+    if (file === 0 && target === null) {
+      followsPieceRules = rank === direction
+        || (from[1] === startRank && rank === direction * 2 && pathIsClear(step.placement, from, to))
+    } else if (absoluteFile === 1 && rank === direction) {
+      followsPieceRules = target?.color === oppositeSide(source.color)
+        || (step.enPassant === to && isEnPassantCapture(step.placement, source.color, from, to))
+    }
+  } else if (source.kind === 'n') {
+    followsPieceRules = isKnightVector(file, rank)
+  } else if (source.kind === 'b') {
+    followsPieceRules = absoluteFile === absoluteRank && pathIsClear(step.placement, from, to)
+  } else if (source.kind === 'r') {
+    followsPieceRules = (file === 0 || rank === 0) && pathIsClear(step.placement, from, to)
+  } else if (source.kind === 'q') {
+    followsPieceRules = (file === 0 || rank === 0 || absoluteFile === absoluteRank)
+      && pathIsClear(step.placement, from, to)
+  } else if (source.kind === 'k') {
+    followsPieceRules = absoluteFile <= 1 && absoluteRank <= 1
+    if (rank === 0 && absoluteFile === 2) followsPieceRules = canCastle(step, from, to)
+  }
+  if (!followsPieceRules) return false
+
+  return !kingIsAttacked(applyMove(step, move).placement, source.color)
+}
+
+function pathIsClear(placement: Placement, from: string, to: string) {
+  const fromFile = FILES.indexOf(from[0])
+  const fromRank = 8 - Number(from[1])
+  const toFile = FILES.indexOf(to[0])
+  const toRank = 8 - Number(to[1])
+  const fileStep = Math.sign(toFile - fromFile)
+  const rankStep = Math.sign(toRank - fromRank)
+  let file = fromFile + fileStep
+  let rank = fromRank + rankStep
+  while (file !== toFile || rank !== toRank) {
+    if (placement[rank]?.[file] !== null) return false
+    file += fileStep
+    rank += rankStep
+  }
+  return true
+}
+
+function isEnPassantCapture(placement: Placement, side: Side, from: string, to: string) {
+  const captured = pieceForSquare(placement, `${to[0]}${from[1]}`)
+  return captured?.kind === 'p' && captured.color === oppositeSide(side)
+}
+
+function canCastle(step: BoardStep, from: string, to: string) {
+  const side = step.side
+  const homeRank = side === 'white' ? '1' : '8'
+  if (from !== `e${homeRank}` || (to !== `g${homeRank}` && to !== `c${homeRank}`)) return false
+  const kingSide = to[0] === 'g'
+  const requiredRight = side === 'white' ? (kingSide ? 'K' : 'Q') : (kingSide ? 'k' : 'q')
+  if (!step.castling.includes(requiredRight)) return false
+  const rookSquare = `${kingSide ? 'h' : 'a'}${homeRank}`
+  const rook = pieceForSquare(step.placement, rookSquare)
+  if (rook?.kind !== 'r' || rook.color !== side || !pathIsClear(step.placement, from, rookSquare)) return false
+  if (kingIsAttacked(step.placement, side)) return false
+
+  const transit = `${kingSide ? 'f' : 'd'}${homeRank}`
+  const transitPlacement = movePieceOnly(step.placement, from, transit)
+  return !squareIsAttacked(transitPlacement, transit, oppositeSide(side))
+}
+
+function movePieceOnly(placement: Placement, from: string, to: string) {
+  const next = placement.map((rank) => [...rank])
+  const fromFile = FILES.indexOf(from[0])
+  const fromRank = 8 - Number(from[1])
+  const toFile = FILES.indexOf(to[0])
+  const toRank = 8 - Number(to[1])
+  next[toRank][toFile] = next[fromRank][fromFile]
+  next[fromRank][fromFile] = null
   return next
+}
+
+function kingIsAttacked(placement: Placement, side: Side) {
+  for (let rank = 0; rank < 8; rank += 1) {
+    for (let file = 0; file < 8; file += 1) {
+      const piece = placement[rank][file]
+      if (piece?.kind === 'k' && piece.color === side) {
+        return squareIsAttacked(placement, squareName(rank, file), oppositeSide(side))
+      }
+    }
+  }
+  return true
+}
+
+function squareIsAttacked(placement: Placement, target: string, attacker: Side) {
+  for (let rankIndex = 0; rankIndex < 8; rankIndex += 1) {
+    for (let fileIndex = 0; fileIndex < 8; fileIndex += 1) {
+      const piece = placement[rankIndex][fileIndex]
+      if (piece?.color !== attacker) continue
+      const from = squareName(rankIndex, fileIndex)
+      const vector = squareVector(from, target)
+      const absoluteFile = Math.abs(vector.file)
+      const absoluteRank = Math.abs(vector.rank)
+      if (piece.kind === 'p') {
+        const direction = piece.color === 'white' ? 1 : -1
+        if (absoluteFile === 1 && vector.rank === direction) return true
+      } else if (piece.kind === 'n' && isKnightVector(vector.file, vector.rank)) {
+        return true
+      } else if (piece.kind === 'k' && absoluteFile <= 1 && absoluteRank <= 1) {
+        return true
+      } else if (piece.kind === 'b' && absoluteFile === absoluteRank && pathIsClear(placement, from, target)) {
+        return true
+      } else if (piece.kind === 'r' && (vector.file === 0 || vector.rank === 0) && pathIsClear(placement, from, target)) {
+        return true
+      } else if (piece.kind === 'q'
+        && (vector.file === 0 || vector.rank === 0 || absoluteFile === absoluteRank)
+        && pathIsClear(placement, from, target)) {
+        return true
+      }
+    }
+  }
+  return false
 }
 
 function squareLabel(square: string, piece: Piece | null) {
@@ -484,12 +627,10 @@ function moveSquareRole(move: string | null, square: string): 'from' | 'to' | 'n
 function ArrowOverlay({
   moves,
   orientation,
-  placement,
   testId = 'best-move-arrow',
 }: {
   moves: string[]
   orientation: BoardOrientation
-  placement: Placement
   testId?: string
 }) {
   const reactId = useId()
@@ -503,8 +644,7 @@ function ArrowOverlay({
     const dy = destination.y - start.y
     const length = Math.hypot(dx, dy)
     if (length === 0) return current
-    const source = pieceForSquare(placement, move.slice(0, 2))
-    if (source?.kind === 'n' && isKnightVector(dx, dy)) {
+    if (isKnightVector(dx, dy)) {
       const corner = Math.abs(dx) > Math.abs(dy)
         ? { x: destination.x, y: start.y }
         : { x: start.x, y: destination.y }

@@ -59,6 +59,9 @@ describe('TrainingCourse', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Read the last move' })).toBeInTheDocument()
+    await waitFor(() => expect(requests).toContain(
+      'POST /api/training/courses/grandmaster-thinking-method/lessons/read-the-last-move/start',
+    ))
     fireEvent.click(screen.getByRole('button', { name: 'e1, white king' }))
     fireEvent.click(screen.getByRole('button', { name: 'e2, black rook' }))
 
@@ -68,6 +71,34 @@ describe('TrainingCourse', () => {
     expect(screen.getByRole('button', { name: 'e2, white king' })).toBeInTheDocument()
     expect(screen.queryByTestId('best-move-arrow')).not.toBeInTheDocument()
     await waitFor(() => expect(requests.filter((request) => request.endsWith('/progress')).length).toBeGreaterThan(1))
+  })
+
+  it('shows one exercise board and moves through the lesson in order', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => response(course())))
+
+    render(
+      <TrainingCourse
+        connectionState="disconnected"
+        lessonKey="read-the-last-move"
+        onSessionFailure={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByRole('group', { name: 'Position 1: Remove the checking piece.' }))
+      .toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Position 2: Find the forcing reply.' }))
+      .not.toBeInTheDocument()
+    expect(screen.getByText('Position 1 of 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous position' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next position' }))
+
+    expect(screen.getByRole('group', { name: 'Position 2: Find the forcing reply.' }))
+      .toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Position 1: Remove the checking piece.' }))
+      .not.toBeInTheDocument()
+    expect(screen.getByText('Position 2 of 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous position' })).toBeEnabled()
   })
 })
 
@@ -105,6 +136,22 @@ function course() {
                 sourceRating: 1600,
                 prompt: 'Remove the checking piece.',
               },
+              {
+                key: 'forcing-reply',
+                fen: '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1',
+                orientation: 'white',
+                difficultyTier: 'development',
+                sourceRating: 1850,
+                prompt: 'Find the forcing reply.',
+              },
+              {
+                key: 'safety-check',
+                fen: '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1',
+                orientation: 'white',
+                difficultyTier: 'stretch',
+                sourceRating: 2050,
+                prompt: 'Run the final safety check.',
+              },
             ],
           },
         ],
@@ -132,6 +179,8 @@ function progress(state: 'not_started' | 'in_progress' = 'not_started') {
         state,
         exercises: {
           'answer-the-check': { state: 'not_started', attempts: 0, hintLevel: 0 },
+          'forcing-reply': { state: 'not_started', attempts: 0, hintLevel: 0 },
+          'safety-check': { state: 'not_started', attempts: 0, hintLevel: 0 },
         },
       },
     },

@@ -26,10 +26,14 @@ describe('InteractiveChessBoard', () => {
   })
 
   it('keeps the existing review board read-only', () => {
-    render(<ChessBoard fen={fen} orientation="white" label="Review position" highlight={null} arrow={null} />)
+    const { container } = render(
+      <ChessBoard fen={fen} orientation="white" label="Review position" highlight="e2e1" arrow={null} />,
+    )
 
     expect(screen.getByRole('img', { name: 'Review position' })).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-square="e2"]')).toHaveAttribute('data-last-move', 'from')
+    expect(container.querySelector('[data-square="e1"]')).toHaveAttribute('data-last-move', 'to')
   })
 
   it('submits the same UCI move by square selection and drag', () => {
@@ -90,6 +94,8 @@ describe('InteractiveChessBoard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'e2, black rook' }))
     expect(await screen.findByRole('button', { name: 'e1, empty' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'e2, white king' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e1, empty' })).toHaveAttribute('data-last-move', 'from')
+    expect(screen.getByRole('button', { name: 'e2, white king' })).toHaveAttribute('data-last-move', 'to')
     rerender(
       <InteractiveChessBoard
         fen={fen}
@@ -128,9 +134,11 @@ describe('InteractiveChessBoard', () => {
     finish?.(false)
     await waitFor(() => expect(screen.getByRole('button', { name: 'e1, white king' })).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'e2, black rook' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e1, white king' })).toHaveAttribute('data-last-move', 'none')
+    expect(screen.getByRole('button', { name: 'e2, black rook' })).toHaveAttribute('data-last-move', 'none')
   })
 
-  it('draws an arrow only after a right-button drag', () => {
+  it('stacks right-drag arrows and clears them on the next normal left interaction', () => {
     render(
       <InteractiveChessBoard
         fen={fen}
@@ -146,7 +154,12 @@ describe('InteractiveChessBoard', () => {
     fireEvent.mouseDown(screen.getByRole('button', { name: 'e1, white king' }), { button: 2 })
     fireEvent.mouseUp(screen.getByRole('button', { name: 'e2, black rook' }), { button: 2 })
 
-    expect(screen.getByTestId('user-drawn-arrow')).toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'e1, white king' }), { button: 2 })
+    fireEvent.mouseUp(screen.getByRole('button', { name: 'd1, empty' }), { button: 2 })
+
+    expect(screen.getByTestId('user-drawn-arrow').querySelectorAll('line')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: 'e1, white king' }))
+    expect(screen.queryByTestId('user-drawn-arrow')).not.toBeInTheDocument()
   })
 
   it('offers a keyboard-operable arrow mode without submitting a move', () => {
@@ -169,6 +182,7 @@ describe('InteractiveChessBoard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'e2, black rook' }))
 
     expect(screen.getByTestId('user-drawn-arrow')).toBeInTheDocument()
+    expect(screen.getByText('Choose the start square')).toBeInTheDocument()
     expect(onMove).not.toHaveBeenCalled()
   })
 

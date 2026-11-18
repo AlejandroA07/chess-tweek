@@ -8,7 +8,7 @@ This document records the boundaries that are expensive to reverse. Stage 1 must
 |---|---|---|
 | `identity` | Lichess PKCE, sealed session, current account, and authorization context. | Tokens and account identity from feature-specific persistence or accidental client exposure. |
 | `game-review` | Lichess and chess.com game catalog, Stockfish jobs and findings, individual reviews, and (maybe later) Overall Games Analysis and report-owned packages. | Versioned evidence and report immutability from unrelated training workflows. |
-| `training` | Versioned guided-course content and progress, the spaced-repetition scheduler and attempts, My Mistakes drills (built from `game-review`'s public findings query), the pattern library, the opening explorer cache, and repertoires. | Independent instructional content and practice history from report-owned evidence and deletion lifecycles. |
+| `training` | The shared Puzzle Library and collections, versioned guided-method content and progress, the spaced-repetition scheduler and attempts, My Mistakes drills (built from `game-review`'s public findings query), the opening explorer cache, and repertoires. | Reusable puzzle material, independent instruction, and practice history from report-owned evidence and deletion lifecycles. |
 | `shared` | Configuration, database connection, safe HTTP errors, correlation IDs, clocks, and narrow primitives. | Cross-cutting mechanics without becoming a dumping ground for feature rules. |
 | composition | Spring MVC controllers, application wiring, and delivery of the built React interface. | Keeps feature modules independent while allowing the application to assemble them. |
 
@@ -71,6 +71,7 @@ Stage 1 encodes Java package boundaries with ArchUnit and keeps the frontend in 
 - **Decision:** Mistake/Blunder Puzzles and Related Lichess Puzzles are `game-review` report-owned data and cascade with report deletion. Daily/Mixed puzzles and their attempts are owned by `training` and never cascade with a report.
 - **Rejected:** Putting every puzzle in one lifecycle would make report deletion erase unrelated practice or leave orphaned targeted packages.
 - **Reopen when:** A user-visible global puzzle library is designed with explicit provenance and retention rules.
+- **Resolution:** The reopen condition was met on 2026-11-18. ADR-009 defines the global library while this decision continues to govern report-owned packages.
 
 ## ADR-007 — No live play or automatic work
 
@@ -89,6 +90,16 @@ Stage 1 encodes Java package boundaries with ArchUnit and keeps the frontend in 
 - **Future seam:** Personalized lesson recommendations may consume an explicit public evidence query from `game-review`; they must not import its repositories, couple course progress to analysis deletion, or claim causation from small samples.
 - **Rejected:** Storing authored lessons as mutable database rows adds editing and migration complexity with no v1 need. Building directly on analysis tables would make the standalone course unavailable before a player has games and would entangle deletion lifecycles.
 - **Reopen when:** The owner needs user-authored courses, downloadable course packs, or personalized focus selection with an approved evidence and lifecycle contract.
+
+## ADR-009 — Training methods reference one shared Puzzle Library
+
+- **Status:** Accepted 2026-11-18
+- **Context:** The first guided method currently carries its own puzzle positions, while future methods, named-pattern practice, and opening practice need to reuse the same curated Lichess material without copying positions or attempt history.
+- **Decision:** `training` owns one user-visible Puzzle Library. A Puzzle is stored once with a stable internal ID, immutable source snapshot data, classification metadata, and provenance. Puzzle Collections and authored Exercises reference that ID. A Training Method owns its instruction, exercise order, hints, explanations, and completion rules, but never a private puzzle copy. Removing a method removes its references and authored material, not the Puzzle or account attempt history. Snapshot replacement is an explicit local operation and never silently rewrites a versioned exercise's provenance.
+- **Taxonomy:** Import the complete current Lichess theme catalog as metadata. Treat opening families and variations as a separate, snapshot-derived hierarchy. Collections normally contain 50 curated puzzles, may use 20 for scarce patterns, and may grow to 100 for high-value, high-volume patterns.
+- **Report seam:** Report-owned Mistake/Blunder and Related Lichess Puzzle packages remain under `game-review` and ADR-006. They do not gain cross-module foreign keys into the Puzzle Library.
+- **Rejected:** A library per method duplicates positions, classifications, and attempts. One physical lifecycle for global and report-owned puzzles would let report deletion affect unrelated practice. Embedding mutable source positions directly in every method makes provenance refreshes invisible and future reuse brittle.
+- **Reopen when:** A downloadable pack or user-authored puzzle must override the global provenance/retention rules, or measured scale makes the local SQLite catalog impractical.
 
 ## Architecture test obligations for Stage 1
 

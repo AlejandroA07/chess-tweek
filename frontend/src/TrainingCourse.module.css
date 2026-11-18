@@ -378,6 +378,23 @@
   margin-top: var(--space-4);
 }
 
+.exerciseNavigation {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto minmax(10rem, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.exerciseNavigation button:last-child {
+  justify-self: end;
+}
+
+.exerciseNavigation span {
+  color: var(--color-text-muted);
+  font: 600 0.75rem / 1rem var(--font-technical);
+  text-align: center;
+}
+
 .lessonFooter {
   display: flex;
   align-items: center;
@@ -414,6 +431,15 @@
   .routine ol,
   .moduleGrid {
     grid-template-columns: 1fr;
+  }
+
+  .exerciseNavigation {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .exerciseNavigation span {
+    grid-column: 1 / -1;
+    grid-row: 1;
   }
 }
 

@@ -56,6 +56,14 @@ class PuzzleCorpusControllerTest {
         assertThat(corpus.checks).hasValue(1);
         assertThat(corpus.starts).hasValue(0);
 
+        corpus.checkFails = true;
+        mockMvc(connected())
+                .perform(post("/api/admin/puzzle-corpus/update-checks")
+                        .cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("puzzle_corpus_unavailable"));
+        corpus.checkFails = false;
+
         corpus.checkOutcome = PuzzleCorpus.UpdateCheckOutcome.UNAVAILABLE;
         mockMvc(connected())
                 .perform(post("/api/admin/puzzle-corpus/update-checks")
@@ -156,6 +164,7 @@ class PuzzleCorpusControllerTest {
         private UpdateCheckOutcome checkOutcome = UpdateCheckOutcome.CHECKED;
         private StartResult startResult = StartResult.STARTED;
         private boolean cancelled = true;
+        private boolean checkFails;
 
         @Override
         public Status status() {
@@ -177,6 +186,9 @@ class PuzzleCorpusControllerTest {
         @Override
         public UpdateCheckResult checkForUpdate() {
             checks.incrementAndGet();
+            if (checkFails) {
+                throw new org.springframework.dao.DataAccessResourceFailureException("unavailable");
+            }
             return new UpdateCheckResult(checkOutcome, null);
         }
 

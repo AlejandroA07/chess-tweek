@@ -98,6 +98,7 @@ describe('AdminPuzzleCorpus', () => {
       expect.objectContaining({ method: 'POST' }),
     )
     expect(screen.getByRole('button', { name: 'Check for update' })).toBeDisabled()
+    expect(screen.getByText('Check for update is available again when this import stops.')).toBeInTheDocument()
 
     expect(await screen.findByText(/51% of the file read/, {}, { timeout: 2_500 })).toBeInTheDocument()
 

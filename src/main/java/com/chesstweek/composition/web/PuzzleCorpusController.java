@@ -58,7 +58,12 @@ public final class PuzzleCorpusController {
         if (rejected != null) {
             return rejected;
         }
-        PuzzleCorpus.UpdateCheckResult result = corpus.checkForUpdate();
+        PuzzleCorpus.UpdateCheckResult result;
+        try {
+            result = corpus.checkForUpdate();
+        } catch (DataAccessException exception) {
+            return error(HttpStatus.SERVICE_UNAVAILABLE, "puzzle_corpus_unavailable");
+        }
         if (result.outcome() == PuzzleCorpus.UpdateCheckOutcome.UNAVAILABLE) {
             return error(HttpStatus.BAD_GATEWAY, "update_check_failed");
         }

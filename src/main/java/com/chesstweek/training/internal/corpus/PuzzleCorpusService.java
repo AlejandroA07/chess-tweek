@@ -179,7 +179,8 @@ public final class PuzzleCorpusService implements PuzzleCorpus, DisposableBean {
         if (unfinished.isPresent()) {
             ImportRow row = unfinished.get();
             long remaining = row.downloadChecksum() == null
-                    ? row.sourceBytes() - existingBytes(partFile(row.id()))
+                    ? row.sourceBytes() - Math.max(
+                            existingBytes(partFile(row.id())), existingBytes(sourceFile(row.id())))
                     : 0;
             if (!enoughSpace(remaining)) {
                 return StartResult.INSUFFICIENT_DISK;
@@ -425,6 +426,8 @@ public final class PuzzleCorpusService implements PuzzleCorpus, DisposableBean {
                     pending.clear();
                 }
             }
+        } catch (BoundedLineReader.TotalSizeExceeded exception) {
+            throw new Stop("snapshot_too_large", true);
         } catch (IOException | IllegalArgumentException exception) {
             if (running.cancelled.get()) {
                 throw new Stop("cancelled", false);
@@ -445,7 +448,7 @@ public final class PuzzleCorpusService implements PuzzleCorpus, DisposableBean {
         store.applyChunk(importId, processed, entries, complete, now());
         ImportRow updated = store.get(importId).orElseThrow();
         if (updated.rejectedRecords() > maximumRejectedRecords) {
-            throw new Stop("too_many_rejected", true);
+            throw new Stop("too_many_rejected", false);
         }
     }
 
@@ -476,7 +479,7 @@ public final class PuzzleCorpusService implements PuzzleCorpus, DisposableBean {
         try {
             verified = store.verify(row.id(), now());
         } catch (IllegalStateException exception) {
-            throw new Stop("verification_failed", true);
+            throw new Stop("verification_failed", false);
         }
         deleteSource(row.id());
         LOGGER.info(
@@ -528,7 +531,8 @@ public final class PuzzleCorpusService implements PuzzleCorpus, DisposableBean {
                     case "finalizing" -> Phase.FINALIZING;
                     case "paused" -> Phase.PAUSED;
                     case "failed" -> Phase.FAILED;
-                    default -> Phase.VERIFIED;
+                    case "verified" -> Phase.VERIFIED;
+                    default -> throw new IllegalStateException("Unknown Puzzle corpus import state");
                 },
                 row.failureCode(), row.snapshotDate(), row.sourceBytes(),
                 Math.min(downloaded, row.sourceBytes()), Math.min(consumed, row.sourceBytes()),

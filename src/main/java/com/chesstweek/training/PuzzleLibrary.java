@@ -19,12 +19,16 @@ public interface PuzzleLibrary {
     Optional<Puzzle> exercisePuzzle(String methodKey, int contentVersion, String exerciseKey);
 
     /**
-     * One uniformly keyed library Puzzle, chosen by an index seek over stable random keys. It never
-     * sorts or scans the full corpus.
+     * The first library Puzzle at or after a uniform point in the stored Puzzle ID range, found by a
+     * primary-key seek; it never sorts or scans the corpus. Selection is exactly uniform over a
+     * gap-free ID range; a Puzzle that follows a removed ID is proportionally more likely.
      */
     Optional<Puzzle> randomPuzzle();
 
-    /** One uniformly keyed library Puzzle in an exact Theme or opening classification. */
+    /**
+     * The same seek within one exact Theme or opening classification. Selection weight follows the
+     * spacing of the category's members in ID order (see ADR-010).
+     */
     Optional<Puzzle> randomPuzzle(Category category);
 
     CatalogSummary summary();

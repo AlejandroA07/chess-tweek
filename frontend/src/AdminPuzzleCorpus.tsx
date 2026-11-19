@@ -25,6 +25,8 @@ const pausedReasons: Record<string, string> = {
   insufficient_disk: 'Free disk space ran low. Free some space, then resume.',
   storage_unavailable: 'The local import folder could not be used. Check that var/puzzle-corpus is writable.',
   import_error: 'The import stopped unexpectedly. Saved progress is kept.',
+  too_many_rejected: 'Too many records were invalid, so the snapshot was not accepted yet. The downloaded file is kept for a retry.',
+  verification_failed: 'Final verification did not match the imported records. The downloaded file is kept for a retry.',
 }
 
 const failedReasons: Record<string, string> = {
@@ -33,9 +35,7 @@ const failedReasons: Record<string, string> = {
   checksum_mismatch: 'The downloaded file changed after it was verified and was deleted.',
   source_missing: 'The downloaded file was missing when the import continued.',
   invalid_header: 'The downloaded file is not a Lichess Puzzle export and was deleted.',
-  too_many_rejected: 'Too many records were invalid, so this snapshot was not accepted.',
   snapshot_too_large: 'The snapshot is larger than Chess Tweek accepts, so it was not imported.',
-  verification_failed: 'Final verification did not match the imported records, so the snapshot was not accepted.',
 }
 
 const issueReasons: Record<string, string> = {
@@ -93,7 +93,8 @@ export function AdminPuzzleCorpus({
         .catch((error: unknown) => {
           if (error instanceof DOMException && error.name === 'AbortError') return
           if (handleFailure(error)) return
-          setAttempt((value) => value + 1)
+          // Keep the last known progress on screen and try again on the next tick.
+          setState((current) => (current.kind === 'ready' ? { ...current } : current))
         })
     }, POLL_MS)
     return () => {
@@ -262,6 +263,9 @@ function CorpusDetails({
         </div>
         {startReason && !active && (
           <p id="corpus-start-reason" className={styles.muted}>{startReason}</p>
+        )}
+        {active && (
+          <p className={styles.muted}>Check for update is available again when this import stops.</p>
         )}
         {!active && !resumable && updateAvailable && status.lastCheck && (
           <p className={styles.muted}>

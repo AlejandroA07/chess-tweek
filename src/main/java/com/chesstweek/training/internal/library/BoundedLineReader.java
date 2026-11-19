@@ -20,6 +20,13 @@ public final class BoundedLineReader {
         this.maximumRecordBytes = maximumRecordBytes;
     }
 
+    /** The input expanded beyond its total-size bound. */
+    public static final class TotalSizeExceeded extends IllegalArgumentException {
+        TotalSizeExceeded() {
+            super("Puzzle snapshot expands beyond the allowed size");
+        }
+    }
+
     /** The next record without its line terminator, or null at the end of input. */
     public String next() throws IOException {
         line.reset();
@@ -27,7 +34,7 @@ public final class BoundedLineReader {
         while ((value = input.read()) != -1) {
             total++;
             if (total > maximumTotalBytes) {
-                throw new IllegalArgumentException("Puzzle snapshot expands beyond the allowed size");
+                throw new TotalSizeExceeded();
             }
             if (value == '\n') {
                 break;

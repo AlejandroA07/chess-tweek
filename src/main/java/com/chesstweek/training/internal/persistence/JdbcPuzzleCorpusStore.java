@@ -230,6 +230,7 @@ public class JdbcPuzzleCorpusStore {
         List<Accepted> missingCurrent = new ArrayList<>();
         List<Change> changes = new ArrayList<>();
         List<Long> unchanged = new ArrayList<>();
+        List<Long> confirmed = new ArrayList<>();
         for (Accepted value : accepted) {
             PuzzleImportBatch.PuzzleRow row = value.row();
             Existing stored = existing.get(row.externalId());
@@ -245,6 +246,7 @@ public class JdbcPuzzleCorpusStore {
                 issues.add(new IssueRow(
                         value.recordNumber(), "conflict", row.externalId(), "immutable_conflict"));
                 conflicts++;
+                confirmed.add(stored.id());
             } else if (!stored.hasCurrent()) {
                 missingCurrent.add(value);
             } else if (stored.sameObservation(row)) {
@@ -275,6 +277,8 @@ public class JdbcPuzzleCorpusStore {
         insertMembers(members);
         applyChanges(importId, changes);
         markUnchanged(importId, unchanged);
+        // A conflicting record still proves the ID is in this snapshot: keep the stored Puzzle.
+        markUnchanged(importId, confirmed);
         storeIssues(importId, issues);
 
         int updatedRows = jdbc.update("""
@@ -554,8 +558,9 @@ public class JdbcPuzzleCorpusStore {
                 """, Long.class, importId);
         long accepted = row.insertedPuzzles() + row.updatedPuzzles() + row.unchangedPuzzles();
         long processed = accepted + row.rejectedRecords() + row.conflictingRecords();
+        long confirmed = accepted + row.conflictingRecords();
         if (!row.recordsComplete() || !"finalizing".equals(row.state())
-                || stored != accepted || processed != row.processedRecords()) {
+                || stored != confirmed || processed != row.processedRecords()) {
             throw new IllegalStateException("Puzzle corpus verification failed");
         }
         long retained = jdbc.queryForObject("""

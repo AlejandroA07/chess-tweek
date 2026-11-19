@@ -112,7 +112,8 @@ class PuzzleCorpusLifecycleTest {
             assertThat(corpusFiles()).isEmpty();
 
             PuzzleCorpus.Status status = corpus.status();
-            assertThat(status.stored().recordCount()).isEqualTo(6);
+            // Six accepted records plus the conflicting built-in, which stays present and unchanged.
+            assertThat(status.stored().recordCount()).isEqualTo(7);
             assertThat(status.stored().snapshotDate()).hasToString("2026-11-01");
             assertThat(status.stored().downloadChecksum()).hasSize(64);
             assertThat(status.stored().sourceUrl()).isEqualTo(lichess.url());
@@ -154,7 +155,10 @@ class PuzzleCorpusLifecycleTest {
             lichess.publish(snapshot(
                     record("A0001", 1500, "pin short", ""),
                     record("A0002", 2010, "fork short", OPENINGS),
-                    record("C0001", 1800, "skewer short", "")),
+                    record("C0001", 1800, "skewer short", ""),
+                    "A0003,5rk1/R4pp1/1p5p/3Q4/1PPp2q1/3P2P1/5P2/4nK2 w - - 0 34,"
+                            + "f1e1 f8e8 e1f1 g4h3 d5g2 e8e1 f1e1 h3g2,2020,70,95,500,fork short,"
+                            + "https://lichess.org/gameA0003,,"),
                     "\"s2\"", "2026-11-15T07:00:00Z");
             assertThat(corpus.checkForUpdate().check().updateAvailable()).isTrue();
             assertThat(corpus.startImport()).isEqualTo(PuzzleCorpus.StartResult.STARTED);
@@ -164,12 +168,20 @@ class PuzzleCorpusLifecycleTest {
             assertThat(refreshed.insertedPuzzles()).isEqualTo(1);
             assertThat(refreshed.updatedPuzzles()).isEqualTo(1);
             assertThat(refreshed.unchangedPuzzles()).isEqualTo(1);
-            assertThat(refreshed.removedPuzzles()).isEqualTo(3);
-            assertThat(refreshed.retainedPuzzles()).isEqualTo(1);
-            assertThat(corpus.status().stored().recordCount()).isEqualTo(3);
+            assertThat(refreshed.conflictingRecords()).isEqualTo(1);
+            assertThat(refreshed.removedPuzzles()).isEqualTo(2);
+            // lDWH9 and xrHJJ are missing but referenced by the guided course.
+            assertThat(refreshed.retainedPuzzles()).isEqualTo(2);
+            assertThat(corpus.status().stored().recordCount()).isEqualTo(4);
             assertThat(corpus.status().stored().snapshotDate()).hasToString("2026-11-15");
 
-            assertThat(library.puzzle("lichess-puzzle-database", "A0003")).isEmpty();
+            PuzzleLibrary.Puzzle conflictedCorpusPuzzle = library.puzzle(
+                    "lichess-puzzle-database", "A0003").orElseThrow();
+            assertThat(conflictedCorpusPuzzle.sourceFen()).isEqualTo(FEN);
+            assertThat(conflictedCorpusPuzzle.snapshotDate()).hasToString("2026-11-15");
+            assertThat(corpus.status().issues())
+                    .extracting(PuzzleCorpus.Issue::externalId, PuzzleCorpus.Issue::reason)
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple("A0003", "immutable_conflict"));
             assertThat(library.puzzle("lichess-puzzle-database", "A0004")).isEmpty();
             assertThat(library.randomPuzzle(new PuzzleLibrary.Category(
                     PuzzleLibrary.CategoryKind.OPENING_FAMILY, "Caro-Kann_Defense"))).isEmpty();
@@ -193,7 +205,7 @@ class PuzzleCorpusLifecycleTest {
                     JOIN training_puzzle p ON p.id = m.puzzle_id
                     WHERE c.kind = 'theme' AND c.classification_key = 'fork'
                       AND p.external_id GLOB '[AC]0*'
-                    """)).isEqualTo(1);
+                    """)).isEqualTo(2); // A0002, and conflicting A0003 keeps its stored observation
             assertThat(count(jdbc, """
                     SELECT COUNT(*) FROM training_puzzle_category_member m
                     LEFT JOIN training_puzzle_current c ON c.puzzle_id = m.puzzle_id
@@ -366,8 +378,10 @@ class PuzzleCorpusLifecycleTest {
         long deadline = System.nanoTime() + Duration.ofSeconds(60).toNanos();
         while (true) {
             PuzzleCorpus.ImportProgress progress = progress(corpus);
+            // A verified import deletes its source just after the verified state commits.
             if (progress != null && switch (progress.phase()) {
-                case PAUSED, FAILED, VERIFIED -> true;
+                case PAUSED, FAILED -> true;
+                case VERIFIED -> progress.sourceDeleted();
                 default -> false;
             }) {
                 return progress;

@@ -57,20 +57,32 @@ No new dependency is expected; if `chessgame` cannot read the PGN, a proposal co
 - Keep the 12 existing exercises and progress contract unchanged. This slice does not create a second library or pre-empt the Puzzle Library schema.
 - Acceptance: only one exercise board is present; navigation preserves the lesson order; accepted and revealed moves show their last-move squares without automatic solution arrows; rejected attempts restore the position and previous highlight; multiple annotations stack and clear predictably; the interface remains keyboard-operable and responsive.
 
+#### Stage 6 follow-up — Board exploration
+
+**Branches:** `feature/board-exploration`, `feature/legal-board-exploration` · **Needs:** Focused practice board.
+
+- Keep an answered or revealed position interactive without creating another course attempt or changing saved progress. Alternate the side to move and retain a local position history; scrolling over the board moves backward and forward through that history, and a move made after rewinding starts a new continuation.
+- Enforce legal local exploration: piece movement, blockers, captures, promotion, castling and en passant state, and king safety. An illegal move leaves the position and side to move unchanged and gives accessible feedback.
+- Let planning arrows start on any square, including an empty one, because they may describe a future line. Accept any straight, diagonal, or knight movement vector without checking occupancy or blockers; reject vectors no chess piece can make. Render knight vectors with a right-angle path and preserve the existing stacking and clearing behavior.
+- Acceptance: answered positions never lock; continued moves do not call the course-attempt endpoint; wheel navigation restores every recorded position and last-move highlight; illegal moves never enter history; planning arrows work from empty squares; `b1-c4` is rejected; knight arrows are bent; click, drag, keyboard annotation, orientation, and responsive behavior remain covered.
+
 ### Stage 7 — Shared training foundation
 
-**Branch:** `feature/training-core` · **Needs:** Stage 6.
+**Needs:** Stage 6.
 
 Deliver this stage as two independently reviewed parts:
 
-1. **Puzzle Library and taxonomy.** Add the central `training`-owned Puzzle, classification, Puzzle Collection, and Exercise-reference schema from ADR-009. Extract the bounded Lichess parser/normalizer from the existing course selector into one explicit local importer. Preserve CC0 provenance and snapshot metadata, expose all current Lichess theme names, keep openings as a separate hierarchy, and migrate the 12 guided-method exercises to stable Puzzle references before adding the full catalog interface.
-2. **Repetition core.** Add the shared spaced-repetition scheduler (Again, Hard, Good, Easy set from the attempt), mastery states New, Learning, Mastered, Lapsed, and reusable account-scoped attempt history for every global-library Puzzle.
+1. **Puzzle Library and taxonomy — delivered in PR #42.** Branch: `feature/training-core`. Add the central `training`-owned Puzzle, classification, Puzzle Collection, and Exercise-reference schema from ADR-009. Extract the bounded Lichess parser/normalizer from the existing course selector into one explicit local importer. Preserve CC0 provenance and snapshot metadata, expose all current Lichess theme names, keep openings as a separate hierarchy, and migrate the 12 guided-method exercises to stable Puzzle references before adding the full catalog interface.
+2. **Repetition core — next implementation part.** Branch: `feature/training-repetition`. Add the shared spaced-repetition scheduler (Again, Hard, Good, Easy derived from the attempt), mastery states New, Learning, Mastered, Lapsed, and reusable account-scoped attempt history for every global-library Puzzle. Wrong moves and reveals map to Again, a solved attempt using a hint maps to Hard, a first-try solve maps to Good, and a sufficiently fast first-try solve maps to Easy.
 
-- Acceptance: import is explicit, bounded, deterministic, resumable, and reports its storage result; duplicate provider/external IDs do not create duplicate Puzzles; methods can invoke an exact Puzzle by internal ID without owning it; removing a method does not remove its Puzzle or attempt history; scheduling is deterministic under a fixed clock and independent of guided-course completion.
+Before Part 2 implementation begins, record the exact Easy time threshold and the deterministic interval/state-transition table. Those values are product behavior and must not be invented inside implementation code.
+
+- Part 1 acceptance: import is explicit, bounded, deterministic, resumable, and reports its storage result; duplicate provider/external IDs do not create duplicate Puzzles; methods can invoke an exact Puzzle by internal ID without owning it; removing a method does not remove its Puzzle.
+- Part 2 acceptance: attempts are scoped to the active account and reusable across methods; removing a method does not remove Puzzle attempt history; outcome mapping and scheduling are deterministic under a fixed clock; mastery and due state survive restart; guided-course completion remains independent from repetition state.
 
 ### Stage 8 — My Mistakes deck
 
-**Branch:** `feature/my-mistakes` · **Needs:** Stage 7.
+**Branch:** `feature/my-mistakes` · **Needs:** Stage 7 Part 2.
 
 - One five-ply drill for every owner mistake and blunder in any completed owner analysis, with alternative-line acceptance.
 - Groups by phase, opening, tactic label, and source site; links back to the game review.
@@ -78,7 +90,7 @@ Deliver this stage as two independently reviewed parts:
 
 ### Stage 9 — Pattern library
 
-**Branch:** `feature/pattern-library` · **Needs:** Stage 7. Themes, rating range, and import through Homebrew `zstd` are decided (owner, 2026-11-14).
+**Branch:** `feature/pattern-library` · **Needs:** Stage 7 Part 2. Themes, rating range, and import through Homebrew `zstd` are decided (owner, 2026-11-14).
 
 - Browse and practice the Stage 7 Puzzle Library through the complete Lichess theme catalog and its separate opening-family/variation hierarchy. Use 50 curated puzzles as the normal collection size, 20 for scarce patterns, and up to 100 for high-value, high-volume patterns; begin with the owner-selected 1200-to-1700 range while the guided method keeps its own progression bands.
 - Mastery percentage per deck, Practice weakest, fixed-set repetition sessions, and custom positions.
@@ -86,7 +98,7 @@ Deliver this stage as two independently reviewed parts:
 
 ### Stage 10 — Opening explorer
 
-**Branch:** `feature/opening-explorer` · **Needs:** Stages 5 and 7.
+**Branch:** `feature/opening-explorer` · **Needs:** Stage 5 and Stage 7 Part 2.
 
 - Move statistics for any position from Lichess Masters, Lichess by rating band and speed, and My games computed from stored games of both sites.
 - Acceptance: the Lichess token never reaches the browser; upstream failure and 429 leave My games usable; responses are cached.
@@ -396,12 +408,24 @@ Acceptance:
 
 ## Current stopping point
 
-Stages 0 through 6 are complete. Stage 3 was delivered in independently reviewed parts (manual retrieval, the idempotent catalog, filters, selection, exact retrieval summaries, the owner's per-game rating change, and the Dashboard rating history and bot record), including the owner's live check. Stage 4 was delivered in parts: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards; Part 6 merged on 2026-11-15 (PR #32). The "what I was thinking" note was dropped by the owner on 2026-11-15. The owner's live check on 2026-11-16 confirmed the Part 6 labels and findings on the stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; the opponent-side coach wording has no stored opponent analysis yet and was checked only in tests. Stage 5 was delivered in three parts: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37), all merged on 2026-11-16. Stage 6 merged in PR #38 on 2026-11-17. Its first visual check found the interactive-square layout, static move display, automatic answer arrow, and placeholder exercise difficulty. The layout fix merged in follow-up PR #39; immediate board movement, accessible user arrows, and the version 2 Lichess exercise ladder merged in follow-up PR #40 on 2026-11-17. The focused-practice follow-up merged in PR #41 on 2026-11-18. The owner then chose one shared Puzzle Library for every future method and named practice collection; the taxonomy, sizing, provenance, and lifecycle investigation is recorded in `06-puzzle-library-taxonomy-and-sizing.md` and ADR-009. Stage 7 Part 1 merged in PR #42, the guided-board interaction repair merged in PR #43, and board exploration with wheel history merged in PR #44 on 2026-11-18. The follow-up on `feature/legal-board-exploration` makes every explored move obey chess movement and king-safety rules while allowing planning arrows from empty squares using any valid chess movement shape.
+### Delivered
+
+- Stages 0 through 3 are complete, including the owner's live catalog check.
+- Stage 4 was delivered in independently reviewed parts through PR #32 on 2026-11-15: Stockfish detection and health, benchmark profile, analysis rules, single-game analysis, game review, and tactic labels with coach cards. The owner dropped the "what I was thinking" note. The 2026-11-16 live check confirmed the Part 6 labels and findings on stored My Moves analyses of games `ye7Uy9js` and `nMp7giWQ`; opponent-side coach wording still has only automated coverage because no stored opponent analysis was available.
+- Stage 5 is complete: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37) merged on 2026-11-16.
+- Stage 6 and its board follow-ups are complete: the guided method (PR #38), layout repair (PR #39), immediate movement, annotations, and the version 2 Lichess exercise ladder (PR #40), focused practice (PR #41), replay repair (PR #43), wheel-history exploration (PR #44), and legal exploration with empty-square planning arrows (PR #45). PR #45 merged on 2026-11-18.
+- Stage 7 Part 1 is complete in PR #42. The shared Puzzle Library owns stable puzzle records, taxonomy, opening tags, provenance, bounded importing, and the 12 guided-method exercise references. The owner-approved design is recorded in `06-puzzle-library-taxonomy-and-sizing.md` and ADR-009.
+
+### Not yet delivered
+
+- The real restart/persistence smoke test remains to be recorded.
+- Stage 7 Part 2—account-scoped attempts, mastery, grading, and deterministic spaced repetition—has not started.
+- The Puzzle Library browsing/practice interface remains Stage 9 work; the Stage 7 foundation is not that interface.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
-**Next immediate action (2026-11-18):**
+**Next immediate action (2026-11-19):**
 
-1. Review and publish `feature/legal-board-exploration` when the owner requests remote review.
-2. Back up `var/chess-tweek.db`. Start the app, confirm all 12 guided exercises still load, complete an exercise, restart, and confirm progress persists.
-3. Begin Stage 7 Part 2: account-scoped attempts, mastery, and deterministic spaced repetition.
+1. Back up `var/chess-tweek.db`; start the merged app; confirm all 12 guided exercises load; complete one exercise; restart; confirm its progress persists; record the result here.
+2. Decide and record the exact Easy threshold and deterministic interval/state-transition table for Stage 7 Part 2.
+3. Implement Stage 7 Part 2 on `feature/training-repetition`, verify it, and stop for owner review before beginning My Mistakes or the Pattern Library interface.

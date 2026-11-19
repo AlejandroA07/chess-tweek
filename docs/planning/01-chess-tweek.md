@@ -118,10 +118,12 @@ Failure behavior:
 - Each lesson has original explanation, a recall checklist, and three original board exercises. The 12 exercise solutions remain server-side until a correct attempt or an explicit reveal.
 - Course content is versioned with the application and remains readable offline. Starting lessons, hints, attempts, reveals, and completion require the authorized Lichess account so progress is account-scoped and durable.
 - The course roadmap may show later modules as **Planned**, but does not promise dates or simulate locked rewards. V1 is guided rather than personalized: it does not select lessons from game-review evidence or claim rating improvement.
+- Lessons show one active exercise board with adjacent teaching. Answered positions remain available for legal local exploration, keep a wheel-navigable move history, and do not turn exploratory continuations into course attempts.
+- Planning arrows stack and may start on occupied or empty squares. They accept straight, diagonal, and knight movement vectors without checking blockers; impossible vectors are rejected, and knight arrows use a right-angle path.
 
 ### Training repetition core (owner decision, 2026-11-14)
 
-- An interactive board drawn with project styles. The owner moves pieces by click or drag; the backend validates every move with the already approved `chessgame` library, so no frontend chess dependency is added.
+- An interactive board drawn with project styles. The owner moves pieces by click or drag. Course attempts are validated by the backend with the approved `chessgame` library; post-answer local exploration uses the shared board's local legality boundary and never records another attempt. No frontend chess dependency is added.
 - One spaced-repetition scheduler serves every drill type (My Mistakes, pattern puzzles, repertoire moves). It is written in the project without a new dependency.
 - The attempt sets the review rating: a wrong move or giving up is Again, solved with a hint is Hard, solved on the first try is Good, and solved on the first try within a short time is Easy.
 - Each item is New, Learning, Mastered (next review at least 21 days away), or Lapsed (failed after being mastered).
@@ -399,13 +401,14 @@ Admin exposes every project operation that exists in v1:
 - [x] **1. Application foundation** — implement the approved `DESIGN.md`, scaffold the verified Spring Boot/React/SQLite application and shared shell, complete the harness, CI, architecture tests, and `scripts/verify.mjs`. Needs 0 and the approved canonical design direction.
 - [x] **2. Lichess connection** — deliver PKCE login, secure local session, account/rating display, reconnect, and logout end to end. Needs 1.
 - [x] **3. Lichess game catalog** — deliver Get Lichess Games, durable idempotent catalog, filters/cards, and bot/rating context. Needs 2.
-- [ ] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review, tactic labels, and coach cards. Needs 3.
-- [ ] **5. Chess.com games** — deliver Get Chess.com Games, the shared catalog with a source, per-site ratings, and analysis eligibility. Needs 3.
-- [ ] **6. Grandmaster Thinking Method** — deliver the first-class guided-course dashboard, the four-lesson Repeatable Move Routine module, 12 original exercises, account-scoped progress, hints, reveals, and the Dashboard shortcut. Needs 4.
-- [ ] **7. Training repetition core** — deliver the shared spaced-repetition scheduler, mastery states, grading, and reusable attempt history for future drill types. Needs 6.
-- [ ] **8. My Mistakes deck** — deliver drills from every owner mistake and blunder, grouped by phase, opening, and tactic label. Needs 7.
-- [ ] **9. Pattern library** — deliver themed decks from the Lichess puzzle database at about 1200 to 1700, opening decks, mastery per theme, Practice weakest, and custom positions. Needs 7.
-- [ ] **10. Opening explorer** — deliver Masters, Lichess by rating and speed, and My games move statistics. Needs 5 and 7.
+- [x] **4. Single-game analysis** — deliver Stockfish benchmark, selectable perspective, versioned findings, individual review, tactic labels, and coach cards. Needs 3.
+- [x] **5. Chess.com games** — deliver Get Chess.com Games, the shared catalog with a source, per-site ratings, and analysis eligibility. Needs 3.
+- [x] **6. Grandmaster Thinking Method** — deliver the first-class guided-course dashboard, the four-lesson Repeatable Move Routine module, 12 original exercises, account-scoped progress, hints, reveals, the Dashboard shortcut, focused practice, replay, and legal local board exploration. Needs 4.
+- [x] **7a. Shared Puzzle Library foundation** — deliver stable shared Puzzle records, complete Lichess theme names, separate opening classifications, bounded importing, provenance, collections, and stable guided-method exercise references. Needs 6.
+- [ ] **7b. Training repetition core** — deliver the shared spaced-repetition scheduler, mastery states, grading, and reusable account-scoped attempt history for future drill types. Needs 7a.
+- [ ] **8. My Mistakes deck** — deliver drills from every owner mistake and blunder, grouped by phase, opening, and tactic label. Needs 7b.
+- [ ] **9. Pattern library** — deliver themed decks from the Lichess puzzle database at about 1200 to 1700, opening decks, mastery per theme, Practice weakest, and custom positions. Needs 7b.
+- [ ] **10. Opening explorer** — deliver Masters, Lichess by rating and speed, and My games move statistics. Needs 5 and 7b.
 - [ ] **11. Repertoire builder** — deliver London and Caro-Kann trees, coverage and gaps, notes, and PGN import/export. Needs 10.
 - [ ] **12. Repertoire trainer** — deliver spaced-repetition drilling of repertoire moves with popularity-weighted replies and notes. Needs 11.
 - [ ] **13. Backup and hardening** — deliver a simple local backup and restore, then security, accessibility, visual QA, a real drive, and full verification. Needs all prior slices.

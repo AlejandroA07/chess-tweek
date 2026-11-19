@@ -1,6 +1,8 @@
 # Training goals and scope review
 
-This is the owner's refresher: why Chess Tweek exists, what the owner wants to train, what the current plan delivers, what free tools already do, and which parts of the plan are worth building. It was written on 2026-11-14 after Stage 4 Part 5a. It records findings and options; it does not change the product specification by itself. Decisions taken from it must be copied into `01-chess-tweek.md` and `03-delivery-plan.md`. The later guided-course decision is recorded in section 8.1.
+This is the owner's refresher: why Chess Tweek exists, what the owner wants to train, what the then-current plan delivered, what free tools already did, and which parts of the plan were worth building. It was written on 2026-11-14 after Stage 4 Part 5a. It records historical findings and options; it does not change the product specification by itself. Decisions taken from it must be copied into `01-chess-tweek.md` and `03-delivery-plan.md`. The later guided-course decision is recorded in section 8.1.
+
+> **Owner update, 2026-11-19:** the calendar-based spaced-repetition proposal, limited 1200–1700 import, and New/Learning/Lapsed states in this investigation are superseded. The current decisions import the full official Lichess Puzzle corpus and use owner-chosen performance Training Lists with no due dates. See `06-puzzle-library-taxonomy-and-sizing.md`, `07-performance-training-lists.md`, and `08-lichess-puzzle-dataset-sizing.md`.
 
 ## 1. The goal
 
@@ -139,7 +141,7 @@ Drop or defer from the current plan:
 ## 8. Owner decisions (2026-11-14)
 
 1. **Both sites.** The owner plays on chess.com and Lichess and wants both. Chess.com game import enters the plan.
-2. **Openings inside Chess Tweek.** Build what En Croissant does for openings in our own app instead of using En Croissant: an opening explorer, a repertoire builder, and a spaced-repetition repertoire trainer.
+2. **Openings inside Chess Tweek.** Build an opening explorer, repertoire builder, and repertoire trainer in Chess Tweek instead of relying on En Croissant. The trainer's selection and progression rules remain a separate decision before Stage 12; the Puzzle Training Lists do not automatically apply.
 3. **Postpone, not delete.** Old stages 5, 6, 8, 9, 10, and 11 move to a "Maybe later" list.
 4. **Puzzle level.** Pattern puzzles rated about 1200 to 1700. The owner asked for an explanation of the possible patterns before choosing; see section 9.
 
@@ -153,7 +155,7 @@ The owner chose to start the GM Igor investigation as a standalone, browseable c
 - Name the course **Grandmaster Thinking Method** and identify it as an independent Chess Tweek course inspired only by publicly described GM Igor Smirnov principles.
 - Start with one finished module: four lessons teaching a repeatable move routine, with original Chess Tweek instruction and three curated CC0 Lichess puzzle positions per lesson.
 - Keep authored material readable offline and save progress only for the authorized Lichess account.
-- Defer game-evidence personalization and spaced repetition. Stage 7 supplies the reusable repetition core; a later course extension may use game-review evidence only through an explicit public interface.
+- Defer game-evidence personalization and performance classification from Stage 6 itself. Stage 7 supplies the reusable Puzzle training state; a later course extension may use game-review evidence only through an explicit public interface.
 
 The owner's first live review on 2026-11-17 replaced the placeholder difficulty decision for this course. The goal is progression toward 2000, so every lesson now ladders from a Foundation exercise selected around Lichess 1500–1700, through Development at 1750–1950, to Stretch at 2000–2200. Those are source-puzzle curation bands, not a claim that Lichess puzzle ratings equal chess.com rapid ratings. The separate Stage 9 pattern-library range remains its own decision.
 
@@ -246,7 +248,9 @@ Every Lichess puzzle that starts before move 20 also carries an opening tag. Puz
 
 The 22 themes marked **(start)** plus the two opening collections, at puzzle ratings 1200 to 1700. Each theme becomes a deck. The owner can add more themes at any time.
 
-### How "mastered" works (proposal)
+### Superseded proposal: how "mastered" would work
+
+The following calendar-based proposal is retained only to explain the investigation. It was replaced by the performance-list decisions in `07-performance-training-lists.md`.
 
 - Each puzzle is New, Learning, Mastered, or Lapsed.
 - The attempt sets the review rating automatically: wrong move or gave up means Again; solved with a hint means Hard; solved first try means Good; solved first try quickly means Easy.
@@ -254,7 +258,9 @@ The 22 themes marked **(start)** plus the two opening collections, at puzzle rat
 - A puzzle is **Mastered** when its next review is at least 21 days away. A failed mastered puzzle becomes **Lapsed** and returns soon.
 - Each theme shows its mastery percentage, and "Practice weakest" picks due puzzles from the weakest themes first. Woodpecker-style "repeat this set faster" sessions are also possible.
 
-## 10. Owner decisions on the pattern library (2026-11-14)
+## 10. Superseded pattern-library decisions (2026-11-14)
+
+These were the first bounded-import decisions. The 2026-11-19 full-corpus decision in `08-lichess-puzzle-dataset-sizing.md` replaces the limited import and rating cap while preserving the usefulness of small curated named collections.
 
 1. **Themes.** The first library is the 22 starter themes marked **(start)** in section 9, plus the Caro-Kann and London opening decks, at puzzle ratings about 1200 to 1700.
 2. **Import.** Download the CC0 Lichess puzzle file once and keep only the chosen themes and ratings. Decompression uses the Homebrew `zstd` tool, a system prerequisite like Stockfish (installed on the owner's Mac: zstd 1.5.7 at `/opt/homebrew/bin/zstd`). No Java decompression dependency is added.

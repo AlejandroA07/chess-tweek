@@ -16,7 +16,7 @@ Every handoff lists changed files, commands run, manual checks, and known limita
 
 ## Re-scoped plan (owner decision, 2026-11-14)
 
-The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, the wishes, the tool research, and the decisions. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12, with the standalone guided course inserted as Stage 6 by owner decision on 2026-11-16. Guided thinking comes before repetition infrastructure, puzzles, and openings. The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
+The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, wishes, and tool research; the later owner decisions in `06-puzzle-library-taxonomy-and-sizing.md`, `07-performance-training-lists.md`, and `08-lichess-puzzle-dataset-sizing.md` supersede its proposed Puzzle scheduling and import limits. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12, with the standalone guided course inserted as Stage 6 by owner decision on 2026-11-16. Guided thinking comes before the full Puzzle corpus, performance training, and openings. The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
 
 Training follows its standalone prompt and `docs/app-material/DESIGN.md`; future Patterns and Openings views still need prompts. Every new view uses project tokens and CSS Modules in the existing shell; no second visual system is introduced.
 
@@ -45,7 +45,7 @@ No new dependency is expected; if `chessgame` cannot read the PGN, a proposal co
 - Ship the complete first module, Repeatable Move Routine: four browseable lessons with original explanations and recall checklists. Each lesson has a Foundation (Lichess 1500–1700), Development (1750–1950), and Stretch (2000–2200) exercise curated from the CC0 Lichess puzzle database; the bands are source-puzzle selection bands, not rating equivalence claims.
 - Reuse the project-styled board for click, keyboard, and drag moves. A submitted move changes the board immediately and rolls back when the server rejects it; answer revelation never draws an automatic arrow. Right-button drag is the pointer shortcut for annotations, with a labeled Draw arrow mode for keyboard use. Validate every submitted UCI move server-side with `chessgame`; keep solutions and explanations server-side until a correct attempt or explicit reveal.
 - Keep course content readable offline. Require the authorized Lichess account for lesson starts, hints, attempts, reveals, completion, and account-scoped durable progress.
-- Show later course modules as Planned. Do not personalize from game evidence, add spaced-repetition grading, or claim improvement in this stage.
+- Show later course modules as Planned. Do not personalize from game evidence, add performance-list classification, or claim improvement in this stage.
 - Acceptance: anonymous callers can read only sanitized authored content; protected actions reject missing sessions and cross-origin writes; invalid lesson/exercise keys and illegal moves are rejected safely; progress survives restart; all 12 exercises, complete source lines, rating tiers, and Lichess source records pass content validation; the interface remains keyboard-operable and responsive.
 
 #### Stage 6 follow-up — Focused practice board
@@ -70,31 +70,32 @@ No new dependency is expected; if `chessgame` cannot read the PGN, a proposal co
 
 **Needs:** Stage 6.
 
-Deliver this stage as two independently reviewed parts:
+Deliver this stage as three independently reviewed parts:
 
 1. **Puzzle Library and taxonomy — delivered in PR #42.** Branch: `feature/training-core`. Add the central `training`-owned Puzzle, classification, Puzzle Collection, and Exercise-reference schema from ADR-009. Extract the bounded Lichess parser/normalizer from the existing course selector into one explicit local importer. Preserve CC0 provenance and snapshot metadata, expose all current Lichess theme names, keep openings as a separate hierarchy, and migrate the 12 guided-method exercises to stable Puzzle references before adding the full catalog interface.
-2. **Repetition core — next implementation part.** Branch: `feature/training-repetition`. Add the shared spaced-repetition scheduler (Again, Hard, Good, Easy derived from the attempt), mastery states New, Learning, Mastered, Lapsed, and reusable account-scoped attempt history for every global-library Puzzle. Wrong moves and reveals map to Again, a solved attempt using a hint maps to Hard, a first-try solve maps to Good, and a sufficiently fast first-try solve maps to Easy.
-
-Before Part 2 implementation begins, record the exact Easy time threshold and the deterministic interval/state-transition table. Those values are product behavior and must not be invented inside implementation code.
+2. **Full Puzzle corpus and controlled access — next implementation part.** Branch: `feature/full-puzzle-corpus`. Add the explicit Admin workflow to download, verify, import, resume, cancel, and later update the complete official Lichess Puzzle snapshot. Preflight disk space, expose progress, retain auditable snapshot metadata, delete the compressed source only after a verified import, and implement indexed purpose-specific queries for exact Puzzle references, Random, and category selection. Update checks and downloads are manual-only Admin actions. Apply the retention and immutable-position conflict rules in `08-lichess-puzzle-dataset-sizing.md`.
+3. **Normal Puzzle performance training.** Branch: `feature/puzzle-performance-training`. Add the main Puzzle dashboard, one-at-a-time Random, By Category, and the normal-Puzzle Repetition dashboard. Record account-scoped attempts and apply the exact classification, counters, strikes, advancement, demotion, session-randomization, and Mastered behavior from `07-performance-training-lists.md`. Guided methods update the referenced Puzzle's same performance state while preserving independent course progress.
 
 - Part 1 acceptance: import is explicit, bounded, deterministic, resumable, and reports its storage result; duplicate provider/external IDs do not create duplicate Puzzles; methods can invoke an exact Puzzle by internal ID without owning it; removing a method does not remove its Puzzle.
-- Part 2 acceptance: attempts are scoped to the active account and reusable across methods; removing a method does not remove Puzzle attempt history; outcome mapping and scheduling are deterministic under a fixed clock; mastery and due state survive restart; guided-course completion remains independent from repetition state.
+- Part 2 acceptance: the complete verified snapshot is stored without duplicate provider/external IDs; interruption resumes safely; insufficient disk space and conflicting immutable records fail safely; the compressed source is deleted only after verification; manual update checks do not trigger downloads; indexed selection avoids a full-corpus random sort; missing referenced or attempted Puzzles survive refresh.
+- Part 3 acceptance: attempts are scoped to the active account and reusable across methods; Random never returns a classified Puzzle; an incomplete Puzzle remains unclassified; every list transition matches the decision table; session order is freshly randomized without repeats until the list is exhausted; counters, strikes, and Mastered categories survive restart; guided-course completion remains independent from Puzzle performance state.
 
-### Stage 8 — My Mistakes deck
+### Stage 8 — Own Puzzles
 
-**Branch:** `feature/my-mistakes` · **Needs:** Stage 7 Part 2.
+**Branch:** `feature/own-puzzles` · **Needs:** Stage 7 Part 3.
 
-- One five-ply drill for every owner mistake and blunder in any completed owner analysis, with alternative-line acceptance.
-- Groups by phase, opening, tactic label, and source site; links back to the game review.
-- Acceptance: every eligible error yields exactly one drill per analysis version; attempts survive reanalysis.
+- Create an Own Puzzle for every owner inaccuracy, mistake, and blunder from a completed My Moves analysis. Never create one from Opponent Moves findings. Prevent reanalysis of a perspective that already completed while still allowing the missing perspective.
+- Store Own Puzzles and their classification/attempt state separately from the Lichess Puzzle Library. Group them by opening, game phase, and tactic label and link each one to its exact source Game Review position.
+- Add New Own Puzzles, Discarded with Restore, all-category summaries, and a separate Own Puzzles repetition dashboard. Apply the same performance rules as normal Puzzles without sharing selection pools, history, or state.
+- Acceptance: game retrieval and Own Puzzle creation are idempotent; each owner inaccuracy, mistake, and blunder produces one Own Puzzle; leaving a new attempt incomplete keeps it new; discard prevents classification and restore returns it new; the normal Puzzle dashboard never returns an Own Puzzle; progress survives restart.
 
-### Stage 9 — Pattern library
+### Stage 9 — Curated Puzzle collections
 
-**Branch:** `feature/pattern-library` · **Needs:** Stage 7 Part 2. Themes, rating range, and import through Homebrew `zstd` are decided (owner, 2026-11-14).
+**Branch:** `feature/puzzle-collections` · **Needs:** Stage 7 Part 3.
 
-- Browse and practice the Stage 7 Puzzle Library through the complete Lichess theme catalog and its separate opening-family/variation hierarchy. Use 50 curated puzzles as the normal collection size, 20 for scarce patterns, and up to 100 for high-value, high-volume patterns; begin with the owner-selected 1200-to-1700 range while the guided method keeps its own progression bands.
-- Mastery percentage per deck, Practice weakest, fixed-set repetition sessions, and custom positions.
-- Acceptance: collections reference shared Puzzles rather than copying them; named filters and counts match the imported snapshot; random mixed practice is separate from named training; storage size is reported.
+- Add quality-selected named collections over the already imported full corpus. Use 50 curated references as the normal target, 20 for scarce patterns, and up to 100 for high-value, high-volume patterns; collection membership never copies a Puzzle record or limits full-corpus category access.
+- Add advanced category summaries and optional focused collection practice. Custom positions remain a separate later decision because Own Puzzles are game-derived rather than manually authored.
+- Acceptance: collections reference shared Puzzles rather than copying them; named filters and counts match the imported snapshot; collection practice uses the same existing Puzzle state; storage size is reported.
 
 ### Stage 10 — Opening explorer
 
@@ -114,8 +115,9 @@ Before Part 2 implementation begins, record the exact Easy time threshold and th
 
 **Branch:** `feature/repertoire-trainer` · **Needs:** Stage 11.
 
-- Due repertoire positions drilled with the shared scheduler, popularity-weighted opponent replies, notes after each move, and session statistics.
-- Acceptance: a wrong move shows the prepared move and is scheduled as Again; due counts are correct across restarts.
+- Repertoire positions drilled with popularity-weighted opponent replies, notes after each move, and session statistics.
+- Before implementation, decide repertoire-specific selection and progression rules. The Puzzle performance lists are not automatically reused for repertoire moves.
+- Acceptance: a wrong move shows the prepared move; the chosen progression state and session statistics are correct across restarts.
 
 ### Stage 13 — Backup and hardening
 
@@ -415,17 +417,18 @@ Acceptance:
 - Stage 5 is complete: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37) merged on 2026-11-16.
 - Stage 6 and its board follow-ups are complete: the guided method (PR #38), layout repair (PR #39), immediate movement, annotations, and the version 2 Lichess exercise ladder (PR #40), focused practice (PR #41), replay repair (PR #43), wheel-history exploration (PR #44), and legal exploration with empty-square planning arrows (PR #45). PR #45 merged on 2026-11-18.
 - Stage 7 Part 1 is complete in PR #42. The shared Puzzle Library owns stable puzzle records, taxonomy, opening tags, provenance, bounded importing, and the 12 guided-method exercise references. The owner-approved design is recorded in `06-puzzle-library-taxonomy-and-sizing.md` and ADR-009.
+- The owner completed the merged-app smoke test on 2026-11-19: all 12 guided exercises loaded, one exercise was completed, and its saved progress remained after the application restarted.
 
 ### Not yet delivered
 
-- The real restart/persistence smoke test remains to be recorded.
-- Stage 7 Part 2—account-scoped attempts, mastery, grading, and deterministic spaced repetition—has not started.
-- The Puzzle Library browsing/practice interface remains Stage 9 work; the Stage 7 foundation is not that interface.
+- Stage 7 Part 2—the complete Lichess Puzzle snapshot, manual Admin lifecycle, and indexed controlled-access queries—has not started.
+- Stage 7 Part 3—the normal Puzzle dashboard, attempts, and performance Training Lists—has not started.
+- Stage 8 Own Puzzles and Stage 9 curated collections have not started.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-19):**
 
-1. Back up `var/chess-tweek.db`; start the merged app; confirm all 12 guided exercises load; complete one exercise; restart; confirm its progress persists; record the result here.
-2. Decide and record the exact Easy threshold and deterministic interval/state-transition table for Stage 7 Part 2.
-3. Implement Stage 7 Part 2 on `feature/training-repetition`, verify it, and stop for owner review before beginning My Mistakes or the Pattern Library interface.
+1. Implement Stage 7 Part 2 on `feature/full-puzzle-corpus`: the manual Admin download/import/update workflow and indexed purpose-specific access defined in `08-lichess-puzzle-dataset-sizing.md`.
+2. Measure the real full import, database size, cancellation/resume behavior, and Random/category query performance on the target Mac; record the results in `docs/dev/`.
+3. Verify the slice and stop for owner review before implementing Stage 7 Part 3 performance Training Lists.

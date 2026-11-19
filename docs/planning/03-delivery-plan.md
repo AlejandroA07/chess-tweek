@@ -73,7 +73,7 @@ No new dependency is expected; if `chessgame` cannot read the PGN, a proposal co
 Deliver this stage as three independently reviewed parts:
 
 1. **Puzzle Library and taxonomy — delivered in PR #42.** Branch: `feature/training-core`. Add the central `training`-owned Puzzle, classification, Puzzle Collection, and Exercise-reference schema from ADR-009. Extract the bounded Lichess parser/normalizer from the existing course selector into one explicit local importer. Preserve CC0 provenance and snapshot metadata, expose all current Lichess theme names, keep openings as a separate hierarchy, and migrate the 12 guided-method exercises to stable Puzzle references before adding the full catalog interface.
-2. **Full Puzzle corpus and controlled access — next implementation part.** Branch: `feature/full-puzzle-corpus`. Add the explicit Admin workflow to download, verify, import, resume, cancel, and later update the complete official Lichess Puzzle snapshot. Preflight disk space, expose progress, retain auditable snapshot metadata, delete the compressed source only after a verified import, and implement indexed purpose-specific queries for exact Puzzle references, Random, and category selection. Update checks and downloads are manual-only Admin actions. Apply the retention and immutable-position conflict rules in `08-lichess-puzzle-dataset-sizing.md`.
+2. **Full Puzzle corpus and controlled access — implemented, awaiting owner review.** Branch: `feature/full-puzzle-corpus`. Storage and sampling are recorded in ADR-010; measurements are in `docs/dev/2026-11-19-full-puzzle-corpus.md`. Add the explicit Admin workflow to download, verify, import, resume, cancel, and later update the complete official Lichess Puzzle snapshot. Preflight disk space, expose progress, retain auditable snapshot metadata, delete the compressed source only after a verified import, and implement indexed purpose-specific queries for exact Puzzle references, Random, and category selection. Update checks and downloads are manual-only Admin actions. Apply the retention and immutable-position conflict rules in `08-lichess-puzzle-dataset-sizing.md`.
 3. **Normal Puzzle performance training.** Branch: `feature/puzzle-performance-training`. Add the main Puzzle dashboard, one-at-a-time Random, By Category, and the normal-Puzzle Repetition dashboard. Record account-scoped attempts and apply the exact classification, counters, strikes, advancement, demotion, session-randomization, and Mastered behavior from `07-performance-training-lists.md`. Guided methods update the referenced Puzzle's same performance state while preserving independent course progress.
 
 - Part 1 acceptance: import is explicit, bounded, deterministic, resumable, and reports its storage result; duplicate provider/external IDs do not create duplicate Puzzles; methods can invoke an exact Puzzle by internal ID without owning it; removing a method does not remove its Puzzle.
@@ -421,7 +421,7 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 7 Part 2—the complete Lichess Puzzle snapshot, manual Admin lifecycle, and indexed controlled-access queries—has not started.
+- Stage 7 Part 2—the complete Lichess Puzzle snapshot, manual Admin lifecycle, and indexed controlled-access queries—is implemented on `feature/full-puzzle-corpus` and awaits owner review and merge. It was measured against the official 2026-11-01 snapshot on the target Mac (`docs/dev/2026-11-19-full-puzzle-corpus.md`).
 - Stage 7 Part 3—the normal Puzzle dashboard, attempts, and performance Training Lists—has not started.
 - Stage 8 Own Puzzles and Stage 9 curated collections have not started.
 
@@ -429,6 +429,6 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-19):**
 
-1. Implement Stage 7 Part 2 on `feature/full-puzzle-corpus`: the manual Admin download/import/update workflow and indexed purpose-specific access defined in `08-lichess-puzzle-dataset-sizing.md`.
-2. Measure the real full import, database size, cancellation/resume behavior, and Random/category query performance on the target Mac; record the results in `docs/dev/`.
-3. Verify the slice and stop for owner review before implementing Stage 7 Part 3 performance Training Lists.
+1. Owner reviews and merges the Stage 7 Part 2 pull request from `feature/full-puzzle-corpus`.
+2. Owner runs the first full import from Admin (Check for update, then Download and import) against the real `var/chess-tweek.db`, with at least 7 GB free (the 0.3 GB download plus 6 GiB working headroom; the library ends near 2.6 GiB), and confirms the stored snapshot, Puzzle count, and deleted source file.
+3. Only then implement Stage 7 Part 3 performance Training Lists on `feature/puzzle-performance-training`, extending the corpus retention rule with account attempts and list state.

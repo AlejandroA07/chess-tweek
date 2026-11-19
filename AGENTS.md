@@ -29,7 +29,7 @@ The approved foundation stack is Java 25, Spring Boot 4.1, Maven, SQLite/JDBC/Fl
 - Frontend production build: `pnpm frontend:build`
 - Backend tests and package: `./mvnw clean verify`
 
-Use Java 25, Node 24, and pnpm. `scripts/verify.mjs` enforces the required runtime versions and is the only definition of done.
+Use Java 25, Node 24, and pnpm. The Puzzle corpus import and its tests use the Homebrew `zstd` binary (`brew install zstd`); Stockfish analysis uses Homebrew Stockfish. `scripts/verify.mjs` enforces the required runtime versions and is the only definition of done.
 
 ## Secrets and security
 

@@ -13,7 +13,19 @@ public interface PuzzleLibrary {
 
     Optional<Puzzle> puzzle(long puzzleId);
 
+    /** Exact reference by provider and stable external ID, independent of any snapshot. */
+    Optional<Puzzle> puzzle(String provider, String externalId);
+
     Optional<Puzzle> exercisePuzzle(String methodKey, int contentVersion, String exerciseKey);
+
+    /**
+     * One uniformly keyed library Puzzle, chosen by an index seek over stable random keys. It never
+     * sorts or scans the full corpus.
+     */
+    Optional<Puzzle> randomPuzzle();
+
+    /** One uniformly keyed library Puzzle in an exact Theme or opening classification. */
+    Optional<Puzzle> randomPuzzle(Category category);
 
     CatalogSummary summary();
 
@@ -37,6 +49,14 @@ public interface PuzzleLibrary {
             int playCount,
             List<String> themes,
             List<String> openingTags) {}
+
+    record Category(CategoryKind kind, String key) {}
+
+    enum CategoryKind {
+        THEME,
+        OPENING_FAMILY,
+        OPENING_VARIATION
+    }
 
     record ImportRequest(
             Path approvedRoot,

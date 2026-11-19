@@ -101,6 +101,15 @@ Stage 1 encodes Java package boundaries with ArchUnit and keeps the frontend in 
 - **Rejected:** A library per method duplicates positions, classifications, and attempts. One physical lifecycle for global and report-owned puzzles would let report deletion affect unrelated practice. Embedding mutable source positions directly in every method makes provenance refreshes invisible and future reuse brittle.
 - **Reopen when:** A downloadable pack or user-authored puzzle must override the global provenance/retention rules, or measured scale makes the local SQLite catalog impractical.
 
+## ADR-010 — The full Puzzle corpus keeps one current observation per Puzzle
+
+- **Status:** Accepted 2026-11-19
+- **Context:** The owner chose the complete official Lichess snapshot (about 6.2 million Puzzles). ADR-009's per-snapshot observation and tag rows would duplicate the whole corpus on every refresh, and Random and By Category must not sort or scan millions of rows.
+- **Decision:** A full-corpus Admin import is its own auditable record (`training_puzzle_corpus_import`) that also carries the resumable job state. Each canonical Puzzle has exactly one current observation (`training_puzzle_current`) and integer category memberships (`training_puzzle_category_member`) keyed by category and Puzzle ID. A refresh updates observations in place and records which import last confirmed each Puzzle. Built-in and bounded-import Puzzles keep their pinned per-snapshot observations, so versioned exercise provenance never changes. Random and category selection choose a uniform point in the stored Puzzle ID range and seek the first Puzzle at or after it on a primary key.
+- **Lifecycle:** Startup never contacts Lichess. Check for update sends one `HEAD` request; a separate explicit action downloads with byte-range resume, verifies size, `zstd -t` integrity, and a recorded SHA-256, then imports in chunks whose resume cursor commits with the chunk. A Puzzle missing from a newer snapshot is removed only when nothing references it; an immutable position or solution conflict keeps the stored Puzzle and is reported. The compressed source is deleted only after verification.
+- **Rejected:** Random keys per Puzzle scatter inserts across large indexes; on the target Mac the import fell from about 20,000 to about 5,000 records per second by two million rows. `ORDER BY RANDOM()` scans the corpus. Keeping every snapshot's observations multiplies storage with each refresh.
+- **Reopen when:** Part 3 needs history of rating or Theme changes across snapshots, or a category becomes too irregularly spaced in ID order for acceptable sampling.
+
 ## Architecture test obligations for Stage 1
 
 - Reject Java imports from one module's internal package into another module.

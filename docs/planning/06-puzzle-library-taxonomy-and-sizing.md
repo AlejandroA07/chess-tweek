@@ -1,5 +1,7 @@
 # Puzzle library taxonomy, opening scope, and storage sizing
 
+> **Owner update, 2026-11-19:** the complete official Lichess Puzzle snapshot will be imported into the central library. The 20–100 targets below remain useful for curated named collections, but they no longer cap the underlying library or Random and By Category access. See [`08-lichess-puzzle-dataset-sizing.md`](08-lichess-puzzle-dataset-sizing.md).
+
 **Decision date:** 2026-11-18
 **Primary data snapshot checked:** Lichess puzzle export updated 2026-11-11
 

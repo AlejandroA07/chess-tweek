@@ -2,7 +2,7 @@
 
 ## Goal
 
-Chess Tweek is a local-first desktop chess training application for one active Lichess account. It imports completed Lichess and chess.com games, optionally analyzes selected sides with local Stockfish, and turns the owner's own mistakes, a themed pattern library, and an opening repertoire into practice material repeated with spaced repetition until it is mastered. The supported platform is macOS on Apple Silicon.
+Chess Tweek is a local-first desktop chess training application for one active Lichess account. It imports completed Lichess and chess.com games, optionally analyzes selected sides with local Stockfish, and trains the owner with the full Lichess Puzzle corpus, game-derived Own Puzzles, guided methods, and an opening repertoire. Puzzle repetition is performance-based and owner-chosen rather than calendar-scheduled. The supported platform is macOS on Apple Silicon.
 
 The owner's chess goal (about 1300 to 2000 rapid on chess.com), training wishes, tool research, and the 2026-11-14 re-scope are recorded in `04-training-goals.md`.
 
@@ -121,30 +121,33 @@ Failure behavior:
 - Lessons show one active exercise board with adjacent teaching. Answered positions remain available for legal local exploration, keep a wheel-navigable move history, and do not turn exploratory continuations into course attempts.
 - Planning arrows stack and may start on occupied or empty squares. They accept straight, diagonal, and knight movement vectors without checking blockers; impossible vectors are rejected, and knight arrows use a right-angle path.
 
-### Training repetition core (owner decision, 2026-11-14)
+### Puzzle performance training (owner decisions, 2026-11-19)
 
 - An interactive board drawn with project styles. The owner moves pieces by click or drag. Course attempts are validated by the backend with the approved `chessgame` library; post-answer local exploration uses the shared board's local legality boundary and never records another attempt. No frontend chess dependency is added.
-- One spaced-repetition scheduler serves every drill type (My Mistakes, pattern puzzles, repertoire moves). It is written in the project without a new dependency.
-- The attempt sets the review rating: a wrong move or giving up is Again, solved with a hint is Hard, solved on the first try is Good, and solved on the first try within a short time is Easy.
-- Each item is New, Learning, Mastered (next review at least 21 days away), or Lapsed (failed after being mastered).
+- Every completed Puzzle attempt records Solve Time, Wrong Moves, hint use, and completion. The deterministic rules in `07-performance-training-lists.md` place the Puzzle in exactly one of Hard to Solve, Wrong Moves, Worth Repeating, Retiring, or Mastered.
+- The application maintains performance lists and counters, but it never assigns review dates or a due schedule. The owner chooses which list and when to practice it.
+- The normal Puzzle dashboard exposes Random, By Category, and Repetition over one canonical full-corpus Puzzle Library. Own Puzzles use the same performance rules in a completely separate dashboard, state, history, and selection pool.
+- A Training Method references the same canonical Puzzle and updates its normal-Puzzle performance state without merging that state with authored course progress.
 - Hints keep the existing two levels: piece, then destination.
 - Solutions stay server-side until validation or an authorized hint.
 
-### My Mistakes deck (owner decision, 2026-11-14)
+### Own Puzzles (owner decisions, 2026-11-19)
 
-- Every owner mistake and blunder in any completed owner analysis becomes a drill immediately; no report is needed.
-- The drill starts immediately before the error and keeps the five-ply rule, alternative-line acceptance within three expected-score percentage points, and the stored engine line.
-- Drills are grouped by phase, opening, and the conservative tactic labels, and show the source game.
-- Reanalysis adds drills for new versions without deleting attempt history.
+- Every owner inaccuracy, mistake, and blunder in a completed My Moves analysis becomes an Own Puzzle immediately; Opponent Moves analysis never creates an Own Puzzle.
+- Each game may be analyzed once for My Moves and once for Opponent Moves. An already completed perspective cannot be analyzed again, while the missing perspective remains available.
+- Own Puzzles are grouped by opening, game phase, and tactic label, and link to their exact source-game position.
+- New Own Puzzles may be attempted once for classification or discarded before classification. Discarded Own Puzzles remain recoverable.
+- Own Puzzles use the same performance categories as library Puzzles but remain separate in storage, interface, progress, selection, and history.
 
-### Pattern library (owner decision, 2026-11-14)
+### Puzzle Library and named practice (owner decisions, 2026-11-19)
 
-- Themed puzzles come from the CC0 Lichess puzzle database, filtered to the owner's chosen themes and a rating range of about 1200 to 1700.
-- Each chosen theme is a deck. Opening-tagged puzzles for the Caro-Kann Defense and the London System form two extra decks.
-- The first library is the 22 starter themes in `04-training-goals.md` section 9: fork, pin, skewer, discoveredAttack, doubleCheck, hangingPiece, trappedPiece, capturingDefender, intermezzo, deflection, attraction, interference, exposedKing, kingsideAttack, mateIn2, backRankMate, smotheredMate, arabianMate, hookMate, anastasiaMate, pawnEndgame, and rookEndgame. Owner decision, 2026-11-14.
-- Import is manual: the owner downloads or points to the official `lichess_db_puzzle.csv.zst`; the app streams it through the Homebrew `zstd` binary (a system prerequisite discovered like Stockfish, never bundled) and keeps only matching themes and ratings. Missing `zstd` yields a recoverable state with install instructions.
-- Each deck shows mastery percentage. "Practice weakest" draws due items from the weakest decks first. A fixed-set repetition session (Woodpecker style) is available.
-- The owner can add a custom position with its solution to any deck.
+- Import the complete official CC0 Lichess Puzzle snapshot. Store each provider/external Puzzle ID once and let tags, methods, attempts, and lists reference that canonical record.
+- Expose the complete current Lichess Theme catalog and the snapshot's opening hierarchy. Curated named collections may target 20 to 100 strong examples, but those collection sizes never cap Random or By Category access to the underlying corpus.
+- Random selects one unclassified Puzzle at a time and never selects it again after a completed attempt classifies it. By Category may select every non-Mastered library Puzzle and applies the Puzzle's existing list rules when it is already classified.
+- Mastered Puzzles are excluded from Random and normal By Category. The Mastered view groups them by chess category and permits optional category practice without changing their terminal state.
+- Import and refresh are manual Admin operations. The app downloads or accepts the official `lichess_db_puzzle.csv.zst`, streams it through the discovered Homebrew `zstd` prerequisite, verifies the full snapshot, and deletes the compressed source only after a successful import. Missing `zstd`, insufficient space, interruption, and immutable-record conflicts are recoverable and visible.
+- Dataset update checks never run at startup, in the background, or on a schedule. Admin retains snapshot metadata and exposes separate Check for update and download/import actions.
+- Category and Mastered summaries derive from references to canonical Puzzles. Custom-position authoring and any weakest-category recommendation remain separate future decisions.
 - Results stay local and are never submitted to Lichess.
 
 ### Opening explorer (owner decision, 2026-11-14)
@@ -159,7 +162,7 @@ Failure behavior:
 - A repertoire is a tree of moves for one color from a chosen start position; the owner starts with the London System (White) and the Caro-Kann Defense (Black).
 - Build mode shows explorer moves for the current position with coverage, "Go to next gap", and "Go to biggest gap". A line is covered when it reaches a position with fewer games than an owner-set target. Transpositions count as covered.
 - Every position can hold an owner note for plans and objectives. PGN import and export keep comments as notes.
-- Train mode presents due repertoire positions, opponent replies weighted by popularity, and the owner's note after each move. A wrong move shows the prepared move and counts as Again.
+- Train mode presents repertoire positions, opponent replies weighted by popularity, and the owner's note after each move. A wrong move shows the prepared move. Repertoire selection and progression rules remain a separate decision to make before Stage 12; the Puzzle performance-list rules do not automatically apply to repertoire moves.
 - Session statistics show moves practiced, correct, incorrect, and accuracy.
 
 ### Stockfish analysis
@@ -405,12 +408,13 @@ Admin exposes every project operation that exists in v1:
 - [x] **5. Chess.com games** — deliver Get Chess.com Games, the shared catalog with a source, per-site ratings, and analysis eligibility. Needs 3.
 - [x] **6. Grandmaster Thinking Method** — deliver the first-class guided-course dashboard, the four-lesson Repeatable Move Routine module, 12 original exercises, account-scoped progress, hints, reveals, the Dashboard shortcut, focused practice, replay, and legal local board exploration. Needs 4.
 - [x] **7a. Shared Puzzle Library foundation** — deliver stable shared Puzzle records, complete Lichess theme names, separate opening classifications, bounded importing, provenance, collections, and stable guided-method exercise references. Needs 6.
-- [ ] **7b. Training repetition core** — deliver the shared spaced-repetition scheduler, mastery states, grading, and reusable account-scoped attempt history for future drill types. Needs 7a.
-- [ ] **8. My Mistakes deck** — deliver drills from every owner mistake and blunder, grouped by phase, opening, and tactic label. Needs 7b.
-- [ ] **9. Pattern library** — deliver themed decks from the Lichess puzzle database at about 1200 to 1700, opening decks, mastery per theme, Practice weakest, and custom positions. Needs 7b.
+- [ ] **7b. Full Puzzle corpus** — deliver the manual Admin download/import/update workflow, snapshot verification, full-corpus indexed access, and safe retention rules for the complete official Lichess Puzzle dataset. Needs 7a.
+- [ ] **7c. Normal Puzzle training** — deliver Random, By Category, and Repetition; account-scoped attempts; the five performance lists; counters, strikes, Mastered category summaries, and restart-safe progress. Needs 7b.
+- [ ] **8. Own Puzzles** — deliver separate game-derived Puzzle storage, New/Discarded/Restore flows, source-game links, and an independent repetition dashboard using the same performance rules. Needs 7c.
+- [ ] **9. Curated Puzzle collections** — deliver quality-selected named collections and advanced category practice over references to the full Puzzle corpus without copying Puzzle records. Needs 7c.
 - [ ] **10. Opening explorer** — deliver Masters, Lichess by rating and speed, and My games move statistics. Needs 5 and 7b.
 - [ ] **11. Repertoire builder** — deliver London and Caro-Kann trees, coverage and gaps, notes, and PGN import/export. Needs 10.
-- [ ] **12. Repertoire trainer** — deliver spaced-repetition drilling of repertoire moves with popularity-weighted replies and notes. Needs 11.
+- [ ] **12. Repertoire trainer** — after separately deciding its progression rules, deliver drilling of repertoire moves with popularity-weighted replies and notes. Needs 11.
 - [ ] **13. Backup and hardening** — deliver a simple local backup and restore, then security, accessibility, visual QA, a real drive, and full verification. Needs all prior slices.
 
 Maybe later (postponed by owner decision on 2026-11-14, not scheduled): bulk analysis queue with thermal pausing and low-heat mode; Overall Games Analysis exact-ten reports; report-owned Related Lichess Puzzles; Lichess Daily and Mixed puzzles; dependency-aware Admin deletion; the 5 GB storage cap and compaction.

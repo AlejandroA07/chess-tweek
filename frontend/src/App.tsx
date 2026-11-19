@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import styles from './App.module.css'
 import { AdminChessCom } from './AdminChessCom'
 import { AdminEngine } from './AdminEngine'
+import { AdminPuzzleCorpus } from './AdminPuzzleCorpus'
 import { DashboardChessComRatings, DashboardRatingContext } from './DashboardRatingContext'
 import { GameReview } from './GameReview'
 import { gameKey, parseGameKey } from './gameRef'
@@ -338,6 +339,7 @@ export function App() {
               <>
                 <AdminChessCom onSessionFailure={handleCatalogSessionFailure} />
                 <AdminEngine onSessionFailure={handleCatalogSessionFailure} />
+                <AdminPuzzleCorpus onSessionFailure={handleCatalogSessionFailure} />
               </>
             ) : route.href === '#/dashboard' && session.kind === 'connected' ? null : (
               <section className={styles.emptyState} aria-labelledby="workspace-title">

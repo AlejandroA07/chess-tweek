@@ -1,11 +1,8 @@
 package com.chesstweek.training.internal.library;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -13,58 +10,52 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.chesstweek.training.PuzzleLibrary;
+import com.chesstweek.training.internal.library.LichessPuzzleRecords.Candidate;
 import com.chesstweek.training.internal.library.process.ZstdInput;
-
-import io.github.wolfraam.chessgame.ChessGame;
-import io.github.wolfraam.chessgame.move.Move;
-import io.github.wolfraam.chessgame.notation.NotationType;
+import com.chesstweek.training.internal.library.process.ZstdLocator;
 
 @Component
 final class LichessPuzzleImporter {
 
-    private static final String PROVIDER = "lichess-puzzle-database";
-    private static final String HEADER =
-            "PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags,DailyDate";
+    private static final String PROVIDER = LichessPuzzleRecords.PROVIDER;
+    private static final String HEADER = LichessPuzzleRecords.HEADER;
     private static final long MAX_COMPRESSED_BYTES = 10L * 1024 * 1024 * 1024;
     private static final long MAX_DECOMPRESSED_BYTES = 20L * 1024 * 1024 * 1024;
-    private static final int MAX_RECORD_BYTES = 4096;
+    private static final int MAX_RECORD_BYTES = LichessPuzzleRecords.MAX_RECORD_BYTES;
     private static final int MAX_OPENING_CLASSIFICATIONS = 1000;
     private static final Pattern FILE_NAME = Pattern.compile("[A-Za-z0-9._-]{1,255}\\.(?:csv|zst)");
     private static final Pattern CHECKSUM = Pattern.compile("[a-f0-9]{64}");
-    private static final Pattern EXTERNAL_ID = Pattern.compile("[A-Za-z0-9]{5,8}");
-    private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
-    private static final Pattern THEME = Pattern.compile("[A-Za-z0-9]{1,40}");
-    private static final Pattern OPENING = Pattern.compile("[A-Za-z0-9_]{1,120}");
-    private static final Pattern DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
     private static final Comparator<Candidate> BEST_FIRST = Comparator
             .comparingLong(Candidate::score).reversed()
             .thenComparing(Candidate::externalId);
     private static final Comparator<Candidate> WORST_FIRST = BEST_FIRST.reversed();
 
     private final Clock clock;
+    private final ZstdLocator zstdLocator;
 
-    LichessPuzzleImporter() {
-        this(Clock.systemUTC());
+    @Autowired
+    LichessPuzzleImporter(ZstdLocator zstdLocator) {
+        this(Clock.systemUTC(), zstdLocator);
     }
 
-    LichessPuzzleImporter(Clock clock) {
+    LichessPuzzleImporter(Clock clock, ZstdLocator zstdLocator) {
         this.clock = clock;
+        this.zstdLocator = zstdLocator;
     }
 
     PuzzleImportBatch read(PuzzleLibrary.ImportRequest request, Map<String, String> visibleThemes) {
@@ -79,7 +70,7 @@ final class LichessPuzzleImporter {
         Set<String> seenIds = new HashSet<>();
 
         try (InputStream input = new BufferedInputStream(open(valid.file()), 64 * 1024)) {
-            BoundedLines lines = new BoundedLines(input);
+            BoundedLineReader lines = new BoundedLineReader(input, MAX_DECOMPRESSED_BYTES, MAX_RECORD_BYTES);
             String first = lines.next();
             boolean hasHeader = HEADER.equals(first);
             if (!hasHeader && first != null) {
@@ -103,14 +94,14 @@ final class LichessPuzzleImporter {
                     key.kind(), key.key(),
                     key.kind() == PuzzleImportBatch.Kind.THEME
                             ? visibleThemes.get(key.key())
-                            : displayName(key.key()),
+                            : LichessPuzzleRecords.displayName(key.key()),
                     valid.target(),
                     ordered.stream().map(candidate -> new PuzzleImportBatch.Member(
                             PROVIDER, candidate.externalId(), candidate.score())).toList()));
         }
 
         List<PuzzleImportBatch.PuzzleRow> puzzles = selected.values().stream()
-                .map(LichessPuzzleImporter::validateAndMap)
+                .map(LichessPuzzleRecords::validate)
                 .toList();
         var snapshot = new PuzzleImportBatch.Snapshot(
                 PROVIDER, valid.snapshotDate(), checksum, "puzzle-library-v1",
@@ -133,11 +124,7 @@ final class LichessPuzzleImporter {
         if (line.isBlank()) {
             return;
         }
-        String[] fields = line.split(",", -1);
-        if (fields.length != 11) {
-            throw new IllegalArgumentException("Puzzle snapshot contains a malformed record");
-        }
-        Candidate candidate = parse(fields);
+        Candidate candidate = LichessPuzzleRecords.parse(line);
         if (!seenIds.add(candidate.externalId())) {
             throw new IllegalArgumentException("Puzzle snapshot contains a duplicate puzzle ID");
         }
@@ -167,69 +154,6 @@ final class LichessPuzzleImporter {
                             candidate, request.target());
                 }
             }
-        }
-    }
-
-    private static Candidate parse(String[] fields) {
-        String id = fields[0];
-        if (!EXTERNAL_ID.matcher(id).matches()
-                || fields[1].length() < 20 || fields[1].length() > 120
-                || !lichessUrl(fields[8])) {
-            throw new IllegalArgumentException("Puzzle snapshot contains invalid identity data");
-        }
-        List<String> moves = tokens(fields[2], UCI, 2, 120, "moves");
-        List<String> themes = tokens(fields[7], THEME, 1, 30, "themes");
-        List<String> openingTags = tokens(fields[9], OPENING, 0, 16, "opening tags");
-        LocalDate dailyDate = null;
-        if (!fields[10].isBlank()) {
-            if (!DATE.matcher(fields[10]).matches()) {
-                throw new IllegalArgumentException("Puzzle snapshot contains invalid daily date");
-            }
-            try {
-                dailyDate = LocalDate.parse(fields[10]);
-            } catch (DateTimeParseException exception) {
-                throw new IllegalArgumentException(
-                        "Puzzle snapshot contains invalid daily date", exception);
-            }
-        }
-        int rating = integer(fields[3], 400, 4000, "rating");
-        int deviation = integer(fields[4], 0, 500, "rating deviation");
-        int popularity = integer(fields[5], -100, 100, "popularity");
-        int plays = integer(fields[6], 0, Integer.MAX_VALUE, "play count");
-        long score = (long) popularity * 1_000_000_000L
-                + Math.min(plays, 999_999_999)
-                - (long) deviation * 10_000_000L;
-        return new Candidate(id, fields[1], moves, rating, deviation, popularity, plays,
-                themes, openingTags, fields[8], dailyDate, score);
-    }
-
-    private static PuzzleImportBatch.PuzzleRow validateAndMap(Candidate candidate) {
-        try {
-            ChessGame game = new ChessGame(candidate.sourceFen());
-            String positionFen = null;
-            for (int index = 0; index < candidate.moves().size(); index++) {
-                String uci = candidate.moves().get(index);
-                Move move = game.getMove(NotationType.UCI, uci);
-                if (move == null || !game.isLegalMove(move)) {
-                    throw new IllegalArgumentException("Puzzle snapshot contains an illegal move line");
-                }
-                game.playMove(move);
-                if (index == 0) {
-                    positionFen = game.getFen();
-                }
-            }
-            return new PuzzleImportBatch.PuzzleRow(
-                    PROVIDER, candidate.externalId(), candidate.sourceFen(), candidate.moves(),
-                    candidate.moves().getFirst(), positionFen,
-                    candidate.moves().subList(1, candidate.moves().size()), candidate.gameUrl(),
-                    "CC0-1.0", candidate.rating(), candidate.ratingDeviation(),
-                    candidate.popularity(), candidate.playCount(), candidate.themes(),
-                    candidate.openingTags(), candidate.dailyDate());
-        } catch (RuntimeException exception) {
-            if (exception instanceof IllegalArgumentException illegal) {
-                throw illegal;
-            }
-            throw new IllegalArgumentException("Puzzle snapshot contains an invalid position", exception);
         }
     }
 
@@ -268,12 +192,14 @@ final class LichessPuzzleImporter {
         }
     }
 
-    private static InputStream open(Path file) {
+    private InputStream open(Path file) {
         try {
             if (file.getFileName().toString().endsWith(".csv")) {
                 return Files.newInputStream(file);
             }
-            return ZstdInput.open(file);
+            Path zstd = zstdLocator.locate().orElseThrow(
+                    () -> new IllegalArgumentException("The zstd prerequisite is not installed"));
+            return ZstdInput.open(zstd, file);
         } catch (IOException exception) {
             throw new IllegalArgumentException("Puzzle snapshot could not be opened", exception);
         }
@@ -305,7 +231,7 @@ final class LichessPuzzleImporter {
             return false;
         }
         openings.put(key, new PuzzleImportBatch.Classification(
-                kind, key, parent, displayName(key), "Openings", true));
+                kind, key, parent, LichessPuzzleRecords.displayName(key), "Openings", true));
         return true;
     }
 
@@ -322,44 +248,6 @@ final class LichessPuzzleImporter {
         }
     }
 
-    private static List<String> tokens(
-            String value, Pattern pattern, int minimum, int maximum, String name) {
-        List<String> values = value.isBlank() ? List.of() : List.of(value.split(" "));
-        if (values.size() < minimum || values.size() > maximum
-                || new HashSet<>(values).size() != values.size()
-                || values.stream().anyMatch(token -> !pattern.matcher(token).matches())) {
-            throw new IllegalArgumentException("Puzzle snapshot contains invalid " + name);
-        }
-        return values;
-    }
-
-    private static int integer(String value, int minimum, int maximum, String name) {
-        try {
-            int parsed = Integer.parseInt(value);
-            if (parsed < minimum || parsed > maximum) {
-                throw new IllegalArgumentException();
-            }
-            return parsed;
-        } catch (NumberFormatException exception) {
-            throw new IllegalArgumentException("Puzzle snapshot contains invalid " + name, exception);
-        }
-    }
-
-    private static String displayName(String key) {
-        String words = key.replace('_', ' ');
-        return words.substring(0, 1).toUpperCase(Locale.ROOT) + words.substring(1);
-    }
-
-    private static boolean lichessUrl(String value) {
-        try {
-            URI uri = URI.create(value);
-            return "https".equals(uri.getScheme()) && "lichess.org".equals(uri.getHost())
-                    && uri.getUserInfo() == null && uri.getPort() == -1;
-        } catch (IllegalArgumentException exception) {
-            return false;
-        }
-    }
-
     private record ValidRequest(
             Path file,
             LocalDate snapshotDate,
@@ -368,52 +256,5 @@ final class LichessPuzzleImporter {
             int maximumRating,
             int target) {}
 
-    private record Candidate(
-            String externalId,
-            String sourceFen,
-            List<String> moves,
-            int rating,
-            int ratingDeviation,
-            int popularity,
-            int playCount,
-            List<String> themes,
-            List<String> openingTags,
-            String gameUrl,
-            LocalDate dailyDate,
-            long score) {}
-
     private record CollectionKey(PuzzleImportBatch.Kind kind, String key) {}
-
-    private static final class BoundedLines {
-        private final InputStream input;
-        private long total;
-
-        private BoundedLines(InputStream input) {
-            this.input = input;
-        }
-
-        String next() throws IOException {
-            ByteArrayOutputStream line = new ByteArrayOutputStream(256);
-            int value;
-            while ((value = input.read()) != -1) {
-                total++;
-                if (total > MAX_DECOMPRESSED_BYTES) {
-                    throw new IllegalArgumentException("Puzzle snapshot expands beyond the allowed size");
-                }
-                if (value == '\n') {
-                    break;
-                }
-                if (value != '\r') {
-                    if (line.size() >= MAX_RECORD_BYTES) {
-                        throw new IllegalArgumentException("Puzzle snapshot record is too long");
-                    }
-                    line.write(value);
-                }
-            }
-            if (value == -1 && line.size() == 0) {
-                return null;
-            }
-            return line.toString(StandardCharsets.UTF_8);
-        }
-    }
 }

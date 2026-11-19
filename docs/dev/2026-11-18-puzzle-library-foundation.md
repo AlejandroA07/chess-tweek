@@ -36,5 +36,5 @@ Integration coverage proves built-in installation, 74 theme names, exact course 
 ## Deferred
 
 - The Stage 9 catalog and practice interface will browse these classifications and collections.
-- Stage 7 Part 2 will add account-scoped attempts, mastery, and scheduling.
-- Snapshot removal/replacement controls are not exposed yet; imports only add immutable snapshots.
+- Stage 7 Part 3 will add account-scoped attempts, mastery, and scheduling.
+- Stage 7 Part 2 (`2026-11-19-full-puzzle-corpus.md`) added the manual full-corpus lifecycle and corrected four record rules this bounded importer shares with it: hyphenated opening tags, repeated moves in a line, the 399 rating floor, and epoch-millisecond daily dates.

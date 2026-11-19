@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.random.RandomGenerator;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -17,14 +18,45 @@ import com.chesstweek.training.internal.library.PuzzleImportBatch;
 @Repository
 public class JdbcPuzzleLibraryStore {
 
-    private final JdbcTemplate jdbc;
+    static final String PUZZLE_COLUMNS = """
+            p.id, p.provider, p.external_id, p.source_fen, p.source_moves_uci, p.setup_move_uci,
+            p.position_fen, p.solution_uci, p.game_url, p.license,
+            c.rating, c.rating_deviation, c.popularity, c.play_count,
+            c.source_themes, c.source_opening_tags,
+            COALESCE(i.snapshot_date, (
+                SELECT s.snapshot_date
+                FROM training_puzzle_observation o
+                JOIN training_puzzle_snapshot s ON s.id = o.snapshot_id
+                WHERE o.puzzle_id = p.id
+                ORDER BY s.snapshot_date DESC
+                LIMIT 1
+            )) AS snapshot_date
+            """;
+    static final String CURRENT_PUZZLE = """
+            FROM training_puzzle_current c
+            JOIN training_puzzle p ON p.id = c.puzzle_id
+            LEFT JOIN training_puzzle_corpus_import i ON i.id = c.corpus_import_id
+            """;
 
-    public JdbcPuzzleLibraryStore(JdbcTemplate jdbc) {
+    private final JdbcTemplate jdbc;
+    private final PuzzleCategoryIndex categories;
+
+    public JdbcPuzzleLibraryStore(JdbcTemplate jdbc, PuzzleCategoryIndex categories) {
         this.jdbc = jdbc;
+        this.categories = categories;
     }
 
     @Transactional
     public PuzzleLibrary.ImportResult persist(PuzzleImportBatch batch) {
+        try {
+            return persistBatch(batch);
+        } catch (RuntimeException exception) {
+            categories.reload();
+            throw exception;
+        }
+    }
+
+    private PuzzleLibrary.ImportResult persistBatch(PuzzleImportBatch batch) {
         Long existingSnapshot = snapshotId(batch.snapshot());
         if (existingSnapshot != null) {
             String checksum = jdbc.queryForObject(
@@ -98,6 +130,7 @@ public class JdbcPuzzleLibraryStore {
                     insertTag(puzzleId, snapshotId, kind.get(), opening);
                 }
             }
+            ensureCurrent(puzzleId, puzzle);
         }
 
         for (PuzzleImportBatch.Collection collection : batch.collections()) {
@@ -148,16 +181,55 @@ public class JdbcPuzzleLibraryStore {
     }
 
     public Optional<PuzzleLibrary.Puzzle> puzzle(long puzzleId) {
-        return jdbc.query("""
-                SELECT p.*, s.snapshot_date, o.rating, o.rating_deviation,
-                       o.popularity, o.play_count, o.source_themes, o.source_opening_tags
-                FROM training_puzzle p
-                JOIN training_puzzle_observation o ON o.puzzle_id = p.id
-                JOIN training_puzzle_snapshot s ON s.id = o.snapshot_id
-                WHERE p.id = ?
-                ORDER BY s.snapshot_date DESC
-                LIMIT 1
-                """, JdbcPuzzleLibraryStore::mapPuzzle, puzzleId).stream().findFirst();
+        return jdbc.query("SELECT " + PUZZLE_COLUMNS + CURRENT_PUZZLE + "WHERE c.puzzle_id = ?",
+                JdbcPuzzleLibraryStore::mapPuzzle, puzzleId).stream().findFirst();
+    }
+
+    public Optional<PuzzleLibrary.Puzzle> puzzle(String provider, String externalId) {
+        return jdbc.query("SELECT " + PUZZLE_COLUMNS + CURRENT_PUZZLE
+                        + "WHERE p.provider = ? AND p.external_id = ?",
+                JdbcPuzzleLibraryStore::mapPuzzle, provider, externalId).stream().findFirst();
+    }
+
+    /**
+     * Picks a uniform point in the stored Puzzle ID range and seeks the first Puzzle at or after
+     * it. Both bounds and the seek use the primary key; the corpus is never sorted or scanned.
+     */
+    public Optional<PuzzleLibrary.Puzzle> randomPuzzle(RandomGenerator random) {
+        Long low = firstId("SELECT min(puzzle_id) FROM training_puzzle_current");
+        Long high = firstId("SELECT max(puzzle_id) FROM training_puzzle_current");
+        if (low == null || high == null) {
+            return Optional.empty();
+        }
+        Long puzzleId = firstId("""
+                SELECT puzzle_id FROM training_puzzle_current
+                WHERE puzzle_id >= ? ORDER BY puzzle_id LIMIT 1
+                """, random.nextLong(low, high + 1));
+        return puzzleId == null ? Optional.empty() : puzzle(puzzleId);
+    }
+
+    /** The same uniform seek within one category's Puzzle ID range on its member primary key. */
+    public Optional<PuzzleLibrary.Puzzle> randomPuzzle(
+            PuzzleImportBatch.Kind kind, String key, RandomGenerator random) {
+        Integer category = categories.category(kind, key);
+        if (category == null) {
+            return Optional.empty();
+        }
+        Long low = firstId(
+                "SELECT min(puzzle_id) FROM training_puzzle_category_member WHERE category_id = ?",
+                category);
+        Long high = firstId(
+                "SELECT max(puzzle_id) FROM training_puzzle_category_member WHERE category_id = ?",
+                category);
+        if (low == null || high == null) {
+            return Optional.empty();
+        }
+        Long puzzleId = firstId("""
+                SELECT puzzle_id FROM training_puzzle_category_member
+                WHERE category_id = ? AND puzzle_id >= ?
+                ORDER BY puzzle_id LIMIT 1
+                """, category, random.nextLong(low, high + 1));
+        return puzzleId == null ? Optional.empty() : puzzle(puzzleId);
     }
 
     public Optional<PuzzleLibrary.Puzzle> exercisePuzzle(
@@ -243,6 +315,29 @@ public class JdbcPuzzleLibraryStore {
         if (matches != 1) {
             throw new IllegalStateException("A stable puzzle ID has conflicting source material");
         }
+    }
+
+    private void ensureCurrent(long puzzleId, PuzzleImportBatch.PuzzleRow puzzle) {
+        if (firstId("SELECT puzzle_id FROM training_puzzle_current WHERE puzzle_id = ?",
+                puzzleId) != null) {
+            return;
+        }
+        jdbc.update("""
+                INSERT INTO training_puzzle_current (
+                    puzzle_id, corpus_import_id, rating, rating_deviation, popularity,
+                    play_count, source_themes, source_opening_tags, daily_date
+                ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)
+                """, puzzleId, puzzle.rating(), puzzle.ratingDeviation(),
+                puzzle.popularity(), puzzle.playCount(), join(puzzle.themes()),
+                join(puzzle.openingTags()),
+                puzzle.dailyDate() == null ? null : puzzle.dailyDate().toString());
+        categories.insertMembers(puzzleId,
+                categories.categories(puzzle.themes(), puzzle.openingTags(), true));
+    }
+
+    private Long firstId(String sql, Object... arguments) {
+        return jdbc.query(sql, (row, number) -> row.getLong(1), arguments)
+                .stream().findFirst().orElse(null);
     }
 
     private boolean classificationExists(PuzzleImportBatch.Kind kind, String key) {

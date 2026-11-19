@@ -415,10 +415,10 @@ Acceptance:
 - Stage 5 is complete: the two-site catalog foundation (PR #35), chess.com retrieval (PR #36), and the chess.com interface (PR #37) merged on 2026-11-16.
 - Stage 6 and its board follow-ups are complete: the guided method (PR #38), layout repair (PR #39), immediate movement, annotations, and the version 2 Lichess exercise ladder (PR #40), focused practice (PR #41), replay repair (PR #43), wheel-history exploration (PR #44), and legal exploration with empty-square planning arrows (PR #45). PR #45 merged on 2026-11-18.
 - Stage 7 Part 1 is complete in PR #42. The shared Puzzle Library owns stable puzzle records, taxonomy, opening tags, provenance, bounded importing, and the 12 guided-method exercise references. The owner-approved design is recorded in `06-puzzle-library-taxonomy-and-sizing.md` and ADR-009.
+- The owner completed the merged-app smoke test on 2026-11-19: all 12 guided exercises loaded, one exercise was completed, and its saved progress remained after the application restarted.
 
 ### Not yet delivered
 
-- The real restart/persistence smoke test remains to be recorded.
 - Stage 7 Part 2—account-scoped attempts, mastery, grading, and deterministic spaced repetition—has not started.
 - The Puzzle Library browsing/practice interface remains Stage 9 work; the Stage 7 foundation is not that interface.
 
@@ -426,6 +426,5 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-19):**
 
-1. Back up `var/chess-tweek.db`; start the merged app; confirm all 12 guided exercises load; complete one exercise; restart; confirm its progress persists; record the result here.
-2. Decide and record the exact Easy threshold and deterministic interval/state-transition table for Stage 7 Part 2.
-3. Implement Stage 7 Part 2 on `feature/training-repetition`, verify it, and stop for owner review before beginning My Mistakes or the Pattern Library interface.
+1. Decide and record the exact Easy threshold and deterministic interval/state-transition table for Stage 7 Part 2.
+2. Implement Stage 7 Part 2 on `feature/training-repetition`, verify it, and stop for owner review before beginning My Mistakes or the Pattern Library interface.

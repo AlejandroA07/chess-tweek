@@ -286,7 +286,7 @@ export function GamesLibrary({
   }, [accountId])
 
   useEffect(() => {
-    if (focusTarget.current === 'library' && catalog.kind !== 'loading') {
+    if (focusTarget.current === 'library' && catalog.kind === 'ready') {
       libraryRef.current?.focus()
       focusTarget.current = null
     } else if (focusTarget.current === 'count' && !loadingOlder) {

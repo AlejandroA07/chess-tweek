@@ -51,10 +51,10 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Games' }))
 
     await waitFor(() => expect(window.location.hash).toBe('#/games'))
-    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute(
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute(
       'aria-current',
       'page',
-    )
+    ))
     expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('heading', { name: 'Games' })).toBeInTheDocument()
   })
@@ -655,7 +655,7 @@ describe('App', () => {
 
     const emptyHeading = await screen.findByRole('heading', { name: 'No games stored on this Mac' })
     expect(emptyHeading).toBeInTheDocument()
-    expect(emptyHeading.closest('section')).toHaveFocus()
+    await waitFor(() => expect(emptyHeading.closest('section')).toHaveFocus())
     expect(catalogRequests).toBe(2)
   })
 

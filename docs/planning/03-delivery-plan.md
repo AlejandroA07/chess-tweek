@@ -423,11 +423,13 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 7 Part 3—the normal Puzzle dashboard, attempts, and performance Training Lists—has not started.
+- Stage 7 Part 3a—the backend performance core: account attempts, server-checked solving with hint and Show solution, the list rules, Random and By Category selection, and corpus retention—is implemented on `feature/puzzle-performance-training` and awaits owner review (`docs/dev/2026-11-20-puzzle-performance-core.md`). It adds no interface.
+- Stage 7 Parts 3b (Puzzle dashboard), 3c (Repetition dashboard, Practice Sessions, and Mastered view), and 3d (guided-method link) have not started.
 - Stage 8 Own Puzzles and Stage 9 curated collections have not started.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-20):**
 
-1. Implement Stage 7 Part 3 performance Training Lists on `feature/puzzle-performance-training`, extending the corpus retention rule with account attempts and list state.
+1. Owner reviews and merges the Stage 7 Part 3a pull request from `feature/puzzle-performance-training`.
+2. Implement Stage 7 Part 3b, the Puzzle dashboard with Random and By Category, on its own `feature/<topic>` branch, using the Part 3a API and `docs/app-material/DESIGN.md`.

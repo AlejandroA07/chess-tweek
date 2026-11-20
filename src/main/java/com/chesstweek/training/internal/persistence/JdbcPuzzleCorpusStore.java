@@ -488,7 +488,7 @@ public class JdbcPuzzleCorpusStore {
     /**
      * Removes one batch of Puzzles that a newer verified snapshot no longer contains, walking
      * the import index by key. A missing Puzzle is retained whenever user work or authored content
-     * references it. Stage 7 Part 3 must extend {@link #RETAINED} with attempts and list state.
+     * references it, including any account's attempts or Training List state ({@link #RETAINED}).
      */
     @Transactional
     public RemovalBatch removeMissing(
@@ -508,7 +508,8 @@ public class JdbcPuzzleCorpusStore {
         List<Long> deleted = new ArrayList<>();
         for (Missing candidate : candidates) {
             boolean keep = jdbc.queryForObject(RETAINED, Integer.class,
-                    candidate.puzzleId(), candidate.puzzleId(), candidate.puzzleId()) == 1;
+                    candidate.puzzleId(), candidate.puzzleId(), candidate.puzzleId(),
+                    candidate.puzzleId(), candidate.puzzleId()) == 1;
             if (keep) {
                 retained++;
                 continue;
@@ -544,6 +545,8 @@ public class JdbcPuzzleCorpusStore {
             SELECT EXISTS (SELECT 1 FROM training_method_exercise_puzzle WHERE puzzle_id = ?)
                 OR EXISTS (SELECT 1 FROM training_puzzle_collection_member WHERE puzzle_id = ?)
                 OR EXISTS (SELECT 1 FROM training_puzzle_observation WHERE puzzle_id = ?)
+                OR EXISTS (SELECT 1 FROM training_puzzle_attempt WHERE puzzle_id = ?)
+                OR EXISTS (SELECT 1 FROM training_puzzle_performance WHERE puzzle_id = ?)
             """;
 
     /**

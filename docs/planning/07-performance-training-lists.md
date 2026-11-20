@@ -54,6 +54,9 @@ No row outside the canonical Lichess Puzzle record repeats its FEN, solution lin
 - A normal Puzzle offers one hint level, which highlights the piece that makes the next correct owner move. (Owner decision, 2026-11-20.)
 - Show solution counts as a hint. It reveals the remaining solution, completes the attempt, and applies the hint rule, so a first attempt goes to Hard to Solve and a repetition attempt moves to or stays in Hard to Solve with a zero counter. (Owner decision, 2026-11-20.)
 
+- Any mating move solves a Puzzle, as on Lichess, even when it differs from the stored solution move. (Owner decision, 2026-11-20.)
+- Solve Time starts when the server creates the attempt. The Puzzle interface starts the attempt only once the board is interactive. (Owner decision, 2026-11-20.)
+
 ### First completed attempt
 
 An unfinished Puzzle remains unclassified. The first completed attempt applies the highest-priority matching result below and starts the destination list with zero successes and zero strikes:

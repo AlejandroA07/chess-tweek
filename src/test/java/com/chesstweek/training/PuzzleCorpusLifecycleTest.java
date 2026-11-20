@@ -217,6 +217,52 @@ class PuzzleCorpusLifecycleTest {
     }
 
     @Test
+    void keepsAttemptedAndClassifiedPuzzlesThatARefreshNoLongerContains() throws Exception {
+        lichess.publish(snapshot(
+                record("A0001", 2000, "fork short", OPENINGS),
+                record("A0002", 2010, "fork short", "Caro-Kann_Defense"),
+                record("A0003", 2020, "fork short", "")),
+                "\"s1\"", "2026-11-01T07:57:40Z");
+
+        try (var application = start(database(), List.of())) {
+            PuzzleCorpus corpus = application.getBean(PuzzleCorpus.class);
+            PuzzleLibrary library = application.getBean(PuzzleLibrary.class);
+            PuzzleTraining training = application.getBean(PuzzleTraining.class);
+            assertThat(corpus.checkForUpdate().check().updateAvailable()).isTrue();
+            assertThat(corpus.startImport()).isEqualTo(PuzzleCorpus.StartResult.STARTED);
+            assertThat(awaitStopped(corpus).phase()).isEqualTo(PuzzleCorpus.Phase.VERIFIED);
+
+            // An unfinished attempt on A0001; A0002 classified through Show solution.
+            PuzzleTraining.Attempt unfinished = training.startInCategory("owner-id",
+                    new PuzzleLibrary.Category(PuzzleLibrary.CategoryKind.OPENING_VARIATION, LEONARDIS))
+                    .orElseThrow();
+            assertThat(unfinished.externalId()).isEqualTo("A0001");
+            PuzzleTraining.Attempt classified = training.startInCategory("other-id",
+                    new PuzzleLibrary.Category(
+                            PuzzleLibrary.CategoryKind.OPENING_FAMILY, "Caro-Kann_Defense"))
+                    .orElseThrow();
+            assertThat(classified.externalId()).isEqualTo("A0002");
+            training.reveal("other-id", classified.attemptId());
+
+            lichess.publish(snapshot(record("A0004", 2030, "fork short", "")),
+                    "\"s2\"", "2026-11-15T07:00:00Z");
+            assertThat(corpus.checkForUpdate().check().updateAvailable()).isTrue();
+            assertThat(corpus.startImport()).isEqualTo(PuzzleCorpus.StartResult.STARTED);
+            PuzzleCorpus.ImportProgress refreshed = awaitStopped(corpus);
+
+            assertThat(refreshed.phase()).isEqualTo(PuzzleCorpus.Phase.VERIFIED);
+            assertThat(refreshed.removedPuzzles()).isEqualTo(1);
+            assertThat(refreshed.retainedPuzzles()).isEqualTo(2);
+            assertThat(library.puzzle("lichess-puzzle-database", "A0001")).isPresent();
+            assertThat(library.puzzle("lichess-puzzle-database", "A0002")).isPresent();
+            assertThat(library.puzzle("lichess-puzzle-database", "A0003")).isEmpty();
+            assertThat(training.performance("other-id", classified.puzzleId()))
+                    .contains(new PuzzleTraining.Performance(
+                            PuzzleTraining.TrainingList.HARD_TO_SOLVE, 0, 0));
+        }
+    }
+
+    @Test
     void resumesAnInterruptedDownloadWithARangeRequest() throws Exception {
         List<String> rows = new ArrayList<>();
         for (int index = 0; index < 200; index++) {

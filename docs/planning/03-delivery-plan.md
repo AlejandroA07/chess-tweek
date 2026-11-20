@@ -419,10 +419,10 @@ Acceptance:
 - Stage 7 Part 1 is complete in PR #42. The shared Puzzle Library owns stable puzzle records, taxonomy, opening tags, provenance, bounded importing, and the 12 guided-method exercise references. The owner-approved design is recorded in `06-puzzle-library-taxonomy-and-sizing.md` and ADR-009.
 - The owner completed the merged-app smoke test on 2026-11-19: all 12 guided exercises loaded, one exercise was completed, and its saved progress remained after the application restarted.
 - Stage 7 Part 2 is complete in PR #49, merged on 2026-11-19: the complete Lichess Puzzle snapshot, manual Admin lifecycle, and indexed controlled-access queries. It was measured against the official 2026-11-01 snapshot on the target Mac (`docs/dev/2026-11-19-full-puzzle-corpus.md`).
+- The owner ran the first full import from Admin into the real `var/chess-tweek.db` on 2026-11-20: the 2026-11-01 snapshot (SHA-256 `7b0d235f…ebf94253`) verified with 6,193,530 records read, 6,193,518 new, 3 updated, 9 unchanged (the existing guided-method Puzzles), 0 rejected, 0 conflicts, and 0 removed. The database is 2.8 GB and the downloaded source was deleted.
 
 ### Not yet delivered
 
-- The owner has not yet run the first full Puzzle import into the real `var/chess-tweek.db`.
 - Stage 7 Part 3—the normal Puzzle dashboard, attempts, and performance Training Lists—has not started.
 - Stage 8 Own Puzzles and Stage 9 curated collections have not started.
 
@@ -430,5 +430,4 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-20):**
 
-1. Owner runs the first full import from Admin (Check for update, then Download and import) against the real `var/chess-tweek.db`, with at least 7 GB free (the 0.3 GB download plus 6 GiB working headroom; the library ends near 2.6 GiB), and confirms the stored snapshot, Puzzle count, and deleted source file.
-2. Only then implement Stage 7 Part 3 performance Training Lists on `feature/puzzle-performance-training`, extending the corpus retention rule with account attempts and list state.
+1. Implement Stage 7 Part 3 performance Training Lists on `feature/puzzle-performance-training`, extending the corpus retention rule with account attempts and list state.

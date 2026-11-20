@@ -170,6 +170,7 @@ The selected navigation item uses a primary-brown left rule, solid or subtle war
 - By Category groups Lichess themes under their catalog group names as plain links. Openings are found through a labeled search field that shows a bounded list of matches and the total count, so the page never renders thousands of entries.
 - The player puts the project chessboard first, with the facts beside or below it: side to move, Lichess rating, owner moves to find, current Training List, fast-solve limit, and Wrong Moves. The setup move is highlighted as the last move.
 - A Wrong Move leaves the position unchanged and is reported in text with a warning rule. A correct move shows the opponent's reply on the board. A hint marks one square with a green inset ring and says so in that square's accessible name.
+- Opening a Random or By Category link goes straight to a puzzle; there is no intermediate start screen. After a puzzle is complete, the board stays open for local exploration and says that those moves are not saved.
 - Hint and Show solution state next to the controls that either one places the puzzle in Hard to Solve and restarts its progress there. A used Hint stays disabled with a label that says it is shown on the board. Completion states the list result in words (for example, "Moved from Retiring to Hard to Solve."), Solve Time against the limit, Wrong Moves, hint use, the source game link, and one next action.
 
 ## Components

@@ -268,7 +268,7 @@ function PuzzlePlayer({
   categories: PuzzleCategory[] | null
   onSessionFailure: (failure: SessionFailure) => void
 }) {
-  const [phase, setPhase] = useState<Phase>({ kind: 'ready' })
+  const [phase, setPhase] = useState<Phase>({ kind: 'starting' })
   const [line, setLine] = useState<string[]>([])
   const [wrongMoves, setWrongMoves] = useState(0)
   const [hintSquare, setHintSquare] = useState<string | null>(null)
@@ -313,13 +313,18 @@ function PuzzlePlayer({
     reportSessionFailure(requestError, onSessionFailure)
     if (requestError instanceof PuzzleRequestError && requestError.code === 'attempt_finished') {
       setPhase({ kind: 'ready' })
-      setError('This attempt has ended, for example because another puzzle was started. Start a new puzzle.')
+      setError('This attempt has ended, for example because another puzzle was started.')
       return
     }
     setError('That action could not be completed. Try again.')
   }
 
   const move = async (uci: string) => {
+    // After completion the board stays open for local exploration; nothing is sent or saved.
+    if (phase.kind === 'complete') {
+      setFeedback(null)
+      return true
+    }
     if (phase.kind !== 'playing') return false
     setBusy(true)
     setError(null)
@@ -383,6 +388,15 @@ function PuzzlePlayer({
     }
   }
 
+  // Opening a Random or By Category route starts its first puzzle directly. The ref keeps
+  // React's development double-mount from starting (and abandoning) a second attempt.
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (autoStarted.current) return
+    autoStarted.current = true
+    void start()
+  }, [])
+
   // Keep focus on the content that replaced the control the owner just used.
   const previousPhase = useRef<Phase['kind']>(phase.kind)
   useEffect(() => {
@@ -391,7 +405,7 @@ function PuzzlePlayer({
     if (before === phase.kind) return
     if (phase.kind === 'complete') statusRef.current?.focus()
     else if (phase.kind === 'playing') puzzleTitleRef.current?.focus()
-    else if (phase.kind === 'ready' && before !== 'starting') startRef.current?.focus()
+    else if (phase.kind === 'ready') startRef.current?.focus()
   }, [phase.kind])
 
   const attempt = phase.kind === 'playing' || phase.kind === 'complete' ? phase.attempt : null
@@ -416,23 +430,20 @@ function PuzzlePlayer({
 
       {attempt === null ? (
         <section className={styles.startPanel} aria-labelledby="start-title">
-          <h3 id="start-title">
-            {phase.kind === 'starting' ? 'Starting a puzzle…' : 'Ready when you are'}
+          <h3 id="start-title" aria-live="polite">
+            {phase.kind === 'starting' ? 'Loading a puzzle…' : 'No puzzle is open'}
           </h3>
-          <p>
-            Solve Time starts when you press Start puzzle and the board appears, and stops when the
-            full solution is played.
-          </p>
           {error && <p className={styles.error} role="alert">{error}</p>}
-          <button
-            ref={startRef}
-            className={styles.primaryButton}
-            type="button"
-            disabled={phase.kind === 'starting'}
-            onClick={() => void start()}
-          >
-            {phase.kind === 'starting' ? 'Starting…' : 'Start puzzle'}
-          </button>
+          {phase.kind === 'ready' && (
+            <button
+              ref={startRef}
+              className={styles.primaryButton}
+              type="button"
+              onClick={() => void start()}
+            >
+              Try another puzzle
+            </button>
+          )}
         </section>
       ) : (
         <section className={styles.puzzleCard} aria-labelledby="puzzle-title">
@@ -442,7 +453,7 @@ function PuzzlePlayer({
               fen={attempt.positionFen}
               orientation={side ?? 'white'}
               label={`Puzzle ${attempt.externalId}: ${side === 'black' ? 'Black' : 'White'} to move`}
-              disabled={busy || phase.kind === 'complete'}
+              disabled={busy}
               solution={null}
               line={line}
               initialLastMove={attempt.setupMove}
@@ -580,6 +591,9 @@ function CompletionSummary({
         )}
       </dl>
       {themeNames.length > 0 && <p className={styles.muted}>Themes: {themeNames.join(', ')}</p>}
+      <p className={styles.muted}>
+        The board stays open: keep moving pieces to explore. These moves are not checked or saved.
+      </p>
       <a className={styles.externalLink} href={completion.gameUrl} target="_blank" rel="noreferrer">
         Open the source game on Lichess
       </a>

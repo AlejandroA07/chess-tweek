@@ -12,12 +12,13 @@ Stage 7 Part 3b adds the Puzzles interface over the Part 3a backend: the Puzzle 
 
 ## Player behaviour
 
-- Start puzzle creates the attempt, and the board becomes interactive as soon as it returns. This implements the owner's 2026-11-20 decision that Solve Time starts when the server creates the attempt.
+- Opening a Random or By Category route, or pressing Next puzzle, creates the attempt directly. There is no intermediate start screen (owner request, 2026-11-20). The board becomes interactive as soon as the attempt returns, which implements the decision that Solve Time starts when the server creates the attempt. A ref guard makes React's development double-mount start only one attempt. Reloading a player route starts a fresh attempt; the previous unfinished one is abandoned and stays unclassified.
 - A Wrong Move reverts the board, leaves the position unchanged, and updates the Wrong Move count. A correct move shows the opponent's reply. The final move, or any mating move, completes the puzzle.
 - Hint marks the square of the piece to move and disables itself. Show solution plays the remaining line on the board. Both state that they place the puzzle in Hard to Solve.
+- After completion the board stays open, as in the guided course: further moves are checked for legality on the board only, and are never sent or saved (owner request, 2026-11-20).
 - Completion says where the puzzle went ("Placed in…", "Stays in…", or "Moved from … to …"). It also shows Solve Time against the limit (or "Not counted" after Show solution), Wrong Moves, hint use, progress within the list for repetitions, themes, and a link to the source game. Next puzzle starts another attempt from the same pool.
-- An exhausted pool explains itself. Random says every stored puzzle is already in a Training List or the library is empty, and By Category says every puzzle in that category is Mastered. An attempt that ended elsewhere, for example because another puzzle was started, returns to Start puzzle with an explanation.
-- Focus follows the work. Starting moves focus to the side-to-move heading, completion moves it to the result, and an ended attempt moves it back to Start puzzle. After Show solution, Solve Time is still shown, marked "solution shown". Times round down, so a solve under the limit never displays as the limit.
+- An exhausted pool explains itself. Random says every stored puzzle is already in a Training List or the library is empty, and By Category says every puzzle in that category is Mastered. An attempt that ended elsewhere, for example because another puzzle was started, shows an explanation and Try another puzzle.
+- Focus follows the work. Starting moves focus to the side-to-move heading, completion moves it to the result, and an ended attempt moves it to Try another puzzle. After Show solution, Solve Time is still shown, marked "solution shown". Times round down, so a solve under the limit never displays as the limit.
 
 ## Verification contract
 

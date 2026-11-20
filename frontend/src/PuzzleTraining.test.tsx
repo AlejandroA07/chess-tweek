@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PuzzleTraining, puzzleRoute } from './PuzzleTraining'
@@ -82,8 +83,7 @@ describe('PuzzleTraining', () => {
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
 
     expect(screen.getByRole('heading', { name: 'Random puzzle' })).toBeInTheDocument()
-    expect(requests.some((request) => request.includes('/attempts'))).toBe(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
+    expect(screen.getByRole('heading', { name: 'Loading a puzzle…' })).toBeInTheDocument()
 
     expect(await screen.findByRole('heading', { name: 'White to move' })).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('heading', { name: 'White to move' })).toHaveFocus())
@@ -106,9 +106,16 @@ describe('PuzzleTraining', () => {
     expect(screen.getByRole('link', { name: 'Open the source game on Lichess' })).toHaveAttribute(
       'rel', 'noreferrer',
     )
-    expect(screen.getByRole('button', { name: 'f3, white pawn' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Next puzzle' })).toBeEnabled()
     expect(requests).toContain('POST /api/training/puzzles/attempts/7/moves {"move":"b2g7"}')
+    expect(requests.filter((request) => request.includes('/random/attempts'))).toHaveLength(1)
+
+    // The solved board stays open for local exploration; nothing more is sent.
+    const sent = requests.length
+    fireEvent.click(screen.getByRole('button', { name: 'g7, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'g6, empty' }))
+    expect(await screen.findByRole('button', { name: 'g6, black king' })).toBeInTheDocument()
+    expect(requests).toHaveLength(sent)
   })
 
   it('highlights the hint square and plays out Show solution as Hard to Solve', async () => {
@@ -133,7 +140,6 @@ describe('PuzzleTraining', () => {
       />,
     )
     expect(await screen.findByRole('heading', { name: 'Fork' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     expect(await screen.findByText('Retiring')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }))
@@ -167,15 +173,34 @@ describe('PuzzleTraining', () => {
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'every stored puzzle is already in one of your Training Lists, or the library is empty',
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try another puzzle' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Hint' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('This attempt has ended')
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Start puzzle' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Try another puzzle' })).toHaveFocus())
+  })
+
+  it('starts exactly one attempt when a puzzle route opens, even under StrictMode', async () => {
+    const starts: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/random/attempts')) {
+        starts.push(url)
+        return response(attempt(), 201)
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(
+      <StrictMode>
+        <PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />
+      </StrictMode>,
+    )
+    expect(await screen.findByRole('heading', { name: 'White to move' })).toBeInTheDocument()
+    expect(starts).toHaveLength(1)
   })
 
   it('never rounds a time under the limit up to the limit', async () => {
@@ -189,7 +214,6 @@ describe('PuzzleTraining', () => {
       throw new Error(`Unexpected request: ${url}`)
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Show solution' }))
     expect(await screen.findByText('10.9 s, solution shown')).toBeInTheDocument()
   })
@@ -205,7 +229,6 @@ describe('PuzzleTraining', () => {
       throw new Error(`Unexpected request: ${url}`)
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     await screen.findByRole('heading', { name: 'White to move' })
     play('b2', 'g7')
     expect(await screen.findByRole('alert')).toHaveTextContent('That action could not be completed')
@@ -220,7 +243,6 @@ describe('PuzzleTraining', () => {
       throw new Error(`Unexpected request: ${url}`)
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('A puzzle could not be started')
     expect(screen.queryByRole('heading', { name: 'White to move' })).not.toBeInTheDocument()
   })

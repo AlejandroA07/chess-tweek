@@ -244,7 +244,9 @@ class PuzzleCorpusLifecycleTest {
             assertThat(classified.externalId()).isEqualTo("A0002");
             training.reveal("other-id", classified.attemptId());
 
-            lichess.publish(snapshot(record("A0004", 2030, "fork short", "")),
+            assertThat(themeCount(library, "fork")).isEqualTo(3 + builtInMembers(application, "fork"));
+
+            lichess.publish(snapshot(record("A0004", 2030, "anastasiaMate fork short", "")),
                     "\"s2\"", "2026-11-15T07:00:00Z");
             assertThat(corpus.checkForUpdate().check().updateAvailable()).isTrue();
             assertThat(corpus.startImport()).isEqualTo(PuzzleCorpus.StartResult.STARTED);
@@ -259,6 +261,11 @@ class PuzzleCorpusLifecycleTest {
             assertThat(training.performance("other-id", classified.puzzleId()))
                     .contains(new PuzzleTraining.Performance(
                             PuzzleTraining.TrainingList.HARD_TO_SOLVE, 0, 0));
+            // Counts are refreshed after the import: A0003 left, A0004 arrived, and the retained
+            // A0001 and A0002 keep their categories.
+            assertThat(themeCount(library, "anastasiaMate"))
+                    .isEqualTo(1 + builtInMembers(application, "anastasiaMate"));
+            assertThat(themeCount(library, "fork")).isEqualTo(3 + builtInMembers(application, "fork"));
         }
     }
 
@@ -472,6 +479,25 @@ class PuzzleCorpusLifecycleTest {
         return new SpringApplicationBuilder(ChessTweekApplication.class)
                 .web(WebApplicationType.NONE)
                 .run(arguments.toArray(String[]::new));
+    }
+
+    private static int themeCount(PuzzleLibrary library, String theme) {
+        return library.categories().stream()
+                .filter(entry -> entry.category().kind() == PuzzleLibrary.CategoryKind.THEME
+                        && entry.category().key().equals(theme))
+                .mapToInt(PuzzleLibrary.CategoryEntry::puzzles)
+                .findFirst()
+                .orElse(0);
+    }
+
+    /** Built-in course Puzzles in a Theme, which are not part of the corpus snapshots. */
+    private static int builtInMembers(ConfigurableApplicationContext application, String theme) {
+        return application.getBean(JdbcTemplate.class).queryForObject("""
+                SELECT COUNT(*) FROM training_puzzle_category_member m
+                JOIN training_puzzle_category c ON c.id = m.category_id
+                JOIN training_puzzle_current p ON p.puzzle_id = m.puzzle_id
+                WHERE c.kind = 'theme' AND c.classification_key = ? AND p.corpus_import_id IS NULL
+                """, Integer.class, theme);
     }
 
     private static String record(String id, int rating, String themes, String openings) {

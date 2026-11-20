@@ -575,6 +575,7 @@ public class JdbcPuzzleCorpusStore {
                     retained_puzzles = ?, completed_at_ms = ?, updated_at_ms = ?
                 WHERE id = ? AND state = 'finalizing'
                 """, stored, retained, nowMs, nowMs, importId));
+        categories.refreshCounts();
         return get(importId).orElseThrow();
     }
 

@@ -72,6 +72,7 @@ class PuzzleTrainingControllerTest {
                 .andExpect(jsonPath("$.categories[0].key").value("fork"))
                 .andExpect(jsonPath("$.categories[0].name").value("Fork"))
                 .andExpect(jsonPath("$.categories[0].group").value("Motifs"))
+                .andExpect(jsonPath("$.categories[0].puzzles").value(1_234_567))
                 .andExpect(jsonPath("$.categories[1].kind").value("opening-variation"))
                 .andExpect(jsonPath("$.categories[1].parentKey").value("Caro-Kann_Defense"));
         mockMvc(sealed -> LichessSessionAuthorization.disconnected(false))
@@ -216,11 +217,11 @@ class PuzzleTrainingControllerTest {
         @Override
         public List<CategoryEntry> categories() {
             return List.of(
-                    new CategoryEntry(new Category(CategoryKind.THEME, "fork"), "Fork", "Motifs", null),
+                    new CategoryEntry(new Category(CategoryKind.THEME, "fork"), "Fork", "Motifs", null, 1_234_567),
                     new CategoryEntry(new Category(CategoryKind.OPENING_VARIATION,
                             "Caro-Kann_Defense_Advance_Variation"),
                             "Caro-Kann Defense: Advance Variation", "Caro-Kann Defense",
-                            "Caro-Kann_Defense"));
+                            "Caro-Kann_Defense", 4_321));
         }
 
         @Override

@@ -7,7 +7,7 @@ import { DashboardChessComRatings, DashboardRatingContext } from './DashboardRat
 import { GameReview } from './GameReview'
 import { gameKey, parseGameKey } from './gameRef'
 import { GamesLibrary } from './GamesLibrary'
-import { PuzzleTraining, puzzleRoute } from './PuzzleTraining'
+import { PUZZLE_SECTIONS, PuzzleTraining, puzzleRoute } from './PuzzleTraining'
 import { TrainingCourse } from './TrainingCourse'
 import { TrainingShortcut } from './TrainingShortcut'
 
@@ -250,12 +250,37 @@ export function App() {
                 <a
                   className={styles.navLink}
                   href={item.href}
-                  aria-current={item.href === route.href ? 'page' : undefined}
+                  aria-current={item.href === route.href
+                    ? puzzleView !== null && item.href === '#/puzzles' ? 'true' : 'page'
+                    : undefined}
+                  aria-expanded={item.href === '#/puzzles' ? puzzleView !== null : undefined}
                   onClick={() => setNavigationOpen(false)}
                 >
                   <NavIcon name={item.icon} />
                   <span>{item.label}</span>
                 </a>
+                {item.href === '#/puzzles' && puzzleView !== null && (
+                  <ul className={styles.subNavigation} aria-label="Puzzles">
+                    {PUZZLE_SECTIONS.map((section) => (
+                      <li key={section.label}>
+                        {section.href === null ? (
+                          <span className={styles.subNavPlanned}>
+                            {section.label} <small>Planned</small>
+                          </span>
+                        ) : (
+                          <a
+                            className={styles.subNavLink}
+                            href={section.href}
+                            aria-current={section.href === window.location.hash ? 'page' : undefined}
+                            onClick={() => setNavigationOpen(false)}
+                          >
+                            {section.label}
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

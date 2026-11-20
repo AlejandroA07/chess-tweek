@@ -84,6 +84,19 @@ class PuzzleCategoryIndex {
         return new ArrayList<>(ids);
     }
 
+    /**
+     * Recounts every category's Puzzles in one pass over the membership primary key. Call once
+     * after an import changes membership, never on a request.
+     */
+    void refreshCounts() {
+        jdbc.update("""
+                UPDATE training_puzzle_category
+                SET puzzle_count = (
+                    SELECT COUNT(*) FROM training_puzzle_category_member m
+                    WHERE m.category_id = training_puzzle_category.id)
+                """);
+    }
+
     void insertMembers(long puzzleId, List<Integer> categories) {
         if (categories.isEmpty()) {
             return;

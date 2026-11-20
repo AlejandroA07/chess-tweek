@@ -71,7 +71,8 @@ public final class PuzzleTrainingController {
                             entry.category().key(),
                             entry.displayName(),
                             entry.groupName(),
-                            entry.parentKey()))
+                            entry.parentKey(),
+                            entry.puzzles()))
                     .toList()));
         } catch (DataAccessException | IllegalStateException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
@@ -260,7 +261,7 @@ public final class PuzzleTrainingController {
     }
 
     public record CategoryResponse(
-            String kind, String key, String name, String group, String parentKey) {}
+            String kind, String key, String name, String group, String parentKey, int puzzles) {}
 
     public record CategoriesResponse(List<CategoryResponse> categories) {}
 

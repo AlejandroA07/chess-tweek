@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { InteractiveChessBoard } from './ChessBoard'
+import { PuzzleThemeIcon } from './PuzzleThemeIcon'
 import styles from './PuzzleTraining.module.css'
+import {
+  HIDDEN_THEMES,
+  OPENINGS_SECTION_AFTER,
+  OPENINGS_SECTION_SIZE,
+  THEME_SECTIONS,
+  type ThemeEntry,
+} from './puzzleThemes'
 import {
   LIST_LABELS,
   loadCategories,
@@ -18,9 +26,12 @@ import {
 
 type ConnectionState = 'checking' | 'disconnected' | 'connected' | 'unavailable'
 type SessionFailure = 'not_connected' | 'session_unavailable'
+type LoadState = 'loading' | 'ready' | 'failed'
 
 export type PuzzleRoute =
   | { kind: 'dashboard' }
+  | { kind: 'themes' }
+  | { kind: 'openings' }
   | { kind: 'random' }
   | { kind: 'category'; category: CategoryKind; key: string }
 
@@ -29,11 +40,21 @@ const KIND_LABELS: Record<CategoryKind, string> = {
   'opening-family': 'Opening',
   'opening-variation': 'Opening variation',
 }
-const OPENING_RESULTS = 20
+
+/** The Puzzles sub-navigation; Planned entries are listed but not linked until they exist. */
+export const PUZZLE_SECTIONS: { label: string; href: string | null }[] = [
+  { label: 'Dashboard', href: '#/puzzles' },
+  { label: 'Themes', href: '#/puzzles/themes' },
+  { label: 'Openings', href: '#/puzzles/openings' },
+  { label: 'Repetition: normal puzzles', href: null },
+  { label: 'Repetition: own puzzles', href: null },
+]
 
 /** The Puzzles route for a hash, or null when the hash is not a Puzzles route. */
 export function puzzleRoute(hash: string): PuzzleRoute | null {
   if (hash === '#/puzzles') return { kind: 'dashboard' }
+  if (hash === '#/puzzles/themes') return { kind: 'themes' }
+  if (hash === '#/puzzles/openings') return { kind: 'openings' }
   if (hash === '#/puzzles/random') return { kind: 'random' }
   const match = /^#\/puzzles\/category\/(theme|opening-family|opening-variation)\/([A-Za-z0-9_-]{1,120})$/
     .exec(hash)
@@ -52,7 +73,7 @@ export function PuzzleTraining({
   onSessionFailure: (failure: SessionFailure) => void
 }) {
   const [categories, setCategories] = useState<PuzzleCategory[] | null>(null)
-  const [categoriesState, setCategoriesState] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [categoriesState, setCategoriesState] = useState<LoadState>('loading')
 
   const load = useCallback(async (signal?: AbortSignal) => {
     if (connectionState !== 'connected') return
@@ -90,9 +111,11 @@ export function PuzzleTraining({
     )
   }
 
-  if (route.kind === 'dashboard') {
+  if (route.kind === 'dashboard') return <PuzzleDashboard />
+  if (route.kind === 'themes' || route.kind === 'openings') {
     return (
-      <PuzzleDashboard
+      <CategoryPage
+        kind={route.kind}
         categories={categories}
         state={categoriesState}
         onRetry={() => void load()}
@@ -109,15 +132,7 @@ export function PuzzleTraining({
   )
 }
 
-function PuzzleDashboard({
-  categories,
-  state,
-  onRetry,
-}: {
-  categories: PuzzleCategory[] | null
-  state: 'loading' | 'ready' | 'failed'
-  onRetry: () => void
-}) {
+function PuzzleDashboard() {
   return (
     <div className={styles.page}>
       <section className={styles.intro} aria-labelledby="puzzles-title">
@@ -130,36 +145,98 @@ function PuzzleDashboard({
       </section>
 
       <div className={styles.modules}>
-        <section className={styles.module} aria-labelledby="random-title">
-          <p className={styles.eyebrow}>Random</p>
-          <h3 id="random-title">One new puzzle at a time</h3>
-          <p>
-            Random serves only puzzles you have not completed before, one at a time.
-          </p>
-          <a className={styles.primaryLink} href="#/puzzles/random">Start Random</a>
-        </section>
-
-        <section className={styles.module} aria-labelledby="repetition-title" data-status="planned">
-          <p className={styles.eyebrow}>Repetition</p>
-          <h3 id="repetition-title">Practice your Training Lists</h3>
-          <p>Repeat Hard to Solve, Wrong Moves, Worth Repeating, and Retiring puzzles until they are Mastered.</p>
-          <strong>Planned</strong>
-        </section>
-
-        <section className={styles.module} aria-labelledby="own-title" data-status="planned">
-          <p className={styles.eyebrow}>Own Puzzles</p>
-          <h3 id="own-title">Puzzles from your games</h3>
-          <p>Your own inaccuracies, mistakes, and blunders from My Moves analysis.</p>
-          <strong>Planned</strong>
-        </section>
+        <DashboardCard
+          id="random"
+          eyebrow="Random"
+          title="One new puzzle at a time"
+          text="Only puzzles you have not completed before. Your first completed attempt places each one in a Training List."
+          href="#/puzzles/random"
+          action="Start Random"
+        />
+        <DashboardCard
+          id="themes"
+          eyebrow="By Category"
+          title="Themes"
+          text="Forks, pins, mating patterns, endgames, and more, ordered as on Lichess."
+          href="#/puzzles/themes"
+          action="Browse themes"
+        />
+        <DashboardCard
+          id="openings"
+          eyebrow="By Category"
+          title="Openings"
+          text="Every opening family with all of its variations, by popularity or alphabetically."
+          href="#/puzzles/openings"
+          action="Browse openings"
+        />
+        <DashboardCard
+          id="repetition"
+          eyebrow="Repetition"
+          title="Practice your Training Lists"
+          text="Repeat Hard to Solve, Wrong Moves, Worth Repeating, and Retiring puzzles until they are Mastered."
+        />
+        <DashboardCard
+          id="own"
+          eyebrow="Own Puzzles"
+          title="Puzzles from your games"
+          text="Your own inaccuracies, mistakes, and blunders from My Moves analysis."
+        />
       </div>
+    </div>
+  )
+}
 
-      <section className={`${styles.module} ${styles.categories}`} aria-labelledby="category-title">
-        <div className={styles.sectionHeading}>
-          <p className={styles.eyebrow}>By Category</p>
-          <h3 id="category-title">Choose a theme or opening</h3>
-          <p>Includes puzzles already in a Training List. Mastered puzzles are skipped.</p>
-        </div>
+function DashboardCard({
+  id,
+  eyebrow,
+  title,
+  text,
+  href,
+  action,
+}: {
+  id: string
+  eyebrow: string
+  title: string
+  text: string
+  href?: string
+  action?: string
+}) {
+  const planned = href === undefined
+  return (
+    <section className={styles.module} aria-labelledby={`${id}-title`} data-status={planned ? 'planned' : 'available'}>
+      <p className={styles.eyebrow}>{eyebrow}</p>
+      <h3 id={`${id}-title`}>{title}</h3>
+      <p>{text}</p>
+      {planned ? <strong>Planned</strong> : <a className={styles.primaryLink} href={href}>{action}</a>}
+    </section>
+  )
+}
+
+function CategoryPage({
+  kind,
+  categories,
+  state,
+  onRetry,
+}: {
+  kind: 'themes' | 'openings'
+  categories: PuzzleCategory[] | null
+  state: LoadState
+  onRetry: () => void
+}) {
+  const title = kind === 'themes' ? 'Puzzle themes' : 'Puzzles by opening'
+  return (
+    <div className={styles.page}>
+      <section className={styles.categoryPage} aria-labelledby="category-page-title">
+        <header className={styles.categoryHeader}>
+          <div>
+            <p className={styles.eyebrow}>By Category</p>
+            <h2 id="category-page-title">{title}</h2>
+            <p className={styles.muted}>
+              Choose one to open a puzzle right away. Puzzles already in a Training List are
+              included; Mastered puzzles are skipped.
+            </p>
+          </div>
+        </header>
         {state === 'loading' && <p className={styles.muted} aria-live="polite">Loading categories…</p>}
         {state === 'failed' && (
           <div className={styles.inlineError} role="alert">
@@ -167,90 +244,208 @@ function PuzzleDashboard({
             <button className={styles.secondaryButton} type="button" onClick={onRetry}>Retry</button>
           </div>
         )}
-        {state === 'ready' && categories !== null && <CategoryBrowser categories={categories} />}
+        {state === 'ready' && categories !== null && categories.length === 0 && (
+          <p className={styles.muted}>
+            No categories yet. Import the Lichess Puzzle database from Admin to train by theme or opening.
+          </p>
+        )}
+        {state === 'ready' && categories !== null && categories.length > 0 && (
+          kind === 'themes' ? <ThemeList categories={categories} /> : <OpeningList categories={categories} />
+        )}
       </section>
     </div>
   )
 }
 
-function CategoryBrowser({ categories }: { categories: PuzzleCategory[] }) {
-  const [query, setQuery] = useState('')
-  const themeGroups = useMemo(() => {
-    const groups = new Map<string, PuzzleCategory[]>()
-    for (const category of categories) {
-      if (category.kind !== 'theme') continue
-      groups.set(category.group, [...(groups.get(category.group) ?? []), category])
-    }
-    return [...groups.entries()]
-  }, [categories])
-  const openings = useMemo(
-    () => categories.filter((category) => category.kind !== 'theme'),
+type ThemeRow = ThemeEntry & { name: string; puzzles: number }
+
+function ThemeList({ categories }: { categories: PuzzleCategory[] }) {
+  const sections = useMemo(() => themeSections(categories), [categories])
+  const families = useMemo(
+    () => categories
+      .filter((category) => category.kind === 'opening-family')
+      .sort((left, right) => right.puzzles - left.puzzles || left.name.localeCompare(right.name))
+      .slice(0, OPENINGS_SECTION_SIZE),
     [categories],
   )
-  const normalized = query.trim().toLowerCase()
-  const matches = normalized.length < 2
-    ? []
-    : openings.filter((opening) => opening.name.toLowerCase().includes(normalized))
-
-  if (categories.length === 0) {
-    return (
-      <p className={styles.muted}>
-        No categories yet. Import the Lichess Puzzle database from Admin to train by theme or opening.
-      </p>
-    )
-  }
-
   return (
-    <div className={styles.browser}>
-      {themeGroups.map(([group, themes]) => (
-        <section key={group} className={styles.themeGroup} aria-label={`${group} themes`}>
-          <h4>{group}</h4>
-          <ul>
-            {themes.map((theme) => (
-              <li key={theme.key}>
-                <a href={categoryHref(theme)}>{theme.name}</a>
-              </li>
-            ))}
-          </ul>
-        </section>
+    <div className={styles.themeSections}>
+      {sections.map((section) => (
+        <div key={section.title} className={styles.themeSectionGroup}>
+          <section className={styles.themeSection} aria-labelledby={sectionId(section.title)}>
+            <h3 id={sectionId(section.title)}>{section.title}</h3>
+            <ul className={styles.themeGrid}>
+              {section.rows.map((theme) => (
+                <li key={`${section.title}/${theme.key}`}>
+                  <a className={styles.themeLink} href={`#/puzzles/category/theme/${encodeURIComponent(theme.key)}`}>
+                    <PuzzleThemeIcon icon={theme.icon} />
+                    <span className={styles.themeText}>
+                      <span className={styles.themeName}>
+                        {theme.name} <span className={styles.count}>{formatCount(theme.puzzles)}</span>
+                      </span>
+                      <span className={styles.themeDescription}>{theme.description}</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+          {section.title === OPENINGS_SECTION_AFTER && families.length > 0 && (
+            <section className={styles.themeSection} aria-labelledby="themes-by-openings">
+              <h3 id="themes-by-openings">
+                By openings <a className={styles.moreLink} href="#/puzzles/openings">More »</a>
+              </h3>
+              <ul className={styles.themeGrid}>
+                {families.map((family) => (
+                  <li key={family.key}>
+                    <a className={styles.themeLink} href={categoryHref(family)}>
+                      <PuzzleThemeIcon icon="book" />
+                      <span className={styles.themeText}>
+                        <span className={styles.themeName}>
+                          {family.name} <span className={styles.count}>{formatCount(family.puzzles)}</span>
+                        </span>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       ))}
-      <section className={styles.openingSearch} aria-label="Openings">
-        <h4>Openings</h4>
-        <label htmlFor="opening-query">Find an opening</label>
-        <input
-          id="opening-query"
-          type="search"
-          value={query}
-          maxLength={80}
-          placeholder="For example, Caro-Kann"
-          aria-describedby="opening-query-help"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <p id="opening-query-help" className={styles.muted}>
-          {openings.length.toLocaleString()} openings and variations. Type at least two letters.
-        </p>
-        {normalized.length >= 2 && (
-          <p className={styles.muted} aria-live="polite">
-            {matches.length === 0
-              ? 'No openings match.'
-              : matches.length > OPENING_RESULTS
-                ? `Showing ${OPENING_RESULTS} of ${matches.length.toLocaleString()} matches.`
-                : `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}.`}
-          </p>
-        )}
-        {matches.length > 0 && (
-          <ul className={styles.openingResults}>
-            {matches.slice(0, OPENING_RESULTS).map((opening) => (
-              <li key={`${opening.kind}/${opening.key}`}>
-                <a href={categoryHref(opening)}>{opening.name}</a>
-                <span>{KIND_LABELS[opening.kind]}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   )
+}
+
+/** Catalog order first; a backend Theme the catalog does not list follows in its own group. */
+function themeSections(categories: PuzzleCategory[]) {
+  const themes = new Map(
+    categories.filter((category) => category.kind === 'theme').map((theme) => [theme.key, theme]),
+  )
+  const listed = new Set<string>()
+  const sections = THEME_SECTIONS.map((section) => ({
+    title: section.title,
+    rows: section.themes.flatMap((entry): ThemeRow[] => {
+      const theme = themes.get(entry.key)
+      if (theme === undefined) return []
+      listed.add(entry.key)
+      return [{ ...entry, name: theme.name, puzzles: theme.puzzles }]
+    }),
+  }))
+  for (const theme of themes.values()) {
+    if (listed.has(theme.key) || HIDDEN_THEMES.has(theme.key)) continue
+    const row: ThemeRow = { key: theme.key, icon: 'target', description: '', name: theme.name, puzzles: theme.puzzles }
+    const section = sections.find((candidate) => candidate.title === theme.group)
+    if (section === undefined) sections.push({ title: theme.group, rows: [row] })
+    else section.rows.push(row)
+  }
+  return sections.filter((section) => section.rows.length > 0)
+}
+
+type OpeningOrder = 'popular' | 'alphabetical'
+
+function OpeningList({ categories }: { categories: PuzzleCategory[] }) {
+  const [order, setOrder] = useState<OpeningOrder>('popular')
+  const [query, setQuery] = useState('')
+  const families = useMemo(() => openingFamilies(categories, order), [categories, order])
+  const normalized = query.trim().toLowerCase()
+  const visible = normalized === ''
+    ? families
+    : families.flatMap((family) => {
+      if (family.name.toLowerCase().includes(normalized)) return [family]
+      const variations = family.variations.filter((variation) =>
+        variation.name.toLowerCase().includes(normalized))
+      return variations.length === 0 ? [] : [{ ...family, variations }]
+    })
+
+  return (
+    <div className={styles.openings}>
+      <div className={styles.openingControls}>
+        <div className={styles.field}>
+          <label htmlFor="opening-filter">Filter openings</label>
+          <input
+            id="opening-filter"
+            type="search"
+            value={query}
+            maxLength={80}
+            placeholder="For example, Najdorf"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="opening-order">Order</label>
+          <select
+            id="opening-order"
+            value={order}
+            onChange={(event) => setOrder(event.target.value as OpeningOrder)}
+          >
+            <option value="popular">Most popular</option>
+            <option value="alphabetical">Alphabetical</option>
+          </select>
+        </div>
+      </div>
+      <p className={styles.muted} aria-live="polite">
+        {normalized === ''
+          ? `${families.length.toLocaleString()} opening families.`
+          : visible.length === 0
+            ? 'No openings match.'
+            : `${visible.length.toLocaleString()} ${visible.length === 1 ? 'family matches' : 'families match'}.`}
+      </p>
+      {visible.map((family) => (
+        <section key={family.key} className={styles.openingFamily} aria-labelledby={`family-${family.key}`}>
+          <h3 id={`family-${family.key}`}>
+            <a href={categoryHref(family)}>{family.name}</a>{' '}
+            <span className={styles.count}>{formatCount(family.puzzles)}</span>
+          </h3>
+          {family.variations.length > 0 && (
+            <ul className={styles.variationGrid}>
+              {family.variations.map((variation) => (
+                <li key={variation.key}>
+                  <a href={categoryHref(variation)}>{variation.name}</a>{' '}
+                  <span className={styles.count}>{formatCount(variation.puzzles)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
+    </div>
+  )
+}
+
+type OpeningFamily = PuzzleCategory & { variations: PuzzleCategory[] }
+
+/** Families with their variations, named without the repeated family prefix, as on Lichess. */
+function openingFamilies(categories: PuzzleCategory[], order: OpeningOrder): OpeningFamily[] {
+  const compare = order === 'popular'
+    ? (left: PuzzleCategory, right: PuzzleCategory) =>
+      right.puzzles - left.puzzles || left.name.localeCompare(right.name)
+    : (left: PuzzleCategory, right: PuzzleCategory) => left.name.localeCompare(right.name)
+  const families = new Map<string, OpeningFamily>()
+  for (const category of categories) {
+    if (category.kind === 'opening-family') families.set(category.key, { ...category, variations: [] })
+  }
+  for (const category of categories) {
+    if (category.kind !== 'opening-variation' || category.parentKey === null) continue
+    const family = families.get(category.parentKey)
+    if (family === undefined) continue
+    const prefix = `${family.name} `
+    family.variations.push({
+      ...category,
+      name: category.name.startsWith(prefix) ? category.name.slice(prefix.length) : category.name,
+    })
+  }
+  const sorted = [...families.values()].sort(compare)
+  for (const family of sorted) family.variations.sort(compare)
+  return sorted
+}
+
+function sectionId(title: string) {
+  return `theme-section-${title.toLowerCase().replaceAll(' ', '-')}`
+}
+
+function formatCount(value: number) {
+  return value.toLocaleString('en-US')
 }
 
 type Phase =
@@ -264,7 +459,7 @@ function PuzzlePlayer({
   categories,
   onSessionFailure,
 }: {
-  route: Exclude<PuzzleRoute, { kind: 'dashboard' }>
+  route: Extract<PuzzleRoute, { kind: 'random' } | { kind: 'category' }>
   categories: PuzzleCategory[] | null
   onSessionFailure: (failure: SessionFailure) => void
 }) {

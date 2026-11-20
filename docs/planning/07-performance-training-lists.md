@@ -51,6 +51,9 @@ No row outside the canonical Lichess Puzzle record repeats its FEN, solution lin
 - Opening a Training List starts a new Practice Session with a freshly randomized Puzzle order; the previous session's order is not reused.
 - A Practice Session presents every Puzzle in its selected Training List once before reshuffling or repeating any Puzzle.
 
+- A normal Puzzle offers one hint level, which highlights the piece that makes the next correct owner move. (Owner decision, 2026-11-20.)
+- Show solution counts as a hint. It reveals the remaining solution, completes the attempt, and applies the hint rule, so a first attempt goes to Hard to Solve and a repetition attempt moves to or stays in Hard to Solve with a zero counter. (Owner decision, 2026-11-20.)
+
 ### First completed attempt
 
 An unfinished Puzzle remains unclassified. The first completed attempt applies the highest-priority matching result below and starts the destination list with zero successes and zero strikes:

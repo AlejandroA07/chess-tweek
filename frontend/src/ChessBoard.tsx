@@ -137,6 +137,9 @@ export function InteractiveChessBoard({
   disabled,
   solution,
   onMove,
+  line = NO_MOVES,
+  initialLastMove = null,
+  hintSquare = null,
 }: {
   fen: string
   orientation: BoardOrientation
@@ -144,9 +147,20 @@ export function InteractiveChessBoard({
   disabled: boolean
   solution: string | null
   onMove: (move: string) => void | boolean | Promise<void | boolean>
+  /** Moves already played from {@code fen}, such as accepted Puzzle moves and replies. */
+  line?: readonly string[]
+  /** The move that produced {@code fen}, highlighted until another move is shown. */
+  initialLastMove?: string | null
+  /** A square to mark as a hint, described in its accessible name. */
+  hintSquare?: string | null
 }) {
-  const [history, setHistory] = useState<BoardStep[]>(() => createHistory(fen, solution))
-  const [historyIndex, setHistoryIndex] = useState(() => Math.max(0, createHistory(fen, solution).length - 1))
+  const lineKey = line.join(' ')
+  const [history, setHistory] = useState<BoardStep[]>(
+    () => createHistory(fen, solution, line, initialLastMove),
+  )
+  const [historyIndex, setHistoryIndex] = useState(
+    () => Math.max(0, createHistory(fen, solution, line, initialLastMove).length - 1),
+  )
   const [selected, setSelected] = useState<string | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
   const [arrowStart, setArrowStart] = useState<string | null>(null)
@@ -155,7 +169,7 @@ export function InteractiveChessBoard({
   const [annotationMessage, setAnnotationMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    const nextHistory = createHistory(fen, solution)
+    const nextHistory = createHistory(fen, solution, lineKey === '' ? [] : lineKey.split(' '), initialLastMove)
     setHistory(nextHistory)
     setHistoryIndex(Math.max(0, nextHistory.length - 1))
     setSelected(null)
@@ -164,7 +178,7 @@ export function InteractiveChessBoard({
     setUserArrows([])
     setAnnotationMode(false)
     setAnnotationMessage(null)
-  }, [fen, solution])
+  }, [fen, solution, lineKey, initialLastMove])
 
   const step = history[historyIndex]
   if (step === undefined) {
@@ -314,9 +328,12 @@ export function InteractiveChessBoard({
                 data-marked={lastMoveRole !== 'none'}
                 data-last-move={lastMoveRole}
                 data-selected={selected === square || (annotationMode && arrowStart === square)}
+                data-hint={hintSquare === square}
                 disabled={disabled}
                 aria-pressed={selected === square || (annotationMode && arrowStart === square)}
-                aria-label={squareLabel(square, piece)}
+                aria-label={hintSquare === square
+                  ? `${squareLabel(square, piece)}, hint: move this piece`
+                  : squareLabel(square, piece)}
                 onClick={() => choose(square, piece)}
                 onMouseDown={(event) => startArrow(event, square)}
                 onMouseUp={(event) => finishArrow(event, square)}
@@ -385,7 +402,14 @@ function oppositeSide(side: Side): Side {
   return side === 'white' ? 'black' : 'white'
 }
 
-function createHistory(fen: string, solution: string | null): BoardStep[] {
+const NO_MOVES: readonly string[] = []
+
+function createHistory(
+  fen: string,
+  solution: string | null,
+  line: readonly string[] = NO_MOVES,
+  initialLastMove: string | null = null,
+): BoardStep[] {
   const initial = parsePlacement(fen)
   if (initial === null) return []
   const fields = fen.split(' ')
@@ -393,13 +417,16 @@ function createHistory(fen: string, solution: string | null): BoardStep[] {
   const initialStep: BoardStep = {
     placement: initial,
     side,
-    lastMove: null,
+    lastMove: initialLastMove,
     castling: fields[2] === undefined || fields[2] === '-' ? '' : fields[2],
     enPassant: fields[3] === undefined || fields[3] === '-' ? null : fields[3],
   }
   const history: BoardStep[] = [initialStep]
+  for (const move of line) {
+    history.push(applyMove(history[history.length - 1], move))
+  }
   if (solution !== null) {
-    history.push(applyMove(initialStep, solution))
+    history.push(applyMove(history[history.length - 1], solution))
   }
   return history
 }

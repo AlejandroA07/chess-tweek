@@ -782,7 +782,7 @@ describe('App', () => {
       ['Dashboard', 'No chess activity yet'],
       ['Games', 'Connect Lichess to view stored games'],
       ['Reports', 'No saved reports yet'],
-      ['Puzzles', 'No puzzle training yet'],
+      ['Puzzles', 'Connect Lichess to train puzzles'],
       ['Admin', 'No local controls available yet'],
     ] as const
 

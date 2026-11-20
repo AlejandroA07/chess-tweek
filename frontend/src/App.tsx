@@ -7,6 +7,7 @@ import { DashboardChessComRatings, DashboardRatingContext } from './DashboardRat
 import { GameReview } from './GameReview'
 import { gameKey, parseGameKey } from './gameRef'
 import { GamesLibrary } from './GamesLibrary'
+import { PuzzleTraining, puzzleRoute } from './PuzzleTraining'
 import { TrainingCourse } from './TrainingCourse'
 import { TrainingShortcut } from './TrainingShortcut'
 
@@ -100,6 +101,7 @@ export function App() {
   const [route, setRoute] = useState(currentRoute)
   const [reviewGame, setReviewGame] = useState(currentReviewGame)
   const [trainingLesson, setTrainingLesson] = useState(currentTrainingLesson)
+  const [puzzles, setPuzzles] = useState(currentPuzzleRoute)
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [session, setSession] = useState<SessionState>({ kind: 'checking' })
   const [accountAction, setAccountAction] = useState<'idle' | 'connecting' | 'logging-out'>('idle')
@@ -143,6 +145,7 @@ export function App() {
       setRoute(currentRoute())
       setReviewGame(currentReviewGame())
       setTrainingLesson(currentTrainingLesson())
+      setPuzzles(currentPuzzleRoute())
       setNavigationOpen(false)
     }
     window.addEventListener('hashchange', updateRoute)
@@ -282,7 +285,7 @@ export function App() {
         <main className={styles.workspace}>
           <div
             className={styles.workspaceStack}
-            data-wide={reviewGame !== null || trainingLesson !== null}
+            data-wide={reviewGame !== null || trainingLesson !== null || puzzles !== null}
           >
             {route.href === '#/dashboard' && callbackNotice && (
               <CallbackBanner notice={callbackNotice} onDismiss={() => setCallbackNotice(null)} />
@@ -326,6 +329,12 @@ export function App() {
               <TrainingCourse
                 connectionState={session.kind}
                 lessonKey={trainingLesson}
+                onSessionFailure={handleCatalogSessionFailure}
+              />
+            ) : puzzles !== null ? (
+              <PuzzleTraining
+                connectionState={session.kind}
+                route={puzzles}
                 onSessionFailure={handleCatalogSessionFailure}
               />
             ) : route.href === '#/games' ? (
@@ -521,6 +530,9 @@ function currentRoute() {
   if (currentTrainingLesson() !== null || hash === '#/training') {
     return navigation.find((item) => item.href === '#/training') ?? navigation[0]
   }
+  if (currentPuzzleRoute() !== null) {
+    return navigation.find((item) => item.href === '#/puzzles') ?? navigation[0]
+  }
   return navigation.find((item) => item.href === hash) ?? navigation[0]
 }
 
@@ -528,6 +540,11 @@ function currentRoute() {
 function currentReviewGame() {
   const match = /^#\/games\/([^/]+\/[^/]+)$/.exec(window.location.hash)
   return match === null ? null : parseGameKey(match[1])
+}
+
+/** The Puzzles dashboard or player route, or null for any other route. */
+function currentPuzzleRoute() {
+  return puzzleRoute(window.location.hash)
 }
 
 /** The lesson key of a `#/training/lessons/{key}` link, or null for the course dashboard. */

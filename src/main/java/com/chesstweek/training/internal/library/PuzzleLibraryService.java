@@ -1,5 +1,6 @@
 package com.chesstweek.training.internal.library;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
@@ -70,6 +71,11 @@ public final class PuzzleLibraryService implements PuzzleLibrary {
             return Optional.empty();
         }
         return store.exercisePuzzle(methodKey, contentVersion, exerciseKey);
+    }
+
+    @Override
+    public List<CategoryEntry> categories() {
+        return store.categories();
     }
 
     @Override

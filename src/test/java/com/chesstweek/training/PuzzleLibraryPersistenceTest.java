@@ -45,6 +45,13 @@ class PuzzleLibraryPersistenceTest {
             assertThat(application.getBean(JdbcTemplate.class).queryForObject(
                     "SELECT COUNT(*) FROM training_method_exercise_puzzle", Integer.class))
                     .isEqualTo(12);
+            // Only categories with at least one Puzzle are offered.
+            assertThat(library.categories())
+                    .contains(new PuzzleLibrary.CategoryEntry(
+                            new PuzzleLibrary.Category(PuzzleLibrary.CategoryKind.THEME, "intermezzo"),
+                            "Intermezzo", "Advanced", null))
+                    .noneMatch(entry -> entry.category().key().equals("mix"))
+                    .allMatch(entry -> entry.category().kind() == PuzzleLibrary.CategoryKind.THEME);
         }
 
         try (var restarted = start(database)) {

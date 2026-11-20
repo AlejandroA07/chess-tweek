@@ -25,6 +25,43 @@ describe('InteractiveChessBoard', () => {
     expect(screen.getByRole('button', { name: 'e1, white king' })).toHaveClass(styles.square, styles.moveSquare)
   })
 
+  it('replays a played line from the starting move and marks a hint square', () => {
+    const puzzleFen = '5rk1/5pb1/B1p4p/2p5/8/5q1P/PQ4P1/R5K1 w - - 0 27'
+    const onMove = vi.fn()
+    const { rerender } = render(
+      <InteractiveChessBoard
+        fen={puzzleFen}
+        orientation="white"
+        label="Puzzle"
+        disabled={false}
+        solution={null}
+        initialLastMove="g3f3"
+        hintSquare="b2"
+        onMove={onMove}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'f3, black queen' })).toHaveAttribute('data-last-move', 'to')
+    expect(screen.getByRole('button', { name: 'b2, white queen, hint: move this piece' }))
+      .toHaveAttribute('data-hint', 'true')
+
+    rerender(
+      <InteractiveChessBoard
+        fen={puzzleFen}
+        orientation="white"
+        label="Puzzle"
+        disabled={false}
+        solution={null}
+        line={['b2g7', 'g8g7']}
+        initialLastMove="g3f3"
+        onMove={onMove}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'g7, black king' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'b2, empty' })).not.toHaveAttribute('data-hint', 'true')
+    expect(screen.getByRole('button', { name: 'g8, empty' })).toHaveAttribute('data-last-move', 'from')
+    expect(screen.getByText(/History 3 of 3/)).toBeInTheDocument()
+  })
+
   it('keeps the existing review board read-only', () => {
     const { container } = render(
       <ChessBoard fen={fen} orientation="white" label="Review position" highlight="e2e1" arrow={null} />,

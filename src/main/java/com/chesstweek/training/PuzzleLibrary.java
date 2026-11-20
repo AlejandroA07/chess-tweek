@@ -31,6 +31,12 @@ public interface PuzzleLibrary {
      */
     Optional<Puzzle> randomPuzzle(Category category);
 
+    /**
+     * Every Theme and opening category that currently has at least one Puzzle, ordered by kind,
+     * group, and display name. Each entry costs one membership primary-key probe.
+     */
+    List<CategoryEntry> categories();
+
     CatalogSummary summary();
 
     ImportResult importSnapshot(ImportRequest request);
@@ -55,6 +61,9 @@ public interface PuzzleLibrary {
             List<String> openingTags) {}
 
     record Category(CategoryKind kind, String key) {}
+
+    /** A selectable category; {@code parentKey} is an opening variation's family, else null. */
+    record CategoryEntry(Category category, String displayName, String groupName, String parentKey) {}
 
     enum CategoryKind {
         THEME,

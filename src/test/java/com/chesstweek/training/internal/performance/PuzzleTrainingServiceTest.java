@@ -412,6 +412,11 @@ class PuzzleTrainingServiceTest {
         }
 
         @Override
+        public List<CategoryEntry> categories() {
+            return List.of();
+        }
+
+        @Override
         public CatalogSummary summary() {
             throw new UnsupportedOperationException();
         }

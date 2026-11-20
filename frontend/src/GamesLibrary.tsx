@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import styles from './GamesLibrary.module.css'
 import { GameAnalysisPanel } from './GameAnalysisPanel'
 import { GameCatalogFilters } from './GameCatalogFilters'
@@ -285,7 +285,8 @@ export function GamesLibrary({
     setSelectionEmpty(false)
   }, [accountId])
 
-  useEffect(() => {
+  // Layout effect: move focus in the same commit that shows the new content.
+  useLayoutEffect(() => {
     if (focusTarget.current === 'library' && catalog.kind === 'ready') {
       libraryRef.current?.focus()
       focusTarget.current = null

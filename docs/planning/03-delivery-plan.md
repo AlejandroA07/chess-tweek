@@ -421,10 +421,11 @@ Acceptance:
 - Stage 7 Part 2 is complete in PR #49, merged on 2026-11-19: the complete Lichess Puzzle snapshot, manual Admin lifecycle, and indexed controlled-access queries. It was measured against the official 2026-11-01 snapshot on the target Mac (`docs/dev/2026-11-19-full-puzzle-corpus.md`).
 - The owner ran the first full import from Admin into the real `var/chess-tweek.db` on 2026-11-20: the 2026-11-01 snapshot (SHA-256 `7b0d235f…ebf94253`) verified with 6,193,530 records read, 6,193,518 new, 3 updated, 9 unchanged (the existing guided-method Puzzles), 0 rejected, 0 conflicts, and 0 removed. The database is 2.8 GB and the downloaded source was deleted.
 - Stage 7 Part 3a, the backend performance core, is complete in PR #52, merged on 2026-11-20, with the owner's confirmed mating-move and Solve Time decisions (`docs/dev/2026-11-20-puzzle-performance-core.md`).
+- Stage 7 Part 3b's first version, the Puzzle dashboard with Random and By Category, merged in PR #53 on 2026-11-20.
 
 ### Not yet delivered
 
-- Stage 7 Part 3b—the Puzzle dashboard with Random and By Category—is implemented on `feature/puzzle-dashboard` and awaits owner review and a live check (`docs/dev/2026-11-20-puzzle-dashboard.md`).
+- Stage 7 Part 3b's follow-up—the Lichess-style Puzzles sub-menu, dashboard cards, Themes and Openings pages with stored counts, direct puzzle opening, and an open board after completion—is on `feature/puzzle-lichess-layout` and awaits owner review and a live check (`docs/dev/2026-11-20-puzzle-dashboard.md`).
 - Stage 7 Parts 3c (Repetition dashboard, Practice Sessions, and Mastered view) and 3d (guided-method link) have not started.
 - Stage 8 Own Puzzles and Stage 9 curated collections have not started.
 
@@ -432,5 +433,5 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-20):**
 
-1. Owner reviews the Stage 7 Part 3b pull request from `feature/puzzle-dashboard` and runs a live check: open Puzzles, complete one Random puzzle, try a hint or Show solution on another, and start one By Category puzzle from a theme and from an opening search.
+1. Owner reviews and merges the `feature/puzzle-lichess-layout` pull request, then runs a live check: the Puzzles sub-menu, the Themes and Openings pages with counts, a puzzle opened directly from a theme and from an opening, and continued moves after a solved puzzle.
 2. After the merge, implement Stage 7 Part 3c, the Repetition dashboard with Practice Sessions and the Mastered view, on its own `feature/<topic>` branch.

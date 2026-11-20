@@ -144,7 +144,8 @@ describe('PuzzleTraining', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
     expect(await screen.findByText('Moved from Retiring to Hard to Solve.')).toBeInTheDocument()
     expect(screen.getByText('4.2 s, solution shown')).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'f3, white pawn' })).toBeInTheDocument()
+    // The board shows the revealed line in the same render as the result, without a lagging effect.
+    expect(screen.getByRole('button', { name: 'f3, white pawn' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'g7, black king' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next in Fork' })).toBeEnabled()
   })

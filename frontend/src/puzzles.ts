@@ -40,12 +40,10 @@ export type PuzzleCompletion = {
   themes: string[]
 }
 
-export type PuzzleMoveResult = {
-  outcome: 'correct' | 'solved' | 'wrong'
-  opponentReply: string | null
-  wrongMoves: number
-  completion: PuzzleCompletion | null
-}
+export type PuzzleMoveResult =
+  | { outcome: 'correct'; opponentReply: string; wrongMoves: number }
+  | { outcome: 'solved'; completion: PuzzleCompletion; wrongMoves: number }
+  | { outcome: 'wrong'; wrongMoves: number }
 
 export type PuzzleRevealResult = {
   remainingMoves: string[]
@@ -111,15 +109,18 @@ export async function submitPuzzleMove(attemptId: number, move: string): Promise
     !(value.opponentReply === null || value.opponentReply === undefined || isUci(value.opponentReply)) ||
     !isInteger(value.wrongMoves, 0, 10_000)
   ) throw new PuzzleRequestError('unavailable')
-  const reply = typeof value.opponentReply === 'string' ? value.opponentReply : null
-  const completion = value.completion === null || value.completion === undefined
-    ? null
-    : parseCompletion(value.completion)
-  if ((value.outcome === 'correct') !== (reply !== null) ||
-      (value.outcome === 'solved') !== (completion !== null)) {
-    throw new PuzzleRequestError('unavailable')
+  const hasCompletion = value.completion !== null && value.completion !== undefined
+  if (value.outcome === 'correct') {
+    if (typeof value.opponentReply !== 'string' || hasCompletion) throw new PuzzleRequestError('unavailable')
+    return { outcome: 'correct', opponentReply: value.opponentReply, wrongMoves: value.wrongMoves }
   }
-  return { outcome: value.outcome, opponentReply: reply, wrongMoves: value.wrongMoves, completion }
+  if (typeof value.opponentReply === 'string') throw new PuzzleRequestError('unavailable')
+  if (value.outcome === 'solved') {
+    if (!hasCompletion) throw new PuzzleRequestError('unavailable')
+    return { outcome: 'solved', completion: parseCompletion(value.completion), wrongMoves: value.wrongMoves }
+  }
+  if (hasCompletion) throw new PuzzleRequestError('unavailable')
+  return { outcome: 'wrong', wrongMoves: value.wrongMoves }
 }
 
 export async function requestPuzzleHint(attemptId: number): Promise<string> {

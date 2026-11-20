@@ -154,7 +154,7 @@ function PuzzleDashboard({
         </section>
       </div>
 
-      <section className={styles.categories} aria-labelledby="category-title">
+      <section className={`${styles.module} ${styles.categories}`} aria-labelledby="category-title">
         <div className={styles.sectionHeading}>
           <p className={styles.eyebrow}>By Category</p>
           <h3 id="category-title">Choose a theme or opening</h3>
@@ -276,6 +276,8 @@ function PuzzlePlayer({
   const [feedback, setFeedback] = useState<{ tone: 'correct' | 'incorrect'; text: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const statusRef = useRef<HTMLDivElement>(null)
+  const puzzleTitleRef = useRef<HTMLHeadingElement>(null)
+  const startRef = useRef<HTMLButtonElement>(null)
 
   const categoryName = route.kind === 'category'
     ? categories?.find((category) => category.kind === route.category && category.key === route.key)?.name
@@ -301,13 +303,13 @@ function PuzzlePlayer({
       setPhase({ kind: 'ready' })
       setError(requestError instanceof PuzzleRequestError && requestError.code === 'no_puzzle_available'
         ? route.kind === 'random'
-          ? 'Every puzzle in the library is already in one of your Training Lists.'
-          : 'Every puzzle in this category is Mastered.'
+          ? 'No new puzzle is available: every stored puzzle is already in one of your Training Lists, or the library is empty.'
+          : 'No puzzle is available: every puzzle in this category is Mastered.'
         : 'A puzzle could not be started. Try again.')
     }
   }
 
-  const ended = (requestError: unknown) => {
+  const failed = (requestError: unknown) => {
     reportSessionFailure(requestError, onSessionFailure)
     if (requestError instanceof PuzzleRequestError && requestError.code === 'attempt_finished') {
       setPhase({ kind: 'ready' })
@@ -329,13 +331,13 @@ function PuzzlePlayer({
         return false
       }
       setHintSquare(null)
-      if (result.outcome === 'solved' && result.completion !== null) {
+      if (result.outcome === 'solved') {
         setLine((current) => [...current, uci])
         setFeedback({ tone: 'correct', text: 'Solved.' })
         setPhase({ kind: 'complete', attempt: phase.attempt, completion: result.completion, revealed: false })
         return true
       }
-      setLine((current) => [...current, uci, result.opponentReply ?? ''])
+      setLine((current) => [...current, uci, result.opponentReply])
       setFeedback({ tone: 'correct', text: 'Correct. Your opponent replied; find the next move.' })
       return true
     } catch (requestError) {
@@ -343,7 +345,7 @@ function PuzzlePlayer({
         setError('That move is not legal in this position.')
         return false
       }
-      ended(requestError)
+      failed(requestError)
       return false
     } finally {
       setBusy(false)
@@ -358,7 +360,7 @@ function PuzzlePlayer({
       setHintSquare(await requestPuzzleHint(phase.attempt.attemptId))
       setFeedback(null)
     } catch (requestError) {
-      ended(requestError)
+      failed(requestError)
     } finally {
       setBusy(false)
     }
@@ -375,14 +377,21 @@ function PuzzlePlayer({
       setFeedback(null)
       setPhase({ kind: 'complete', attempt: phase.attempt, completion: result.completion, revealed: true })
     } catch (requestError) {
-      ended(requestError)
+      failed(requestError)
     } finally {
       setBusy(false)
     }
   }
 
+  // Keep focus on the content that replaced the control the owner just used.
+  const previousPhase = useRef<Phase['kind']>(phase.kind)
   useEffect(() => {
+    const before = previousPhase.current
+    previousPhase.current = phase.kind
+    if (before === phase.kind) return
     if (phase.kind === 'complete') statusRef.current?.focus()
+    else if (phase.kind === 'playing') puzzleTitleRef.current?.focus()
+    else if (phase.kind === 'ready' && before !== 'starting') startRef.current?.focus()
   }, [phase.kind])
 
   const attempt = phase.kind === 'playing' || phase.kind === 'complete' ? phase.attempt : null
@@ -410,9 +419,13 @@ function PuzzlePlayer({
           <h3 id="start-title">
             {phase.kind === 'starting' ? 'Starting a puzzle…' : 'Ready when you are'}
           </h3>
-          <p>Solve Time starts when the board appears and stops when the full solution is played.</p>
+          <p>
+            Solve Time starts when you press Start puzzle and the board appears, and stops when the
+            full solution is played.
+          </p>
           {error && <p className={styles.error} role="alert">{error}</p>}
           <button
+            ref={startRef}
             className={styles.primaryButton}
             type="button"
             disabled={phase.kind === 'starting'}
@@ -441,7 +454,9 @@ function PuzzlePlayer({
             <p className={styles.eyebrow}>
               Lichess {attempt.rating} · {attempt.ownerMoves} {attempt.ownerMoves === 1 ? 'move' : 'moves'} to find
             </p>
-            <h3 id="puzzle-title">{side === 'black' ? 'Black' : 'White'} to move</h3>
+            <h3 id="puzzle-title" ref={puzzleTitleRef} tabIndex={-1}>
+              {side === 'black' ? 'Black' : 'White'} to move
+            </h3>
             <dl className={styles.facts}>
               <div>
                 <dt>Training List</dt>
@@ -465,7 +480,7 @@ function PuzzlePlayer({
               )}
               {hintSquare && phase.kind === 'playing' && (
                 <p className={styles.hint}>
-                  <strong>Hint:</strong> move the piece on {hintSquare}. A hint places this puzzle in Hard to Solve.
+                  <strong>Hint:</strong> move the piece on {hintSquare}. This puzzle goes to Hard to Solve, with its progress there restarted.
                 </p>
               )}
               {phase.kind === 'complete' && (
@@ -486,7 +501,7 @@ function PuzzlePlayer({
                     disabled={busy || hintSquare !== null}
                     onClick={() => void hint()}
                   >
-                    Hint
+                    {hintSquare === null ? 'Hint' : 'Hint shown on the board'}
                   </button>
                   <button
                     className={styles.textButton}
@@ -504,7 +519,9 @@ function PuzzlePlayer({
               )}
             </div>
             {phase.kind === 'playing' && (
-              <p className={styles.muted}>A hint or Show solution places this puzzle in Hard to Solve.</p>
+              <p className={styles.muted}>
+                A hint or Show solution places this puzzle in Hard to Solve and restarts its progress there.
+              </p>
             )}
           </div>
         </section>
@@ -540,7 +557,7 @@ function CompletionSummary({
           <dt>Solve Time</dt>
           <dd>
             {revealed
-              ? 'Not counted'
+              ? `${seconds(completion.elapsedMillis)}, solution shown`
               : `${seconds(completion.elapsedMillis)} of ${seconds(completion.fastSolveLimitMillis)}`}
           </dd>
         </div>
@@ -578,8 +595,10 @@ function sideToMove(fen: string): 'white' | 'black' {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white'
 }
 
+/** Rounds down, so a time under the limit never displays as the limit itself. */
 function seconds(milliseconds: number) {
-  return `${(milliseconds / 1000).toFixed(milliseconds % 1000 === 0 ? 0 : 1)} s`
+  const tenths = Math.floor(milliseconds / 100)
+  return tenths % 10 === 0 ? `${tenths / 10} s` : `${(tenths / 10).toFixed(1)} s`
 }
 
 function reportSessionFailure(error: unknown, onSessionFailure: (failure: SessionFailure) => void) {

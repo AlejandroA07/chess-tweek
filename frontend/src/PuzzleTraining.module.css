@@ -99,8 +99,8 @@
 
 .categories {
   display: grid;
+  align-items: stretch;
   gap: var(--space-4);
-  padding: var(--space-5);
 }
 
 .browser {
@@ -150,6 +150,11 @@
 .openingSearch label {
   font-size: 0.875rem;
   font-weight: 700;
+}
+
+.openingSearch input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .openingSearch input {
@@ -351,6 +356,16 @@
   border-color: transparent;
   color: var(--color-primary);
   background: transparent;
+}
+
+.textButton:hover:not(:disabled),
+.textButton:focus-visible {
+  background: var(--color-surface-subtle);
+}
+
+.panel h3:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .primaryButton:disabled,

@@ -34,6 +34,7 @@ describe('PuzzleTraining', () => {
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'dashboard' }} onSessionFailure={vi.fn()} />)
 
     expect(screen.getByRole('link', { name: 'Start Random' })).toHaveAttribute('href', '#/puzzles/random')
+    expect(screen.getByRole('region', { name: 'Choose a theme or opening' })).toBeInTheDocument()
     expect(screen.getAllByText('Planned')).toHaveLength(2)
     const fork = await screen.findByRole('link', { name: 'Fork' })
     expect(fork).toHaveAttribute('href', '#/puzzles/category/theme/fork')
@@ -85,6 +86,7 @@ describe('PuzzleTraining', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
 
     expect(await screen.findByRole('heading', { name: 'White to move' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'White to move' })).toHaveFocus())
     expect(screen.getByText('New puzzle')).toBeInTheDocument()
     expect(screen.getByText('11 s')).toBeInTheDocument()
 
@@ -99,6 +101,7 @@ describe('PuzzleTraining', () => {
     play('g2', 'f3')
     expect(await screen.findByText('Placed in Wrong Moves.')).toBeInTheDocument()
     expect(screen.getByText('4.2 s of 11 s')).toBeInTheDocument()
+    expect(screen.getByText('Placed in Wrong Moves.').closest('[tabindex="-1"]')).toHaveFocus()
     expect(screen.getByText('Themes: Fork, short')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open the source game on Lichess' })).toHaveAttribute(
       'rel', 'noreferrer',
@@ -136,11 +139,11 @@ describe('PuzzleTraining', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }))
     expect(await screen.findByRole('button', { name: 'b2, white queen, hint: move this piece' }))
       .toHaveAttribute('data-hint', 'true')
-    expect(screen.getByRole('button', { name: 'Hint' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Hint shown on the board' })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
     expect(await screen.findByText('Moved from Retiring to Hard to Solve.')).toBeInTheDocument()
-    expect(screen.getByText('Not counted')).toBeInTheDocument()
+    expect(screen.getByText('4.2 s, solution shown')).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'f3, white pawn' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'g7, black king' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next in Fork' })).toBeEnabled()
@@ -165,13 +168,47 @@ describe('PuzzleTraining', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Every puzzle in the library is already in one of your Training Lists.',
+      'every stored puzzle is already in one of your Training Lists, or the library is empty',
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Hint' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('This attempt has ended')
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Start puzzle' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start puzzle' })).toHaveFocus())
+  })
+
+  it('never rounds a time under the limit up to the limit', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/random/attempts')) return response(attempt(), 201)
+      if (url.endsWith('/attempts/7/reveal')) {
+        return response({ remainingMoves: ['b2g7', 'g8g7', 'g2f3'], completion: completion({ elapsedMillis: 10_960 }) })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Show solution' }))
+    expect(await screen.findByText('10.9 s, solution shown')).toBeInTheDocument()
+  })
+
+  it('rejects a move result whose outcome and fields disagree', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/random/attempts')) return response(attempt(), 201)
+      if (url.endsWith('/attempts/7/moves')) {
+        return response({ outcome: 'correct', opponentReply: null, wrongMoves: 0, completion: null })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
+    await screen.findByRole('heading', { name: 'White to move' })
+    play('b2', 'g7')
+    expect(await screen.findByRole('alert')).toHaveTextContent('That action could not be completed')
+    expect(await screen.findByRole('button', { name: 'b2, white queen' })).toBeInTheDocument()
   })
 
   it('rejects a response that would reveal an unexpected shape', async () => {

@@ -101,7 +101,7 @@ export function App() {
   const [route, setRoute] = useState(currentRoute)
   const [reviewGame, setReviewGame] = useState(currentReviewGame)
   const [trainingLesson, setTrainingLesson] = useState(currentTrainingLesson)
-  const [puzzles, setPuzzles] = useState(currentPuzzleRoute)
+  const [puzzleView, setPuzzleView] = useState(currentPuzzleRoute)
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [session, setSession] = useState<SessionState>({ kind: 'checking' })
   const [accountAction, setAccountAction] = useState<'idle' | 'connecting' | 'logging-out'>('idle')
@@ -145,7 +145,7 @@ export function App() {
       setRoute(currentRoute())
       setReviewGame(currentReviewGame())
       setTrainingLesson(currentTrainingLesson())
-      setPuzzles(currentPuzzleRoute())
+      setPuzzleView(currentPuzzleRoute())
       setNavigationOpen(false)
     }
     window.addEventListener('hashchange', updateRoute)
@@ -285,7 +285,7 @@ export function App() {
         <main className={styles.workspace}>
           <div
             className={styles.workspaceStack}
-            data-wide={reviewGame !== null || trainingLesson !== null || puzzles !== null}
+            data-wide={reviewGame !== null || trainingLesson !== null || puzzleView !== null}
           >
             {route.href === '#/dashboard' && callbackNotice && (
               <CallbackBanner notice={callbackNotice} onDismiss={() => setCallbackNotice(null)} />
@@ -331,10 +331,10 @@ export function App() {
                 lessonKey={trainingLesson}
                 onSessionFailure={handleCatalogSessionFailure}
               />
-            ) : puzzles !== null ? (
+            ) : puzzleView !== null ? (
               <PuzzleTraining
                 connectionState={session.kind}
-                route={puzzles}
+                route={puzzleView}
                 onSessionFailure={handleCatalogSessionFailure}
               />
             ) : route.href === '#/games' ? (

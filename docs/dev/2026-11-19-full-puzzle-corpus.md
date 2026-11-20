@@ -18,12 +18,12 @@ Stage 7 Part 2 stores the complete official Lichess Puzzle snapshot once in the 
 - Records are applied in chunks of 5,000. Each chunk commits together with its resume cursor, so a cancellation, crash, or shutdown keeps either the whole chunk or none of it. Records are idempotent by provider and external ID. A duplicate ID in one snapshot is rejected. A different position or solution for a stored ID is a conflict: the stored Puzzle is kept, still counts as present in the new snapshot (so it is never removed as missing), and the record is reported. More than 1,000 rejected records pause the import with the source kept.
 - A source that is unusable (changed during download, failed `zstd -t`, checksum mismatch, wrong header, or too large) fails the import and deletes the file. Every other stop pauses with the file kept, so Resume retries without downloading again.
 - Records are applied directly to the live library. An import that stops before verification therefore leaves individually validated records from the newer snapshot next to older observations; Admin keeps showing the last verified snapshot until a resumed or new import verifies.
-- Finalization removes Puzzles that the new snapshot no longer contains, unless a method exercise, a collection, or a pinned observation references them. Stage 7 Part 3 must add account attempts and list state to `JdbcPuzzleCorpusStore.RETAINED`. It then verifies that every accepted record is stored exactly once, records the snapshot metadata, and only then deletes the compressed source.
+- Finalization removes Puzzles that the new snapshot no longer contains, unless a method exercise, a collection, or a pinned observation references them. Stage 7 Part 3a added account attempts and list state to `JdbcPuzzleCorpusStore.RETAINED`. It then verifies that every accepted record is stored exactly once, records the snapshot metadata, and only then deletes the compressed source.
 
 ## Not included
 
 - Accepting a manually downloaded `lichess_db_puzzle.csv.zst` is not exposed in Admin; the snapshot date and ETag come from the update check. The Part 1 command-line import still accepts a local file for bounded collections.
-- Part 3's "Random never returns a classified Puzzle" cannot be met by the bare ID seek once many Puzzles are classified; it needs an exclusion-aware selection (for example, seeking forward past classified IDs or sampling a per-account unclassified index).
+- Part 3's "Random never returns a classified Puzzle" needed an exclusion-aware selection. Part 3a seeks forward past the account's classified IDs (`2026-11-20-puzzle-performance-core.md`).
 
 ## Record rules corrected by the real snapshot
 

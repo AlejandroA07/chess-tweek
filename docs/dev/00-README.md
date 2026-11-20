@@ -42,3 +42,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-16-guided-training-method.md` | Records the standalone Grandmaster Thinking Method course, protected progress boundary, original content, and interface. | dated report |
 | `2026-11-18-puzzle-library-foundation.md` | Records the shared Puzzle Library schema, bounded local importer, stable course references, and security limits. | dated report |
 | `2026-11-19-full-puzzle-corpus.md` | Records the manual full Lichess Puzzle corpus lifecycle, corrected record rules, indexed selection, and target-Mac measurements. | dated report |
+| `2026-11-20-puzzle-performance-core.md` | Records account Puzzle attempts, server-checked solving, the performance list rules, exclusion-aware selection, and retention. | dated report |

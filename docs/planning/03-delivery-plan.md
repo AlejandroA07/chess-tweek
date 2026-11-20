@@ -421,11 +421,10 @@ Acceptance:
 - Stage 7 Part 2 is complete in PR #49, merged on 2026-11-19: the complete Lichess Puzzle snapshot, manual Admin lifecycle, and indexed controlled-access queries. It was measured against the official 2026-11-01 snapshot on the target Mac (`docs/dev/2026-11-19-full-puzzle-corpus.md`).
 - The owner ran the first full import from Admin into the real `var/chess-tweek.db` on 2026-11-20: the 2026-11-01 snapshot (SHA-256 `7b0d235f…ebf94253`) verified with 6,193,530 records read, 6,193,518 new, 3 updated, 9 unchanged (the existing guided-method Puzzles), 0 rejected, 0 conflicts, and 0 removed. The database is 2.8 GB and the downloaded source was deleted.
 - Stage 7 Part 3a, the backend performance core, is complete in PR #52, merged on 2026-11-20, with the owner's confirmed mating-move and Solve Time decisions (`docs/dev/2026-11-20-puzzle-performance-core.md`).
-- Stage 7 Part 3b's first version, the Puzzle dashboard with Random and By Category, merged in PR #53 on 2026-11-20.
+- Stage 7 Part 3b is complete: the Puzzle dashboard with Random and By Category (PR #53), and its follow-up (PR #54), both merged on 2026-11-20. The follow-up adds the Lichess-style Puzzles sub-menu, dashboard cards, Themes and Openings pages with stored counts, direct puzzle opening, an open board after completion, and the board reset-timing fix (`docs/dev/2026-11-20-puzzle-dashboard.md`). The owner's live check of the merged app on 2026-11-20 found it working.
 
 ### Not yet delivered
 
-- Stage 7 Part 3b's follow-up—the Lichess-style Puzzles sub-menu, dashboard cards, Themes and Openings pages with stored counts, direct puzzle opening, and an open board after completion—is on `feature/puzzle-lichess-layout` and awaits owner review and a live check (`docs/dev/2026-11-20-puzzle-dashboard.md`).
 - Stage 7 Parts 3c (Repetition dashboard, Practice Sessions, and Mastered view) and 3d (guided-method link) have not started.
 - Stage 8 Own Puzzles and Stage 9 curated collections have not started.
 
@@ -433,5 +432,8 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-20):**
 
-1. Owner reviews and merges the `feature/puzzle-lichess-layout` pull request, then runs a live check: the Puzzles sub-menu, the Themes and Openings pages with counts, a puzzle opened directly from a theme and from an opening, and continued moves after a solved puzzle.
-2. After the merge, implement Stage 7 Part 3c, the Repetition dashboard with Practice Sessions and the Mastered view, on its own `feature/<topic>` branch.
+1. Implement Stage 7 Part 3c on its own `feature/<topic>` branch: the normal-Puzzle Repetition dashboard, Practice Sessions, and the Mastered view, behind the side-bar entry "Repetition: normal puzzles" (now shown as Planned). The rules are in `07-performance-training-lists.md`. A session covers one Training List, uses a freshly randomized order, and presents every Puzzle once before any repeats. Mastered Puzzles are grouped by Theme and Opening Tag, and practicing them never changes their state.
+2. Known groundwork for 3c and 3d, from the Part 3a reviews:
+   - `training_puzzle_performance` needs an `(account_id, list, puzzle_id)` index for list queries.
+   - The `training_puzzle_attempt.entry` check allows only `random` and `category`, so repetition, Mastered practice, and guided-method attempts need a migration.
+   - A Mastered-practice attempt must not change list state.

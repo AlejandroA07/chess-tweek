@@ -18,6 +18,7 @@ import com.chesstweek.training.PuzzleTraining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -59,6 +60,24 @@ class PuzzleTrainingControllerTest {
         mockMvc.perform(post(BASE + "/random/attempts").cookie(SESSION).header("Origin", ORIGIN))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("no_puzzle_available"));
+    }
+
+    @Test
+    void listsSelectableCategoriesForTheConnectedOwnerOnly() throws Exception {
+        mockMvc(connected())
+                .perform(get(BASE + "/categories").cookie(SESSION))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.categories[0].kind").value("theme"))
+                .andExpect(jsonPath("$.categories[0].key").value("fork"))
+                .andExpect(jsonPath("$.categories[0].name").value("Fork"))
+                .andExpect(jsonPath("$.categories[0].group").value("Motifs"))
+                .andExpect(jsonPath("$.categories[1].kind").value("opening-variation"))
+                .andExpect(jsonPath("$.categories[1].parentKey").value("Caro-Kann_Defense"));
+        mockMvc(sealed -> LichessSessionAuthorization.disconnected(false))
+                .perform(get(BASE + "/categories").cookie(SESSION))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("not_connected"));
     }
 
     @Test
@@ -184,12 +203,60 @@ class PuzzleTrainingControllerTest {
     }
 
     private MockMvc mockMvc(LichessSessionAuthorizer authorizer) {
-        return MockMvcBuilders.standaloneSetup(new PuzzleTrainingController(authorizer, training))
+        return MockMvcBuilders.standaloneSetup(
+                        new PuzzleTrainingController(authorizer, training, new FakeLibrary()))
                 .build();
     }
 
     private static LichessSessionAuthorizer connected() {
         return sealed -> LichessSessionAuthorization.connected("owner-id", "ChessOwner", "liu_token");
+    }
+
+    private static final class FakeLibrary implements PuzzleLibrary {
+        @Override
+        public List<CategoryEntry> categories() {
+            return List.of(
+                    new CategoryEntry(new Category(CategoryKind.THEME, "fork"), "Fork", "Motifs", null),
+                    new CategoryEntry(new Category(CategoryKind.OPENING_VARIATION,
+                            "Caro-Kann_Defense_Advance_Variation"),
+                            "Caro-Kann Defense: Advance Variation", "Caro-Kann Defense",
+                            "Caro-Kann_Defense"));
+        }
+
+        @Override
+        public Optional<Puzzle> puzzle(long puzzleId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Puzzle> puzzle(String provider, String externalId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Puzzle> exercisePuzzle(String methodKey, int contentVersion, String exerciseKey) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Puzzle> randomPuzzle() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Puzzle> randomPuzzle(Category category) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CatalogSummary summary() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ImportResult importSnapshot(ImportRequest request) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class FakeTraining implements PuzzleTraining {

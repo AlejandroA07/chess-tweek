@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,13 +37,45 @@ public final class PuzzleTrainingController {
 
     private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
     private static final Pattern CATEGORY_KEY = Pattern.compile("[A-Za-z0-9_-]{1,120}");
+    private static final String THEME = "theme";
+    private static final String OPENING_FAMILY = "opening-family";
+    private static final String OPENING_VARIATION = "opening-variation";
 
     private final LichessSessionAuthorizer sessionAuthorizer;
     private final PuzzleTraining training;
+    private final PuzzleLibrary library;
 
-    PuzzleTrainingController(LichessSessionAuthorizer sessionAuthorizer, PuzzleTraining training) {
+    PuzzleTrainingController(
+            LichessSessionAuthorizer sessionAuthorizer,
+            PuzzleTraining training,
+            PuzzleLibrary library) {
         this.sessionAuthorizer = sessionAuthorizer;
         this.training = training;
+        this.library = library;
+    }
+
+    /** The categories By Category can start from; read-only, so no same-origin requirement. */
+    @GetMapping("/categories")
+    public ResponseEntity<?> categories(
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession) {
+        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
+        ResponseEntity<TrainingError> denied = deny(authorization);
+        if (denied != null) {
+            return denied;
+        }
+        try {
+            return ok(new CategoriesResponse(library.categories().stream()
+                    .map(entry -> new CategoryResponse(
+                            kind(entry.category().kind()),
+                            entry.category().key(),
+                            entry.displayName(),
+                            entry.groupName(),
+                            entry.parentKey()))
+                    .toList()));
+        } catch (DataAccessException | IllegalStateException exception) {
+            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
+        }
     }
 
     @PostMapping("/random/attempts")
@@ -62,9 +95,9 @@ public final class PuzzleTrainingController {
             @PathVariable("kind") String kind,
             @PathVariable("key") String key) {
         PuzzleLibrary.CategoryKind categoryKind = switch (kind) {
-            case "theme" -> PuzzleLibrary.CategoryKind.THEME;
-            case "opening-family" -> PuzzleLibrary.CategoryKind.OPENING_FAMILY;
-            case "opening-variation" -> PuzzleLibrary.CategoryKind.OPENING_VARIATION;
+            case THEME -> PuzzleLibrary.CategoryKind.THEME;
+            case OPENING_FAMILY -> PuzzleLibrary.CategoryKind.OPENING_FAMILY;
+            case OPENING_VARIATION -> PuzzleLibrary.CategoryKind.OPENING_VARIATION;
             default -> null;
         };
         boolean valid = categoryKind != null && key != null && CATEGORY_KEY.matcher(key).matches();
@@ -186,6 +219,15 @@ public final class PuzzleTrainingController {
                 completion.themes());
     }
 
+    /** The URL form of a category kind, shared by the category list and the start path. */
+    private static String kind(PuzzleLibrary.CategoryKind kind) {
+        return switch (kind) {
+            case THEME -> THEME;
+            case OPENING_FAMILY -> OPENING_FAMILY;
+            case OPENING_VARIATION -> OPENING_VARIATION;
+        };
+    }
+
     private static String lower(Enum<?> value) {
         return value.name().toLowerCase(Locale.ROOT);
     }
@@ -216,6 +258,11 @@ public final class PuzzleTrainingController {
                 .cacheControl(CacheControl.noStore())
                 .body(new TrainingError(code));
     }
+
+    public record CategoryResponse(
+            String kind, String key, String name, String group, String parentKey) {}
+
+    public record CategoriesResponse(List<CategoryResponse> categories) {}
 
     public record MoveRequest(String move) {}
 

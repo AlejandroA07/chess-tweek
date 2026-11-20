@@ -148,7 +148,7 @@ public final class PuzzleTrainingController {
         }
         try {
             return action.apply(authorization.accountId());
-        } catch (DataAccessException | IllegalArgumentException exception) {
+        } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
         }
     }

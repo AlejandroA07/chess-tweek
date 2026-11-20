@@ -15,7 +15,14 @@ Stage 7 Part 3a adds the backend for performance Training Lists over normal Lich
 - Solve Time runs on the server clock from the start of the attempt until the final correct move. The fast-solve limit is 6 seconds plus 5 for each further owner move.
 - The hint returns the square of the piece that makes the next correct move. Show solution returns the remaining line and completes the attempt as hinted (owner decisions, 2026-11-20).
 - Starting an attempt abandons the account's other active attempt. An abandoned or unfinished attempt never classifies its Puzzle.
-- Every write is guarded by the expected solving cursor and the active status, so a repeated or concurrent request cannot count a move or a completion twice. A completion and its list state commit in one transaction.
+- On a repetition attempt, list movement that the attempt's Wrong Moves or hint already decide is stored immediately, as the spec's "immediately" requires. A hint or a second Wrong Move moves the Puzzle to Hard to Solve. One Wrong Move in Wrong Moves, Worth Repeating, or Retiring moves it to Wrong Moves with a zero counter. Leaving the attempt cannot undo either. Completing the attempt afterwards produces the same result as completing it without the early movement; `PerformanceRulesTest` checks this for every state and outcome. First attempts are unaffected, because an unfinished Puzzle stays unclassified.
+- Every write is guarded by the active status, the expected solving cursor, and the expected Wrong Move count. A repeated or concurrent request therefore cannot count a move, a Wrong Move, or a completion twice. Each write reads the account's current list state and stores the new one in a single transaction. The Wrong Move count stops at the stored bound of 10,000, because two Wrong Moves already decide every rule.
+- An internal inconsistency, such as a missing attempted Puzzle or an invalid stored line, returns the fixed `training_unavailable` error.
+
+## Awaiting owner confirmation
+
+- Any mating move solves a Puzzle, as on Lichess, even when it differs from the stored solution move. The spec does not state this.
+- Solve Time starts when the server creates the attempt, not when the board becomes interactive, so it includes request time and any setup-move animation. Part 3b can start the attempt only once the board is interactive, or add a separate start signal if the owner wants the timer to start there exactly.
 
 ## Selection
 

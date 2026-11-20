@@ -213,6 +213,54 @@ class PuzzleTrainingServiceTest {
     }
 
     @Test
+    void aRepetitionDemotionIsStoredImmediatelyAndCannotBeDodgedByLeaving() {
+        try (var application = start()) {
+            PuzzleTraining training = training(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            PuzzleLibrary.Category intermezzo = new PuzzleLibrary.Category(
+                    PuzzleLibrary.CategoryKind.THEME, "intermezzo");
+            // Every other intermezzo Puzzle is Mastered, so By Category repeats one Puzzle.
+            PuzzleTraining.Attempt first = training.startInCategory(OWNER, intermezzo).orElseThrow();
+            solve(application, training, first, 0);
+            jdbc.update("""
+                    INSERT INTO training_puzzle_performance
+                    SELECT ?, m.puzzle_id, 'mastered', 0, 0, 0, 0
+                    FROM training_puzzle_category_member m
+                    JOIN training_puzzle_category c ON c.id = m.category_id
+                    WHERE c.kind = 'theme' AND c.classification_key = 'intermezzo'
+                      AND m.puzzle_id <> ?
+                    """, OWNER, first.puzzleId());
+            jdbc.update("""
+                    UPDATE training_puzzle_performance
+                    SET list = 'worth_repeating', successes = 6
+                    WHERE account_id = ? AND puzzle_id = ?
+                    """, OWNER, first.puzzleId());
+
+            PuzzleTraining.Attempt wrong = training.startInCategory(OWNER, intermezzo).orElseThrow();
+            training.move(OWNER, wrong.attemptId(), wrongMove(application, wrong, 0));
+            assertThat(training.performance(OWNER, first.puzzleId()))
+                    .contains(new PuzzleTraining.Performance(TrainingList.WRONG_MOVES, 0, 0));
+
+            PuzzleTraining.Attempt hinted = training.startInCategory(OWNER, intermezzo).orElseThrow();
+            assertThat(hinted.currentList()).isEqualTo(TrainingList.WRONG_MOVES);
+            training.hint(OWNER, hinted.attemptId());
+            assertThat(training.performance(OWNER, first.puzzleId()))
+                    .contains(new PuzzleTraining.Performance(TrainingList.HARD_TO_SOLVE, 0, 0));
+
+            // Leaving does not undo it; completing applies Hard to Solve's rules to the attempt.
+            PuzzleTraining.Attempt again = training.startInCategory(OWNER, intermezzo).orElseThrow();
+            assertThat(training.move(OWNER, hinted.attemptId(),
+                    solution(application, hinted).getFirst()).outcome())
+                    .isEqualTo(MoveOutcome.FINISHED);
+            PuzzleTraining.Completion completion =
+                    solve(application, training, again, 0).completion();
+            assertThat(completion.previousList()).isEqualTo(TrainingList.HARD_TO_SOLVE);
+            assertThat(completion.performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.HARD_TO_SOLVE, 1, 0));
+        }
+    }
+
+    @Test
     void listStateSurvivesRestart() {
         long puzzleId;
         try (var application = start()) {

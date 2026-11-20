@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import com.chesstweek.training.PuzzleTraining;
 import com.chesstweek.training.PuzzleTraining.TrainingList;
 
 import static com.chesstweek.training.PuzzleTraining.TrainingList.HARD_TO_SOLVE;
@@ -36,7 +37,7 @@ class PerformanceRulesTest {
     void classifiesTheFirstCompletedAttemptByPriority(
             boolean hint, int wrong, long elapsed, TrainingList expected) {
         assertThat(PerformanceRules.apply(Optional.empty(), outcome(hint, wrong, elapsed)))
-                .isEqualTo(new PerformanceRules.State(expected, 0, 0));
+                .isEqualTo(new PuzzleTraining.Performance(expected, 0, 0));
     }
 
     @Test
@@ -84,6 +85,51 @@ class PerformanceRulesTest {
     }
 
     @Test
+    void appliesARepetitionDemotionAsSoonAsTheAttemptDecidesIt() {
+        assertThat(PerformanceRules.immediate(Optional.empty(), 2, true)).isEmpty();
+        assertThat(PerformanceRules.immediate(Optional.of(state(RETIRING, 3, 1)), 0, true))
+                .contains(state(HARD_TO_SOLVE, 0, 0));
+        assertThat(PerformanceRules.immediate(Optional.of(state(WRONG_MOVES, 3, 0)), 2, false))
+                .contains(state(HARD_TO_SOLVE, 0, 0));
+        assertThat(PerformanceRules.immediate(Optional.of(state(WORTH_REPEATING, 3, 0)), 1, false))
+                .contains(state(WRONG_MOVES, 0, 0));
+        assertThat(PerformanceRules.immediate(Optional.of(state(WRONG_MOVES, 3, 0)), 1, false))
+                .contains(state(WRONG_MOVES, 0, 0));
+        assertThat(PerformanceRules.immediate(Optional.of(state(HARD_TO_SOLVE, 3, 0)), 1, false))
+                .isEmpty();
+        assertThat(PerformanceRules.immediate(Optional.of(state(RETIRING, 3, 1)), 0, false))
+                .isEmpty();
+        assertThat(PerformanceRules.immediate(Optional.of(state(MASTERED, 0, 0)), 2, true))
+                .isEmpty();
+    }
+
+    @Test
+    void completingAfterAnImmediateDemotionMatchesCompletingWithoutIt() {
+        for (TrainingList list : TrainingList.values()) {
+            for (int successes : new int[] {0, 4, 9}) {
+                for (int strikes = 0; strikes <= 1; strikes++) {
+                    PuzzleTraining.Performance current = state(list, successes, strikes);
+                    for (int wrong = 0; wrong <= 3; wrong++) {
+                        for (boolean hint : new boolean[] {false, true}) {
+                            for (long elapsed : new long[] {1_000, LIMIT + 1}) {
+                                var outcome = outcome(hint, wrong, elapsed);
+                                PuzzleTraining.Performance demoted = PerformanceRules
+                                        .immediate(Optional.of(current), wrong, hint)
+                                        .orElse(current);
+                                assertThat(PerformanceRules.apply(Optional.of(demoted), outcome))
+                                        .as("%s wrong=%d hint=%s elapsed=%d",
+                                                current, wrong, hint, elapsed)
+                                        .isEqualTo(PerformanceRules.apply(
+                                                Optional.of(current), outcome));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void scalesTheFastSolveLimitWithOwnerMovesOnly() {
         assertThat(PerformanceRules.fastSolveLimitMillis(1)).isEqualTo(6_000);
         assertThat(PerformanceRules.fastSolveLimitMillis(2)).isEqualTo(6_000);
@@ -94,14 +140,14 @@ class PerformanceRulesTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    private static PerformanceRules.State apply(
+    private static PuzzleTraining.Performance apply(
             TrainingList list, int successes, int strikes, boolean hint, int wrong, long elapsed) {
         return PerformanceRules.apply(
                 Optional.of(state(list, successes, strikes)), outcome(hint, wrong, elapsed));
     }
 
-    private static PerformanceRules.State state(TrainingList list, int successes, int strikes) {
-        return new PerformanceRules.State(list, successes, strikes);
+    private static PuzzleTraining.Performance state(TrainingList list, int successes, int strikes) {
+        return new PuzzleTraining.Performance(list, successes, strikes);
     }
 
     private static PerformanceRules.Outcome outcome(boolean hint, int wrong, long elapsed) {

@@ -2,6 +2,7 @@ package com.chesstweek.training.internal.persistence;
 
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.random.RandomGenerator;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -47,8 +48,8 @@ public class JdbcPuzzlePerformanceStore {
 
     /** A Puzzle with no Training List state for the account, or empty when none remains. */
     public Optional<Long> randomUnclassified(String accountId, RandomGenerator random) {
-        Long low = id("SELECT min(puzzle_id) FROM training_puzzle_current");
-        Long high = id("SELECT max(puzzle_id) FROM training_puzzle_current");
+        Long low = firstLong("SELECT min(puzzle_id) FROM training_puzzle_current");
+        Long high = firstLong("SELECT max(puzzle_id) FROM training_puzzle_current");
         if (low == null || high == null) {
             return Optional.empty();
         }
@@ -61,8 +62,8 @@ public class JdbcPuzzlePerformanceStore {
                       WHERE s.account_id = ? AND s.puzzle_id = c.puzzle_id)
                 ORDER BY c.puzzle_id LIMIT 1
                 """;
-        Long found = id(seek.formatted(">="), start, accountId);
-        return Optional.ofNullable(found != null ? found : id(seek.formatted("<"), start, accountId));
+        Long found = firstLong(seek.formatted(">="), start, accountId);
+        return Optional.ofNullable(found != null ? found : firstLong(seek.formatted("<"), start, accountId));
     }
 
     /** A Puzzle in one category that is not Mastered for the account. */
@@ -72,10 +73,10 @@ public class JdbcPuzzlePerformanceStore {
         if (category == null) {
             return Optional.empty();
         }
-        Long low = id("""
+        Long low = firstLong("""
                 SELECT min(puzzle_id) FROM training_puzzle_category_member WHERE category_id = ?
                 """, category);
-        Long high = id("""
+        Long high = firstLong("""
                 SELECT max(puzzle_id) FROM training_puzzle_category_member WHERE category_id = ?
                 """, category);
         if (low == null || high == null) {
@@ -91,9 +92,9 @@ public class JdbcPuzzlePerformanceStore {
                         AND s.list = 'mastered')
                 ORDER BY m.puzzle_id LIMIT 1
                 """;
-        Long found = id(seek.formatted(">="), category, start, accountId);
+        Long found = firstLong(seek.formatted(">="), category, start, accountId);
         return Optional.ofNullable(
-                found != null ? found : id(seek.formatted("<"), category, start, accountId));
+                found != null ? found : firstLong(seek.formatted("<"), category, start, accountId));
     }
 
     public Optional<PuzzleTraining.Performance> performance(String accountId, long puzzleId) {
@@ -101,7 +102,7 @@ public class JdbcPuzzlePerformanceStore {
                 SELECT list, successes, strikes FROM training_puzzle_performance
                 WHERE account_id = ? AND puzzle_id = ?
                 """, (row, number) -> new PuzzleTraining.Performance(
-                        list(row.getString(1)), row.getInt(2), row.getInt(3)),
+                        trainingList(row.getString(1)), row.getInt(2), row.getInt(3)),
                 accountId, puzzleId).stream().findFirst();
     }
 
@@ -123,7 +124,7 @@ public class JdbcPuzzlePerformanceStore {
                     account_id, puzzle_id, entry, status, list_before, next_ply,
                     wrong_moves, hint_used, revealed, fast_limit_ms, started_at_ms
                 ) VALUES (?, ?, ?, 'active', ?, 0, 0, 0, 0, ?, ?)
-                """, accountId, puzzleId, value(entry), value(listBefore), fastLimitMillis, nowMillis);
+                """, accountId, puzzleId, databaseValue(entry), databaseValue(listBefore), fastLimitMillis, nowMillis);
         return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
     }
 
@@ -137,7 +138,7 @@ public class JdbcPuzzlePerformanceStore {
                         row.getString(2),
                         row.getLong(3),
                         Status.valueOf(row.getString(4).toUpperCase(Locale.ROOT)),
-                        row.getString(5) == null ? null : list(row.getString(5)),
+                        row.getString(5) == null ? null : trainingList(row.getString(5)),
                         row.getInt(6),
                         row.getInt(7),
                         row.getInt(8) == 1,
@@ -147,42 +148,71 @@ public class JdbcPuzzlePerformanceStore {
     }
 
     /**
-     * Records solving progress on an active attempt that is still at {@code expectedPly}.
-     * Returns false when another request already moved or finished it.
-     */
-    public boolean progress(
-            long attemptId, int expectedPly, int nextPly, int wrongMoves, boolean hintUsed) {
-        return jdbc.update("""
-                UPDATE training_puzzle_attempt
-                SET next_ply = ?, wrong_moves = ?, hint_used = ?
-                WHERE id = ? AND status = 'active' AND next_ply = ?
-                """, nextPly, wrongMoves, hintUsed ? 1 : 0, attemptId, expectedPly) == 1;
-    }
-
-    /**
-     * Completes an active attempt still at {@code expectedPly} and stores the account's new list
-     * state in the same transaction. Returns false, changing nothing, when it already moved on.
+     * Records solving progress on an active attempt that is still at {@code expectedPly} with
+     * {@code expectedWrongMoves}, and stores any list movement the attempt has already decided
+     * (computed from the account's current state inside the same transaction). Returns false,
+     * changing nothing, when another request already moved, counted, or finished it.
      */
     @Transactional
-    public boolean complete(
+    public boolean progress(
             AttemptRow attempt,
-            int expectedPly,
+            int nextPly,
+            int wrongMoves,
+            boolean hintUsed,
+            Function<Optional<PuzzleTraining.Performance>, Optional<PuzzleTraining.Performance>>
+                    immediate,
+            long nowMillis) {
+        int updated = jdbc.update("""
+                UPDATE training_puzzle_attempt
+                SET next_ply = ?, wrong_moves = ?, hint_used = ?
+                WHERE id = ? AND status = 'active' AND next_ply = ? AND wrong_moves = ?
+                """, nextPly, wrongMoves, hintUsed ? 1 : 0,
+                attempt.id(), attempt.nextPly(), attempt.wrongMoves());
+        if (updated != 1) {
+            return false;
+        }
+        immediate.apply(performance(attempt.accountId(), attempt.puzzleId()))
+                .ifPresent(next -> jdbc.update("""
+                        UPDATE training_puzzle_performance
+                        SET list = ?, successes = ?, strikes = ?, updated_at_ms = ?
+                        WHERE account_id = ? AND puzzle_id = ?
+                        """, databaseValue(next.list()), next.successes(), next.strikes(),
+                        nowMillis, attempt.accountId(), attempt.puzzleId()));
+        return true;
+    }
+
+    /** The final state of one completed attempt. */
+    public record Completed(
             int finalPly,
             int wrongMoves,
             boolean hintUsed,
             boolean revealed,
-            long elapsedMillis,
-            PuzzleTraining.Performance next,
+            long elapsedMillis) {}
+
+    /**
+     * Completes an active attempt that has not moved on and stores the account's new list state,
+     * computed from its current state inside the same transaction. Returns empty, changing
+     * nothing, when another request already moved, counted, or finished the attempt.
+     */
+    @Transactional
+    public Optional<PuzzleTraining.Performance> complete(
+            AttemptRow attempt,
+            Completed completed,
+            Function<Optional<PuzzleTraining.Performance>, PuzzleTraining.Performance> rules,
             long nowMillis) {
+        PuzzleTraining.Performance next =
+                rules.apply(performance(attempt.accountId(), attempt.puzzleId()));
         int updated = jdbc.update("""
                 UPDATE training_puzzle_attempt
                 SET status = 'completed', next_ply = ?, wrong_moves = ?, hint_used = ?,
                     revealed = ?, finished_at_ms = ?, elapsed_ms = ?, list_after = ?
-                WHERE id = ? AND status = 'active' AND next_ply = ?
-                """, finalPly, wrongMoves, hintUsed ? 1 : 0, revealed ? 1 : 0, nowMillis,
-                elapsedMillis, value(next.list()), attempt.id(), expectedPly);
+                WHERE id = ? AND status = 'active' AND next_ply = ? AND wrong_moves = ?
+                """, completed.finalPly(), completed.wrongMoves(), completed.hintUsed() ? 1 : 0,
+                completed.revealed() ? 1 : 0, nowMillis, completed.elapsedMillis(),
+                databaseValue(next.list()), attempt.id(), attempt.nextPly(),
+                attempt.wrongMoves());
         if (updated != 1) {
-            return false;
+            return Optional.empty();
         }
         jdbc.update("""
                 INSERT INTO training_puzzle_performance (
@@ -194,12 +224,12 @@ public class JdbcPuzzlePerformanceStore {
                     successes = excluded.successes,
                     strikes = excluded.strikes,
                     updated_at_ms = excluded.updated_at_ms
-                """, attempt.accountId(), attempt.puzzleId(), value(next.list()),
+                """, attempt.accountId(), attempt.puzzleId(), databaseValue(next.list()),
                 next.successes(), next.strikes(), nowMillis, nowMillis);
-        return true;
+        return Optional.of(next);
     }
 
-    private Long id(String sql, Object... arguments) {
+    private Long firstLong(String sql, Object... arguments) {
         // An aggregate over no rows returns one NULL row; a seek with no match returns none.
         java.util.List<Long> rows = jdbc.query(sql, (row, number) -> {
             long value = row.getLong(1);
@@ -208,11 +238,11 @@ public class JdbcPuzzlePerformanceStore {
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
-    private static PuzzleTraining.TrainingList list(String value) {
+    private static PuzzleTraining.TrainingList trainingList(String value) {
         return PuzzleTraining.TrainingList.valueOf(value.toUpperCase(Locale.ROOT));
     }
 
-    private static String value(Enum<?> value) {
+    private static String databaseValue(Enum<?> value) {
         return value == null ? null : value.name().toLowerCase(Locale.ROOT);
     }
 }

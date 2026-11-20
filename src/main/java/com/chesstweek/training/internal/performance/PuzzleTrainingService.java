@@ -22,8 +22,9 @@ import io.github.wolfraam.chessgame.notation.NotationType;
 /**
  * Server-checked solving of normal Puzzles. An attempt's solving cursor, Wrong Moves, and hint use
  * are stored server-side; Solve Time runs from the start of the attempt on the server clock until
- * the complete solution is played. Writes are guarded by the expected cursor, so a repeated or
- * concurrent request can never count a move or a completion twice.
+ * the complete solution is played. Writes are guarded by the expected cursor and Wrong Move count,
+ * so a repeated or concurrent request can never count a move or a completion twice. A repetition
+ * attempt's demotion is stored as soon as its Wrong Moves or hint decide it.
  */
 @Service
 public class PuzzleTrainingService implements PuzzleTraining {
@@ -31,6 +32,8 @@ public class PuzzleTrainingService implements PuzzleTraining {
     private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
     private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
     private static final Pattern CATEGORY_KEY = Pattern.compile("[A-Za-z0-9_-]{1,120}");
+    /** The stored bound; further Wrong Moves change nothing because two already decide. */
+    static final int MAX_WRONG_MOVES = 10_000;
 
     private final PuzzleLibrary library;
     private final JdbcPuzzlePerformanceStore store;
@@ -80,7 +83,7 @@ public class PuzzleTrainingService implements PuzzleTraining {
         if (attempt.status() != JdbcPuzzlePerformanceStore.Status.ACTIVE) {
             return new MoveResult(MoveOutcome.FINISHED, null, attempt.wrongMoves(), null);
         }
-        PuzzleLibrary.Puzzle puzzle = library.puzzle(attempt.puzzleId()).orElseThrow();
+        PuzzleLibrary.Puzzle puzzle = puzzle(attempt);
         List<String> solution = puzzle.solutionMoves();
         int ply = attempt.nextPly();
         ChessGame game = position(puzzle, ply);
@@ -88,30 +91,30 @@ public class PuzzleTrainingService implements PuzzleTraining {
         if (move == null) {
             return new MoveResult(MoveOutcome.ILLEGAL, null, attempt.wrongMoves(), null);
         }
-        boolean correct = moveUci.equals(solution.get(ply)) || mates(game, move);
-        if (!correct) {
-            int wrongMoves = attempt.wrongMoves() + 1;
-            if (!store.progress(attempt.id(), ply, ply, wrongMoves, attempt.hintUsed())) {
+        boolean mates = mates(game, move);
+        if (!moveUci.equals(solution.get(ply)) && !mates) {
+            int wrongMoves = Math.min(attempt.wrongMoves() + 1, MAX_WRONG_MOVES);
+            if (!progress(attempt, ply, wrongMoves, attempt.hintUsed())) {
                 return finished(accountId, attemptId);
             }
             return new MoveResult(MoveOutcome.WRONG, null, wrongMoves, null);
         }
-        int afterOwner = ply + 1;
-        if (mates(game, move) || afterOwner + 1 >= solution.size()) {
-            Completion completion = complete(
-                    attempt, puzzle, ply, solution.size(), attempt.wrongMoves(),
-                    attempt.hintUsed(), false);
+        // Lichess solution lines end on an owner move; the opponent's reply follows each
+        // earlier owner move.
+        int replyPly = ply + 1;
+        if (mates || replyPly >= solution.size() - 1) {
+            Completion completion = complete(attempt, puzzle, solution.size(),
+                    attempt.wrongMoves(), attempt.hintUsed(), false);
             if (completion == null) {
                 return finished(accountId, attemptId);
             }
             return new MoveResult(MoveOutcome.SOLVED, null, attempt.wrongMoves(), completion);
         }
-        String reply = solution.get(afterOwner);
-        if (!store.progress(
-                attempt.id(), ply, afterOwner + 1, attempt.wrongMoves(), attempt.hintUsed())) {
+        if (!progress(attempt, replyPly + 1, attempt.wrongMoves(), attempt.hintUsed())) {
             return finished(accountId, attemptId);
         }
-        return new MoveResult(MoveOutcome.CORRECT, reply, attempt.wrongMoves(), null);
+        return new MoveResult(
+                MoveOutcome.CORRECT, solution.get(replyPly), attempt.wrongMoves(), null);
     }
 
     @Override
@@ -122,13 +125,11 @@ public class PuzzleTrainingService implements PuzzleTraining {
             return new HintResult(HintOutcome.NOT_FOUND, null);
         }
         if (attempt.status() != JdbcPuzzlePerformanceStore.Status.ACTIVE
-                || !store.progress(attempt.id(), attempt.nextPly(), attempt.nextPly(),
-                        attempt.wrongMoves(), true)) {
+                || !progress(attempt, attempt.nextPly(), attempt.wrongMoves(), true)) {
             return new HintResult(HintOutcome.FINISHED, null);
         }
-        PuzzleLibrary.Puzzle puzzle = library.puzzle(attempt.puzzleId()).orElseThrow();
-        return new HintResult(
-                HintOutcome.SHOWN, puzzle.solutionMoves().get(attempt.nextPly()).substring(0, 2));
+        return new HintResult(HintOutcome.SHOWN,
+                puzzle(attempt).solutionMoves().get(attempt.nextPly()).substring(0, 2));
     }
 
     @Override
@@ -141,11 +142,10 @@ public class PuzzleTrainingService implements PuzzleTraining {
         if (attempt.status() != JdbcPuzzlePerformanceStore.Status.ACTIVE) {
             return new RevealResult(RevealOutcome.FINISHED, List.of(), null);
         }
-        PuzzleLibrary.Puzzle puzzle = library.puzzle(attempt.puzzleId()).orElseThrow();
+        PuzzleLibrary.Puzzle puzzle = puzzle(attempt);
         List<String> solution = puzzle.solutionMoves();
         Completion completion = complete(
-                attempt, puzzle, attempt.nextPly(), solution.size(), attempt.wrongMoves(),
-                true, true);
+                attempt, puzzle, solution.size(), attempt.wrongMoves(), true, true);
         if (completion == null) {
             return new RevealResult(RevealOutcome.FINISHED, List.of(), null);
         }
@@ -183,36 +183,45 @@ public class PuzzleTrainingService implements PuzzleTraining {
                 current));
     }
 
+    /** Records progress and applies any repetition demotion the attempt has already decided. */
+    private boolean progress(AttemptRow attempt, int nextPly, int wrongMoves, boolean hintUsed) {
+        return store.progress(attempt, nextPly, wrongMoves, hintUsed,
+                current -> PerformanceRules.immediate(current, wrongMoves, hintUsed), now());
+    }
+
     private Completion complete(
             AttemptRow attempt,
             PuzzleLibrary.Puzzle puzzle,
-            int expectedPly,
             int finalPly,
             int wrongMoves,
             boolean hintUsed,
             boolean revealed) {
         long now = now();
         long elapsed = Math.max(0, now - attempt.startedAtMillis());
-        Optional<Performance> previous = store.performance(attempt.accountId(), attempt.puzzleId());
-        PerformanceRules.State next = PerformanceRules.apply(
-                previous.map(value -> new PerformanceRules.State(
-                        value.list(), value.successes(), value.strikes())),
-                new PerformanceRules.Outcome(
-                        wrongMoves, hintUsed, elapsed, attempt.fastLimitMillis()));
-        Performance performance = new Performance(next.list(), next.successes(), next.strikes());
-        if (!store.complete(attempt, expectedPly, finalPly, wrongMoves, hintUsed, revealed,
-                elapsed, performance, now)) {
-            return null;
-        }
-        return new Completion(
-                previous.map(Performance::list).orElse(null),
-                performance,
-                wrongMoves,
-                hintUsed,
-                elapsed,
-                attempt.fastLimitMillis(),
-                puzzle.gameUrl(),
-                puzzle.themes());
+        PerformanceRules.Outcome outcome = new PerformanceRules.Outcome(
+                wrongMoves, hintUsed, elapsed, attempt.fastLimitMillis());
+        return store.complete(
+                        attempt,
+                        new JdbcPuzzlePerformanceStore.Completed(
+                                finalPly, wrongMoves, hintUsed, revealed, elapsed),
+                        current -> PerformanceRules.apply(current, outcome),
+                        now)
+                .map(performance -> new Completion(
+                        attempt.listBefore(),
+                        performance,
+                        wrongMoves,
+                        hintUsed,
+                        elapsed,
+                        attempt.fastLimitMillis(),
+                        puzzle.gameUrl(),
+                        puzzle.themes()))
+                .orElse(null);
+    }
+
+    /** Retention keeps every attempted Puzzle, so a missing one is an internal failure. */
+    private PuzzleLibrary.Puzzle puzzle(AttemptRow attempt) {
+        return library.puzzle(attempt.puzzleId())
+                .orElseThrow(() -> new IllegalStateException("Attempted Puzzle is missing"));
     }
 
     private MoveResult finished(String accountId, long attemptId) {
@@ -222,11 +231,15 @@ public class PuzzleTrainingService implements PuzzleTraining {
 
     /** The position with the owner to move at {@code ply} of the solution line. */
     private static ChessGame position(PuzzleLibrary.Puzzle puzzle, int ply) {
-        ChessGame game = new ChessGame(puzzle.positionFen());
-        if (ply > 0) {
-            game.playMoves(NotationType.UCI, puzzle.solutionMoves().subList(0, ply));
+        try {
+            ChessGame game = new ChessGame(puzzle.positionFen());
+            if (ply > 0) {
+                game.playMoves(NotationType.UCI, puzzle.solutionMoves().subList(0, ply));
+            }
+            return game;
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException("Stored Puzzle line is invalid", exception);
         }
-        return game;
     }
 
     private static Move legal(ChessGame game, String moveUci) {

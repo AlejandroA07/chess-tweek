@@ -169,6 +169,12 @@ class PuzzleTrainingControllerTest {
                 .perform(post(BASE + "/attempts/7/hint").cookie(SESSION).header("Origin", ORIGIN))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.error").value("training_unavailable"));
+
+        training.failure = new IllegalStateException("Attempted Puzzle is missing");
+        mockMvc(connected())
+                .perform(move("/attempts/7/moves", "b2g7"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("training_unavailable"));
     }
 
     private static org.springframework.test.web.servlet.RequestBuilder move(String path, String uci) {

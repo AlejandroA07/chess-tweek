@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useId,
   useState,
   type DragEvent,
@@ -154,13 +153,13 @@ export function InteractiveChessBoard({
   /** A square to mark as a hint, described in its accessible name. */
   hintSquare?: string | null
 }) {
-  const lineKey = line.join(' ')
+  // The inputs that define the shown line; the array itself is a new object on every render.
+  const inputKey = [fen, solution ?? '', line.join(' '), initialLastMove ?? ''].join('|')
   const [history, setHistory] = useState<BoardStep[]>(
     () => createHistory(fen, solution, line, initialLastMove),
   )
-  const [historyIndex, setHistoryIndex] = useState(
-    () => Math.max(0, createHistory(fen, solution, line, initialLastMove).length - 1),
-  )
+  const [historyIndex, setHistoryIndex] = useState(() => Math.max(0, history.length - 1))
+  const [syncedKey, setSyncedKey] = useState(inputKey)
   const [selected, setSelected] = useState<string | null>(null)
   const [dragged, setDragged] = useState<string | null>(null)
   const [arrowStart, setArrowStart] = useState<string | null>(null)
@@ -168,8 +167,11 @@ export function InteractiveChessBoard({
   const [annotationMode, setAnnotationMode] = useState(false)
   const [annotationMessage, setAnnotationMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    const nextHistory = createHistory(fen, solution, lineKey === '' ? [] : lineKey.split(' '), initialLastMove)
+  // Reset during render, and only when the inputs change: a reset in an effect would run after
+  // the board is shown and could discard a selection the owner made in the meantime.
+  if (syncedKey !== inputKey) {
+    const nextHistory = createHistory(fen, solution, line, initialLastMove)
+    setSyncedKey(inputKey)
     setHistory(nextHistory)
     setHistoryIndex(Math.max(0, nextHistory.length - 1))
     setSelected(null)
@@ -178,7 +180,7 @@ export function InteractiveChessBoard({
     setUserArrows([])
     setAnnotationMode(false)
     setAnnotationMessage(null)
-  }, [fen, solution, lineKey, initialLastMove])
+  }
 
   const step = history[historyIndex]
   if (step === undefined) {

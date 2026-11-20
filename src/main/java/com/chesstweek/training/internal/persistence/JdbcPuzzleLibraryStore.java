@@ -177,6 +177,7 @@ public class JdbcPuzzleLibraryStore {
                     """, reference.methodKey(), reference.contentVersion(), reference.exerciseKey(),
                     puzzleId, snapshotId);
         }
+        categories.refreshCounts();
         return result(PuzzleLibrary.ImportStatus.IMPORTED, snapshotId);
     }
 
@@ -249,18 +250,19 @@ public class JdbcPuzzleLibraryStore {
 
     public List<PuzzleLibrary.CategoryEntry> categories() {
         return jdbc.query("""
-                SELECT c.kind, c.classification_key, k.display_name, k.group_name, k.parent_key
+                SELECT c.kind, c.classification_key, k.display_name, k.group_name, k.parent_key,
+                       c.puzzle_count
                 FROM training_puzzle_category c
                 JOIN training_puzzle_classification k
                   ON k.kind = c.kind AND k.classification_key = c.classification_key
-                WHERE EXISTS (
-                    SELECT 1 FROM training_puzzle_category_member m WHERE m.category_id = c.id)
+                WHERE c.puzzle_count > 0
                 ORDER BY c.kind, k.group_name, k.display_name, c.classification_key
                 """, (row, number) -> new PuzzleLibrary.CategoryEntry(
                         new PuzzleLibrary.Category(categoryKind(row.getString(1)), row.getString(2)),
                         row.getString(3),
                         row.getString(4),
-                        row.getString(5)));
+                        row.getString(5),
+                        row.getInt(6)));
     }
 
     private static PuzzleLibrary.CategoryKind categoryKind(String databaseValue) {

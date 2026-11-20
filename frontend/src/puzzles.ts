@@ -13,6 +13,8 @@ export type PuzzleCategory = {
   name: string
   group: string
   parentKey: string | null
+  /** Puzzles in the category, as counted after the latest import. */
+  puzzles: number
 }
 
 export type PuzzleAttempt = {
@@ -179,7 +181,8 @@ function parseCategory(value: unknown): PuzzleCategory {
   if (
     !isRecord(value) || !KINDS.includes(value.kind as CategoryKind) ||
     !isCategoryKey(value.key) || !isText(value.name, 180) || !isText(value.group, 80) ||
-    !(value.parentKey === null || value.parentKey === undefined || isCategoryKey(value.parentKey))
+    !(value.parentKey === null || value.parentKey === undefined || isCategoryKey(value.parentKey)) ||
+    !isInteger(value.puzzles, 1, 100_000_000)
   ) throw new PuzzleRequestError('unavailable')
   return {
     kind: value.kind as CategoryKind,
@@ -187,6 +190,7 @@ function parseCategory(value: unknown): PuzzleCategory {
     name: value.name,
     group: value.group,
     parentKey: typeof value.parentKey === 'string' ? value.parentKey : null,
+    puzzles: value.puzzles,
   }
 }
 

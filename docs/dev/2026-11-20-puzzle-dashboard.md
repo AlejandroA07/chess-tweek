@@ -1,23 +1,26 @@
 # Puzzle dashboard
 
-Stage 7 Part 3b adds the Puzzles interface over the Part 3a backend: the Puzzle dashboard, Random, and By Category. Repetition (Part 3c) and Own Puzzles (Stage 8) appear on the dashboard as **Planned** modules. The visual rules are the "Puzzle training view" section of `docs/app-material/DESIGN.md`.
+Stage 7 Part 3b adds the Puzzles interface over the Part 3a backend: the Puzzle dashboard, Random, and By Category through a Themes page and an Openings page laid out like their Lichess counterparts (owner request, 2026-11-20). Repetition (Part 3c) and Own Puzzles (Stage 8) appear as **Planned** entries. The visual rules are the "Puzzle training view" section of `docs/app-material/DESIGN.md`.
 
 ## Delivered boundary
 
-- `#/puzzles` is the dashboard, `#/puzzles/random` is the Random player, and `#/puzzles/category/{theme|opening-family|opening-variation}/{key}` is the By Category player. `puzzleRoute` accepts only these hashes. Every other `#/puzzles…` hash falls back to Dashboard, as before.
-- `GET /api/training/puzzles/categories` requires the connected owner session and returns every Theme and opening category that has at least one Puzzle, each with its display name, catalog group, and parent family. `PuzzleLibrary.categories()` probes the membership primary key once per category and never counts members.
-- Themes are grouped by their Lichess catalog group. About 1,600 openings are found through a labeled search, which needs at least two letters and shows at most 20 matches plus the total.
+- The routes are `#/puzzles` (dashboard cards), `#/puzzles/themes`, `#/puzzles/openings`, `#/puzzles/random`, and `#/puzzles/category/{theme|opening-family|opening-variation}/{key}`. `puzzleRoute` accepts only these hashes. Every other `#/puzzles…` hash falls back to Dashboard, as before. On any Puzzles route, the side bar expands Puzzles into Dashboard, Themes, Openings, and two **Planned** Repetition entries.
+- `GET /api/training/puzzles/categories` requires the connected owner session. It returns every Theme and opening category with at least one Puzzle, each with its display name, catalog group, parent family, and Puzzle count.
+- Migration V12 stores `puzzle_count` on each category. `PuzzleCategoryIndex.refreshCounts()` recounts all categories in one pass over the membership primary key after a verified corpus import and after a bounded or built-in import, so requests never count members. On the target Mac's library, V12 and each refresh scan about 30 million membership rows once. A paused import shows the previous counts until it verifies.
+- The Themes page follows the Lichess section and theme order, which matches the stored catalog order. `puzzleThemes.ts` holds that order with Chess Tweek's own one-line descriptions and icons (owner decision: own wording and look-alike icons rather than Lichess's text and artwork). Healthy mix is hidden. "Checkmate" also appears under Goals, as on Lichess. A backend Theme the catalog does not list yet appears at the end of its group. "By openings" shows the 12 most popular families and links to the Openings page.
+- The Openings page lists every family with all variations, named without the family prefix, sorted by Most popular (the default) or Alphabetical, with a filter over families and variations.
 - `puzzles.ts` parses every response strictly, including a Lichess-only source-game URL, and maps safe error codes. An unexpected response shape stops the start rather than rendering partial data.
 - `InteractiveChessBoard` gains three optional props, `line`, `initialLastMove`, and `hintSquare`. Existing boards that do not pass them behave as before.
 
 ## Player behaviour
 
-- Start puzzle creates the attempt, and the board becomes interactive as soon as it returns. This implements the owner's 2026-11-20 decision that Solve Time starts when the server creates the attempt.
+- Opening a Random or By Category route, or pressing Next puzzle, creates the attempt directly. There is no intermediate start screen (owner request, 2026-11-20). The board becomes interactive as soon as the attempt returns, which implements the decision that Solve Time starts when the server creates the attempt. A ref guard makes React's development double-mount start only one attempt. Reloading a player route starts a fresh attempt; the previous unfinished one is abandoned and stays unclassified.
 - A Wrong Move reverts the board, leaves the position unchanged, and updates the Wrong Move count. A correct move shows the opponent's reply. The final move, or any mating move, completes the puzzle.
 - Hint marks the square of the piece to move and disables itself. Show solution plays the remaining line on the board. Both state that they place the puzzle in Hard to Solve.
+- After completion the board stays open, as in the guided course: further moves are checked for legality on the board only, and are never sent or saved (owner request, 2026-11-20).
 - Completion says where the puzzle went ("Placed in…", "Stays in…", or "Moved from … to …"). It also shows Solve Time against the limit (or "Not counted" after Show solution), Wrong Moves, hint use, progress within the list for repetitions, themes, and a link to the source game. Next puzzle starts another attempt from the same pool.
-- An exhausted pool explains itself. Random says every stored puzzle is already in a Training List or the library is empty, and By Category says every puzzle in that category is Mastered. An attempt that ended elsewhere, for example because another puzzle was started, returns to Start puzzle with an explanation.
-- Focus follows the work. Starting moves focus to the side-to-move heading, completion moves it to the result, and an ended attempt moves it back to Start puzzle. After Show solution, Solve Time is still shown, marked "solution shown". Times round down, so a solve under the limit never displays as the limit.
+- An exhausted pool explains itself. Random says every stored puzzle is already in a Training List or the library is empty, and By Category says every puzzle in that category is Mastered. An attempt that ended elsewhere, for example because another puzzle was started, shows an explanation and Try another puzzle.
+- Focus follows the work. Starting moves focus to the side-to-move heading, completion moves it to the result, and an ended attempt moves it to Try another puzzle. After Show solution, Solve Time is still shown, marked "solution shown". Times round down, so a solve under the limit never displays as the limit.
 
 ## Verification contract
 

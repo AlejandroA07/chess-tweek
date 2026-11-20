@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { StrictMode } from 'react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PuzzleTraining, puzzleRoute } from './PuzzleTraining'
 
 const FEN = '5rk1/5pb1/B1p4p/2p5/8/5q1P/PQ4P1/R5K1 w - - 0 27'
-const LONG_OPENING = 'Sicilian Defense: Accelerated Dragon, Maróczy Bind, Gurgenidze Variation'
+const LONG_OPENING = 'Sicilian Defense Accelerated Dragon, Maróczy Bind, Gurgenidze Variation'
 
 describe('PuzzleTraining', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -11,6 +12,8 @@ describe('PuzzleTraining', () => {
   it('parses only allowlisted Puzzles routes', () => {
     expect(puzzleRoute('#/puzzles')).toEqual({ kind: 'dashboard' })
     expect(puzzleRoute('#/puzzles/random')).toEqual({ kind: 'random' })
+    expect(puzzleRoute('#/puzzles/themes')).toEqual({ kind: 'themes' })
+    expect(puzzleRoute('#/puzzles/openings')).toEqual({ kind: 'openings' })
     expect(puzzleRoute('#/puzzles/category/opening-family/Caro-Kann_Defense')).toEqual({
       kind: 'category', category: 'opening-family', key: 'Caro-Kann_Defense',
     })
@@ -26,38 +29,70 @@ describe('PuzzleTraining', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('shows Random, planned modules, grouped themes, and an opening search on the dashboard', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      expect(input.toString()).toBe('/api/training/puzzles/categories')
-      return response({ categories: categories() })
-    }))
+  it('shows cards that lead to Random, Themes, and Openings, with planned modules', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => response({ categories: categories() })))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'dashboard' }} onSessionFailure={vi.fn()} />)
 
     expect(screen.getByRole('link', { name: 'Start Random' })).toHaveAttribute('href', '#/puzzles/random')
-    expect(screen.getByRole('region', { name: 'Choose a theme or opening' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Browse themes' })).toHaveAttribute('href', '#/puzzles/themes')
+    expect(screen.getByRole('link', { name: 'Browse openings' })).toHaveAttribute('href', '#/puzzles/openings')
     expect(screen.getAllByText('Planned')).toHaveLength(2)
-    const fork = await screen.findByRole('link', { name: 'Fork' })
+    expect(screen.queryByRole('link', { name: /Fork/ })).not.toBeInTheDocument()
+  })
+
+  it('lists themes in Lichess order with counts, descriptions, and a By openings section', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => response({ categories: categories() })))
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'themes' }} onSessionFailure={vi.fn()} />)
+
+    const fork = await screen.findByRole('link', { name: /^Fork 1,234,567/ })
     expect(fork).toHaveAttribute('href', '#/puzzles/category/theme/fork')
-    expect(screen.getByRole('region', { name: 'Motifs themes' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Mates themes' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Caro-Kann Defense' })).not.toBeInTheDocument()
+    expect(fork).toHaveTextContent('One piece attacks two targets at the same time.')
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
+    expect(headings).toEqual(['Phases', 'By openings More »', 'Motifs', 'Mates', 'Goals'])
+    // Within a section the catalog order wins over the backend's alphabetical order.
+    const phases = within(screen.getByRole('region', { name: 'Phases' })).getAllByRole('link')
+    expect(phases.map((link) => link.getAttribute('href'))).toEqual([
+      '#/puzzles/category/theme/opening',
+      '#/puzzles/category/theme/endgame',
+    ])
+    expect(screen.queryByRole('link', { name: /Healthy mix/ })).not.toBeInTheDocument()
+    // "mate" appears under Mates and again under Goals, as on Lichess.
+    expect(screen.getAllByRole('link', { name: /^Checkmate/ })).toHaveLength(2)
+    const byOpenings = within(screen.getByRole('region', { name: /By openings/ })).getAllByRole('link')
+    expect(byOpenings.map((link) => link.textContent)).toEqual(['More »', 'Sicilian Defense 9,000', 'Caro-Kann Defense 4,321'])
+  })
 
-    fireEvent.change(screen.getByLabelText('Find an opening'), { target: { value: 'caro' } })
-    expect(screen.getByRole('link', { name: 'Caro-Kann Defense' })).toHaveAttribute(
-      'href', '#/puzzles/category/opening-family/Caro-Kann_Defense',
+  it('lists every opening family with its variations, sorted and filtered', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => response({ categories: categories() })))
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'openings' }} onSessionFailure={vi.fn()} />)
+
+    const families = async () => (await screen.findAllByRole('heading', { level: 3 })).map((heading) => heading.textContent)
+    expect(await families()).toEqual(['Sicilian Defense 9,000', 'Caro-Kann Defense 4,321'])
+    const sicilian = screen.getByRole('region', { name: /Sicilian Defense/ })
+    expect(within(sicilian).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Sicilian Defense',
+      'Najdorf Variation',
+      'Accelerated Dragon, Maróczy Bind, Gurgenidze Variation',
+    ])
+    expect(within(sicilian).getByRole('link', { name: 'Najdorf Variation' })).toHaveAttribute(
+      'href', '#/puzzles/category/opening-variation/Sicilian_Defense_Najdorf_Variation',
     )
-    expect(screen.getByText('1 match.')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Find an opening'), { target: { value: 'gurgenidze' } })
-    expect(screen.getByRole('link', { name: LONG_OPENING })).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Find an opening'), { target: { value: 'zz' } })
+    fireEvent.change(screen.getByLabelText('Order'), { target: { value: 'alphabetical' } })
+    expect(await families()).toEqual(['Caro-Kann Defense 4,321', 'Sicilian Defense 9,000'])
+
+    fireEvent.change(screen.getByLabelText('Filter openings'), { target: { value: 'gurgenidze' } })
+    expect(screen.getByText('1 family matches.')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Najdorf Variation' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Gurgenidze/ })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Filter openings'), { target: { value: 'zz' } })
     expect(screen.getByText('No openings match.')).toBeInTheDocument()
   })
 
   it('offers a retry when categories cannot load and reports a revoked session', async () => {
     const onSessionFailure = vi.fn()
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
-    render(<PuzzleTraining connectionState="connected" route={{ kind: 'dashboard' }} onSessionFailure={onSessionFailure} />)
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'themes' }} onSessionFailure={onSessionFailure} />)
     expect(await screen.findByText(/categories could not be loaded/)).toBeInTheDocument()
     expect(onSessionFailure).toHaveBeenCalledWith('not_connected')
   })
@@ -82,8 +117,7 @@ describe('PuzzleTraining', () => {
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
 
     expect(screen.getByRole('heading', { name: 'Random puzzle' })).toBeInTheDocument()
-    expect(requests.some((request) => request.includes('/attempts'))).toBe(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
+    expect(screen.getByRole('heading', { name: 'Loading a puzzle…' })).toBeInTheDocument()
 
     expect(await screen.findByRole('heading', { name: 'White to move' })).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('heading', { name: 'White to move' })).toHaveFocus())
@@ -106,9 +140,16 @@ describe('PuzzleTraining', () => {
     expect(screen.getByRole('link', { name: 'Open the source game on Lichess' })).toHaveAttribute(
       'rel', 'noreferrer',
     )
-    expect(screen.getByRole('button', { name: 'f3, white pawn' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Next puzzle' })).toBeEnabled()
     expect(requests).toContain('POST /api/training/puzzles/attempts/7/moves {"move":"b2g7"}')
+    expect(requests.filter((request) => request.includes('/random/attempts'))).toHaveLength(1)
+
+    // The solved board stays open for local exploration; nothing more is sent.
+    const sent = requests.length
+    fireEvent.click(screen.getByRole('button', { name: 'g7, black king' }))
+    fireEvent.click(screen.getByRole('button', { name: 'g6, empty' }))
+    expect(await screen.findByRole('button', { name: 'g6, black king' })).toBeInTheDocument()
+    expect(requests).toHaveLength(sent)
   })
 
   it('highlights the hint square and plays out Show solution as Hard to Solve', async () => {
@@ -133,7 +174,6 @@ describe('PuzzleTraining', () => {
       />,
     )
     expect(await screen.findByRole('heading', { name: 'Fork' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     expect(await screen.findByText('Retiring')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }))
@@ -144,7 +184,8 @@ describe('PuzzleTraining', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
     expect(await screen.findByText('Moved from Retiring to Hard to Solve.')).toBeInTheDocument()
     expect(screen.getByText('4.2 s, solution shown')).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: 'f3, white pawn' })).toBeInTheDocument()
+    // The board shows the revealed line in the same render as the result, without a lagging effect.
+    expect(screen.getByRole('button', { name: 'f3, white pawn' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'g7, black king' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next in Fork' })).toBeEnabled()
   })
@@ -166,15 +207,34 @@ describe('PuzzleTraining', () => {
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'every stored puzzle is already in one of your Training Lists, or the library is empty',
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try another puzzle' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Hint' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('This attempt has ended')
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Start puzzle' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Try another puzzle' })).toHaveFocus())
+  })
+
+  it('starts exactly one attempt when a puzzle route opens, even under StrictMode', async () => {
+    const starts: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/random/attempts')) {
+        starts.push(url)
+        return response(attempt(), 201)
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(
+      <StrictMode>
+        <PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />
+      </StrictMode>,
+    )
+    expect(await screen.findByRole('heading', { name: 'White to move' })).toBeInTheDocument()
+    expect(starts).toHaveLength(1)
   })
 
   it('never rounds a time under the limit up to the limit', async () => {
@@ -188,7 +248,6 @@ describe('PuzzleTraining', () => {
       throw new Error(`Unexpected request: ${url}`)
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Show solution' }))
     expect(await screen.findByText('10.9 s, solution shown')).toBeInTheDocument()
   })
@@ -204,7 +263,6 @@ describe('PuzzleTraining', () => {
       throw new Error(`Unexpected request: ${url}`)
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     await screen.findByRole('heading', { name: 'White to move' })
     play('b2', 'g7')
     expect(await screen.findByRole('alert')).toHaveTextContent('That action could not be completed')
@@ -219,7 +277,6 @@ describe('PuzzleTraining', () => {
       throw new Error(`Unexpected request: ${url}`)
     }))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'random' }} onSessionFailure={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Start puzzle' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('A puzzle could not be started')
     expect(screen.queryByRole('heading', { name: 'White to move' })).not.toBeInTheDocument()
   })
@@ -239,15 +296,29 @@ function response(body: unknown, status = 200) {
 
 function categories() {
   return [
-    { kind: 'theme', key: 'fork', name: 'Fork', group: 'Motifs', parentKey: null },
-    { kind: 'theme', key: 'mateIn1', name: 'Mate in 1', group: 'Mates', parentKey: null },
-    { kind: 'opening-family', key: 'Caro-Kann_Defense', name: 'Caro-Kann Defense', group: 'Openings', parentKey: null },
+    { kind: 'theme', key: 'endgame', name: 'Endgame', group: 'Phases', parentKey: null, puzzles: 3_000 },
+    { kind: 'theme', key: 'opening', name: 'Opening', group: 'Phases', parentKey: null, puzzles: 300 },
+    { kind: 'theme', key: 'fork', name: 'Fork', group: 'Motifs', parentKey: null, puzzles: 1_234_567 },
+    { kind: 'theme', key: 'mate', name: 'Checkmate', group: 'Mates', parentKey: null, puzzles: 900 },
+    { kind: 'theme', key: 'mateIn1', name: 'Mate in 1', group: 'Mates', parentKey: null, puzzles: 500 },
+    { kind: 'theme', key: 'mix', name: 'Healthy mix', group: 'Recommended', parentKey: null, puzzles: 9 },
+    { kind: 'opening-family', key: 'Caro-Kann_Defense', name: 'Caro-Kann Defense', group: 'Openings', parentKey: null, puzzles: 4_321 },
+    { kind: 'opening-family', key: 'Sicilian_Defense', name: 'Sicilian Defense', group: 'Openings', parentKey: null, puzzles: 9_000 },
     {
       kind: 'opening-variation',
       key: 'Sicilian_Defense_Accelerated_Dragon_Gurgenidze_Variation',
       name: LONG_OPENING,
       group: 'Openings',
       parentKey: 'Sicilian_Defense',
+      puzzles: 12,
+    },
+    {
+      kind: 'opening-variation',
+      key: 'Sicilian_Defense_Najdorf_Variation',
+      name: 'Sicilian Defense Najdorf Variation',
+      group: 'Openings',
+      parentKey: 'Sicilian_Defense',
+      puzzles: 700,
     },
   ]
 }

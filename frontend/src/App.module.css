@@ -113,11 +113,57 @@
   background: rgb(255 255 255 / 55%);
 }
 
-.navLink[aria-current='page'] {
+.navLink[aria-current='page'],
+.navLink[aria-current='true'] {
   border-left-color: var(--color-primary);
   color: var(--color-primary);
   background: var(--color-surface-subtle);
   font-weight: 700;
+}
+
+.subNavigation {
+  margin: var(--space-1) 0 var(--space-2) var(--space-5);
+  padding: 0 0 0 var(--space-2);
+  border-left: 1px solid var(--color-border);
+  list-style: none;
+}
+
+.subNavLink,
+.subNavPlanned {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control);
+  font-size: 0.875rem;
+}
+
+.subNavLink {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.subNavLink:hover {
+  color: var(--color-text);
+  background: rgb(255 255 255 / 55%);
+}
+
+.subNavLink[aria-current='page'] {
+  color: var(--color-primary);
+  background: var(--color-surface-subtle);
+  font-weight: 700;
+}
+
+.subNavPlanned {
+  color: var(--color-text-muted);
+}
+
+.subNavPlanned small {
+  font-family: var(--font-technical);
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
 }
 
 .navIcon {
@@ -487,7 +533,8 @@
     border-left: 4px solid transparent;
   }
 
-  .navLink[aria-current='page'] {
+  .navLink[aria-current='page'],
+  .navLink[aria-current='true'] {
     border-left-color: var(--color-primary);
   }
 

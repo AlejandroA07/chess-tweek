@@ -46,11 +46,19 @@ class PuzzleLibraryPersistenceTest {
                     "SELECT COUNT(*) FROM training_method_exercise_puzzle", Integer.class))
                     .isEqualTo(12);
             // Only categories with at least one Puzzle are offered.
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            int intermezzoMembers = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM training_puzzle_category_member m
+                    JOIN training_puzzle_category c ON c.id = m.category_id
+                    WHERE c.kind = 'theme' AND c.classification_key = 'intermezzo'
+                    """, Integer.class);
+            assertThat(intermezzoMembers).isPositive();
             assertThat(library.categories())
                     .contains(new PuzzleLibrary.CategoryEntry(
                             new PuzzleLibrary.Category(PuzzleLibrary.CategoryKind.THEME, "intermezzo"),
-                            "Intermezzo", "Advanced", null))
+                            "Intermezzo", "Advanced", null, intermezzoMembers))
                     .noneMatch(entry -> entry.category().key().equals("mix"))
+                    .allMatch(entry -> entry.puzzles() > 0)
                     .allMatch(entry -> entry.category().kind() == PuzzleLibrary.CategoryKind.THEME);
         }
 

@@ -422,18 +422,17 @@ Acceptance:
 - The owner ran the first full import from Admin into the real `var/chess-tweek.db` on 2026-11-20: the 2026-11-01 snapshot (SHA-256 `7b0d235f…ebf94253`) verified with 6,193,530 records read, 6,193,518 new, 3 updated, 9 unchanged (the existing guided-method Puzzles), 0 rejected, 0 conflicts, and 0 removed. The database is 2.8 GB and the downloaded source was deleted.
 - Stage 7 Part 3a, the backend performance core, is complete in PR #52, merged on 2026-11-20, with the owner's confirmed mating-move and Solve Time decisions (`docs/dev/2026-11-20-puzzle-performance-core.md`).
 - Stage 7 Part 3b is complete: the Puzzle dashboard with Random and By Category (PR #53), and its follow-up (PR #54), both merged on 2026-11-20. The follow-up adds the Lichess-style Puzzles sub-menu, dashboard cards, Themes and Openings pages with stored counts, direct puzzle opening, an open board after completion, and the board reset-timing fix (`docs/dev/2026-11-20-puzzle-dashboard.md`). The owner's live check of the merged app on 2026-11-20 found it working.
+- Stage 7 Part 3c is complete in PR #56, merged on 2026-11-21. It adds the normal-Puzzle Repetition dashboard, shuffled Practice Sessions that start the next round automatically when one ends (owner request, 2026-11-21), the Mastered view with practice that never changes Mastered status, and migration V13 (`docs/dev/2026-11-21-puzzle-repetition.md`). Before merging, the owner played Practice Sessions in the running app. That play came before the automatic next round was added, and the Mastered view has not been checked live because no puzzle is Mastered yet.
 
 ### Not yet delivered
 
-- Stage 7 Parts 3c (Repetition dashboard, Practice Sessions, and Mastered view) and 3d (guided-method link) have not started.
+- Stage 7 Part 3d (guided-method link) has not started.
 - Stage 8 Own Puzzles and Stage 9 curated collections have not started.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
-**Next immediate action (2026-11-20):**
+**Next immediate action (2026-11-22):**
 
-1. Implement Stage 7 Part 3c on its own `feature/<topic>` branch: the normal-Puzzle Repetition dashboard, Practice Sessions, and the Mastered view, behind the side-bar entry "Repetition: normal puzzles" (now shown as Planned). The rules are in `07-performance-training-lists.md`. A session covers one Training List, uses a freshly randomized order, and presents every Puzzle once before any repeats. Mastered Puzzles are grouped by Theme and Opening Tag, and practicing them never changes their state.
-2. Known groundwork for 3c and 3d, from the Part 3a reviews:
-   - `training_puzzle_performance` needs an `(account_id, list, puzzle_id)` index for list queries.
-   - The `training_puzzle_attempt.entry` check allows only `random` and `category`, so repetition, Mastered practice, and guided-method attempts need a migration.
-   - A Mastered-practice attempt must not change list state.
+1. Implement Stage 7 Part 3d on its own `feature/<topic>` branch: a guided-method Exercise that references a shared Puzzle updates that Puzzle's normal performance state. Per `07-performance-training-lists.md`, "Wrong Moves, hints, Solve Time, counters, and list movement use the global rules, while authored course and lesson completion remain separate."
+2. Groundwork already in place from Part 3c: migration V13 allows the `method` attempt entry, so 3d needs no attempt-table rebuild.
+3. Owner checks still open for Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.

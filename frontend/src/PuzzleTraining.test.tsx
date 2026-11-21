@@ -301,7 +301,7 @@ describe('PuzzleTraining', () => {
     expect(screen.getByRole('link', { name: 'Browse Mastered' })).toHaveAttribute('href', '#/puzzles/repetition/mastered')
   })
 
-  it('runs a Practice Session through every puzzle once and then offers a fresh session', async () => {
+  it('runs a Practice Session through every puzzle once and then starts a new round by itself', async () => {
     const requests: string[] = []
     let sessions = 0
     let presented = 0
@@ -344,14 +344,14 @@ describe('PuzzleTraining', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next puzzle' }))
     expect(await screen.findByText('2 of 2')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
+    expect(requests.filter((request) => request.endsWith('/sessions'))).toHaveLength(1)
     fireEvent.click(await screen.findByRole('button', { name: 'Next puzzle' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Session complete: you practiced all 2 puzzles once. A new session shuffles them again.',
-    )
-    expect(requests.filter((request) => request.endsWith('/sessions'))).toHaveLength(1)
-    fireEvent.click(screen.getByRole('button', { name: 'Start a new session' }))
-    expect(await screen.findByText('1 of 2')).toBeInTheDocument()
+    // The finished round is followed straight away by a reshuffled one, without leaving the board.
+    expect(await screen.findByText('Round 2 · 1 of 2')).toBeInTheDocument()
+    expect(screen.getByText(/Round 2 has started/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'White to move' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(requests.filter((request) => request.endsWith('/sessions'))).toEqual([
       'POST /api/training/puzzles/repetition/worth_repeating/sessions',
       'POST /api/training/puzzles/repetition/worth_repeating/sessions',

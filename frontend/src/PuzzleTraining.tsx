@@ -716,9 +716,10 @@ function PuzzlePlayer({
   onSessionFailure: (failure: SessionFailure) => void
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'starting' })
-  // A Practice Session is created when the route opens and again only after it ends.
+  // A Practice Session is created when the route opens. When every puzzle has been presented,
+  // the next round starts at once with a fresh order, so practice continues without leaving.
   const [sessionId, setSessionId] = useState<number | null>(null)
-  const [progress, setProgress] = useState<{ position: number; total: number } | null>(null)
+  const [progress, setProgress] = useState<{ position: number; total: number; round: number } | null>(null)
   const practice = route.kind === 'mastered-practice'
   const inSession = route.kind === 'session' || route.kind === 'mastered-practice'
   const [line, setLine] = useState<string[]>([])
@@ -742,26 +743,33 @@ function PuzzlePlayer({
   const nextAttempt = async (): Promise<PuzzleAttempt> => {
     if (route.kind === 'random') return startRandomPuzzle()
     if (route.kind === 'category') return startCategoryPuzzle(route.category, route.key)
-    let current = sessionId
-    if (current === null) {
+    const newSession = async () => {
       const session = route.kind === 'session'
         ? await startListSession(route.list)
         : await startMasteredSession(route.category, route.key)
-      current = session.sessionId
-      setSessionId(current)
+      setSessionId(session.sessionId)
+      return session.sessionId
     }
-    const next = await nextSessionPuzzle(current)
-    setProgress({ position: next.position, total: next.total })
+    let round = progress?.round ?? 1
+    let current = sessionId ?? await newSession()
+    let next
+    try {
+      next = await nextSessionPuzzle(current)
+    } catch (requestError) {
+      if (!(requestError instanceof PuzzleRequestError && requestError.code === 'session_complete')) {
+        throw requestError
+      }
+      round += 1
+      current = await newSession()
+      next = await nextSessionPuzzle(current)
+    }
+    setProgress({ position: next.position, total: next.total, round })
     return next.attempt
   }
 
   const startFailure = (requestError: unknown) => {
     const code = requestError instanceof PuzzleRequestError ? requestError.code : null
     if (code === 'session_complete' || code === 'session_not_found') setSessionId(null)
-    if (code === 'session_complete') {
-      const practiced = progress === null || progress.total === 1 ? 'every puzzle' : `all ${progress.total} puzzles`
-      return `Session complete: you practiced ${practiced} once. A new session shuffles them again.`
-    }
     if (code === 'session_not_found') {
       return 'This session ended because another Practice Session was started. Start a new session to continue.'
     }
@@ -770,7 +778,9 @@ function PuzzlePlayer({
       return 'No new puzzle is available: every stored puzzle is already in one of your Training Lists, or the library is empty.'
     }
     if (route.kind === 'category') return 'No puzzle is available: every puzzle in this category is Mastered.'
-    if (route.kind === 'session') return `${LIST_LABELS[route.list]} has no puzzles right now.`
+    if (route.kind === 'session') {
+      return `${LIST_LABELS[route.list]} has no puzzles right now. Puzzles you practice move to other lists as your results change.`
+    }
     return 'You have no Mastered puzzles in this category.'
   }
 
@@ -983,11 +993,21 @@ function PuzzlePlayer({
               {inSession && progress !== null && (
                 <div>
                   <dt>Session</dt>
-                  <dd>{progress.position} of {progress.total}</dd>
+                  <dd>
+                    {progress.round > 1 && `Round ${progress.round} · `}
+                    {progress.position} of {progress.total}
+                  </dd>
                 </div>
               )}
             </dl>
             <div ref={statusRef} tabIndex={-1} className={styles.status} aria-live="polite">
+              {inSession && progress !== null && progress.round > 1 && progress.position === 1 &&
+                phase.kind === 'playing' && (
+                <p className={styles.muted}>
+                  You practiced every puzzle in the last round. Round {progress.round} has started
+                  with the puzzles now in this list, in a new order.
+                </p>
+              )}
               {feedback && (
                 <p className={styles.feedback} data-outcome={feedback.tone}>
                   <strong>{feedback.tone === 'correct' ? 'Correct' : 'Wrong Move'}</strong>

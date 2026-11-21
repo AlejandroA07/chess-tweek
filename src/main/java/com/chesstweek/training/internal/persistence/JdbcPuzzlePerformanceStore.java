@@ -303,7 +303,9 @@ public class JdbcPuzzlePerformanceStore {
     /**
      * Replaces the account's previous session with a new one over every Puzzle currently in
      * {@code list} (only those in the category, when {@code categoryKey} is given), shuffled.
-     * Empty when no Puzzle qualifies.
+     * When the previous session covered the same Puzzles, the new order does not start with the
+     * Puzzle presented last, so consecutive rounds never show one Puzzle twice in a row. Empty
+     * when no Puzzle qualifies.
      */
     @Transactional
     public Optional<SessionRow> startSession(
@@ -335,6 +337,15 @@ public class JdbcPuzzlePerformanceStore {
         if (puzzles.isEmpty()) {
             return Optional.empty();
         }
+        // The Puzzle the owner saw last in the previous session over the same list or category.
+        Long previous = jdbc.query("""
+                SELECT i.puzzle_id FROM training_puzzle_session s
+                JOIN training_puzzle_session_item i ON i.session_id = s.id
+                WHERE s.account_id = ? AND s.list = ? AND s.category_id IS ?
+                  AND i.presented_at_ms IS NOT NULL
+                ORDER BY i.presented_at_ms DESC, i.position DESC LIMIT 1
+                """, (row, number) -> row.getLong(1), accountId, databaseValue(list), category)
+                .stream().findFirst().orElse(null);
         jdbc.update("""
                 DELETE FROM training_puzzle_session_item WHERE session_id IN (
                     SELECT id FROM training_puzzle_session WHERE account_id = ?)
@@ -347,6 +358,10 @@ public class JdbcPuzzlePerformanceStore {
         long sessionId = jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
         List<Long> order = new ArrayList<>(puzzles);
         Collections.shuffle(order, random);
+        // A new round never opens with the Puzzle that ended the previous one.
+        if (order.size() > 1 && order.getFirst().equals(previous)) {
+            Collections.swap(order, 0, 1 + random.nextInt(order.size() - 1));
+        }
         List<Object[]> rows = new ArrayList<>(order.size());
         for (int index = 0; index < order.size(); index++) {
             rows.add(new Object[] {sessionId, index + 1, order.get(index)});

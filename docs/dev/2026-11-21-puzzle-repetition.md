@@ -21,7 +21,7 @@ Stage 7 Part 3c adds the normal-Puzzle Repetition dashboard, Practice Sessions, 
 ## Practice Sessions
 
 - Opening a list, or starting a new session after one ends, creates a session. The session snapshots every Puzzle currently in that list (or the account's Mastered Puzzles in one category) and shuffles them with `SecureRandom`. Creating a session deletes the account's previous session, so no order is ever reused.
-- `nextInSession` claims the next unpresented item with a guarded update, so two concurrent requests never present the same Puzzle. It passes over a Puzzle that has left the session's list since the snapshot, for example one moved through By Category in another tab. A Puzzle that enters the list during a session waits for the next session. When every item has been presented, the session is complete. The interface then offers Start a new session, which reshuffles the list.
+- `nextInSession` claims the next unpresented item with a guarded update, so two concurrent requests never present the same Puzzle. It passes over a Puzzle that has left the session's list since the snapshot, for example one moved through By Category in another tab. A Puzzle that enters the list during a session waits for the next session. When every item has been presented, the session is complete, and the interface immediately starts the next round as a new session. That way practice loops through the list until the owner leaves (owner request, 2026-11-21). Each round covers the Puzzles in the list at that moment. A round never opens with the Puzzle that ended the previous round over the same list or category, so no Puzzle appears twice in a row.
 - A repetition attempt is an ordinary attempt with entry `repetition`. It applies the current list's rules, including the immediate demotions from Part 3a.
 
 ## Mastered view and practice
@@ -37,18 +37,19 @@ Stage 7 Part 3c adds the normal-Puzzle Repetition dashboard, Practice Sessions, 
   - `#/puzzles/repetition/mastered`: the Mastered view.
   - `#/puzzles/repetition/mastered/{kind}/{key}`: Mastered practice.
 - The side-bar "Repetition: normal puzzles" entry and the dashboard Repetition card are now links. Own Puzzles stays Planned.
-- The Practice Session and Mastered practice reuse the Part 3b player. The player adds a "Session" fact ("3 of 12") and a back link to Repetition or Mastered. It explains an empty list, a completed session, and a session replaced by another one. In Mastered practice, the Hard to Solve warnings become "practice only" statements and completion says "Practice only: stays Mastered."
+- The Practice Session and Mastered practice reuse the Part 3b player. The player adds a "Session" fact ("3 of 12") and a back link to Repetition or Mastered. It shows the round once a list has been completed ("Round 2 · 1 of 12") and says that a new round has started. It explains an empty list and a session replaced by another one. In Mastered practice, the Hard to Solve warnings become "practice only" statements and completion says "Practice only: stays Mastered."
 
 ## Verification contract
 
 - `PuzzleTrainingServiceTest` covers the following:
   - A session presents every Puzzle in its list once and is then complete.
   - A new session reshuffles and makes the previous one unknown. Sessions are scoped to their account.
+  - Over 20 consecutive rounds of a two-Puzzle list, no round opens with the Puzzle that ended the previous one.
   - A whole-list Mastered session and an empty list are refused.
   - Hard to Solve's rule is applied inside a session, attempts are stored as `repetition`, and a Puzzle that has left the list is passed over.
   - Mastered is grouped by category, and Mastered practice with Wrong Moves, a hint, Show solution, and a fast solve leaves every list row unchanged.
 - `PuzzleTrainingControllerTest` covers the new endpoints, their outcome codes, invalid lists and categories refused before authorization, cross-origin refusal, and the disconnected state for the reads.
 - `PuzzlePracticeSessionMigrationTest` covers V13 keeping an existing attempt, accepting the new entries, refusing an unknown entry and a Mastered-practice attempt outside Mastered, and recreating the indexes.
-- `PuzzleTraining.test.tsx` covers the new routes, the Repetition dashboard (including an empty list), a full two-puzzle session followed by a new session, an empty list and a replaced session, the Mastered grouping and its empty state, and Mastered practice wording. `App.test.tsx` covers the Repetition side-bar link.
+- `PuzzleTraining.test.tsx` covers the new routes, the Repetition dashboard (including an empty list), a full two-puzzle session followed automatically by round 2, an empty list and a replaced session, the Mastered grouping and its empty state, and Mastered practice wording. `App.test.tsx` covers the Repetition side-bar link.
 
 `node scripts/verify.mjs` remains the only complete definition of done.

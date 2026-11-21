@@ -361,6 +361,30 @@ class PuzzleTrainingServiceTest {
     }
 
     @Test
+    void aNewRoundNeverOpensWithThePuzzleThatEndedThePreviousOne() {
+        try (var application = start()) {
+            PuzzleTraining training = training(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            jdbc.update("""
+                    INSERT INTO training_puzzle_performance
+                    SELECT ?, puzzle_id, 'wrong_moves', 0, 0, 0, 0 FROM training_puzzle_current
+                    ORDER BY puzzle_id LIMIT 2
+                    """, OWNER);
+            long last = -1;
+            for (int round = 0; round < 20; round++) {
+                clock.advance(Duration.ofSeconds(1));
+                PuzzleTraining.Session session =
+                        training.startSession(OWNER, TrainingList.WRONG_MOVES).orElseThrow();
+                long first = training.nextInSession(OWNER, session.sessionId()).attempt().puzzleId();
+                assertThat(first).isNotEqualTo(last);
+                clock.advance(Duration.ofSeconds(1));
+                last = training.nextInSession(OWNER, session.sessionId()).attempt().puzzleId();
+                assertThat(last).isNotEqualTo(first);
+            }
+        }
+    }
+
+    @Test
     void aSessionAppliesTheListRulesAndPassesOverPuzzlesThatLeftTheList() {
         try (var application = start()) {
             PuzzleTraining training = training(application);

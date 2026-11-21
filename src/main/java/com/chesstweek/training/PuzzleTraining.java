@@ -99,7 +99,12 @@ public interface PuzzleTraining {
         NOT_FOUND
     }
 
-    /** {@code position} is the one-based place of the attempt's Puzzle in the session order. */
+    /**
+     * {@code position} counts the Puzzles presented so far in the session, including this one;
+     * {@code total} adds the Puzzles still to come that are still in the list. A Puzzle that leaves
+     * the list before its turn leaves the session, so {@code total} can shrink but {@code position}
+     * never skips.
+     */
     record SessionAttempt(SessionOutcome outcome, Attempt attempt, int position, int total) {}
 
     /** The classification an attempt produced, and the list it started from (null if new). */

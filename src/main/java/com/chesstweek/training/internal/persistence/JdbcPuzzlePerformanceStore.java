@@ -297,7 +297,10 @@ public class JdbcPuzzlePerformanceStore {
     /** A session's list and its number of Puzzles. */
     public record SessionRow(long id, PuzzleTraining.TrainingList list, int total) {}
 
-    /** The next Puzzle a session presents, with its one-based place in the session order. */
+    /**
+     * The next Puzzle a session presents. {@code position} counts the Puzzles presented so far,
+     * including this one; {@code total} is that count plus the unpresented Puzzles still in the session's list.
+     */
     public record SessionItem(long puzzleId, int position, int total) {}
 
     /**
@@ -385,8 +388,9 @@ public class JdbcPuzzlePerformanceStore {
 
     /**
      * Marks and returns the session's next unpresented Puzzle that is still in the session's list.
-     * A Puzzle that has left the list since the session started is passed over. Empty when every
-     * Puzzle has been presented.
+     * A Puzzle that has left the list since the session started is removed from the session, so
+     * the session's size shrinks instead of its progress jumping. Empty when every Puzzle has been
+     * presented.
      */
     @Transactional
     public Optional<SessionItem> presentNext(String accountId, SessionRow session, long nowMillis) {
@@ -395,8 +399,7 @@ public class JdbcPuzzlePerformanceStore {
                     SELECT puzzle_id, position FROM training_puzzle_session_item
                     WHERE session_id = ? AND presented_at_ms IS NULL
                     ORDER BY position LIMIT 1
-                    """, (row, number) -> new SessionItem(
-                            row.getLong(1), row.getInt(2), session.total()),
+                    """, (row, number) -> new SessionItem(row.getLong(1), row.getInt(2), 0),
                     session.id()).stream().findFirst().orElse(null);
             if (item == null) {
                 return Optional.empty();
@@ -413,8 +416,22 @@ public class JdbcPuzzlePerformanceStore {
                     .map(state -> state.list() == session.list())
                     .orElse(false);
             if (inList) {
-                return Optional.of(item);
+                int presented = jdbc.queryForObject("""
+                        SELECT COUNT(*) FROM training_puzzle_session_item
+                        WHERE session_id = ? AND presented_at_ms IS NOT NULL
+                        """, Integer.class, session.id());
+                // Only Puzzles still in the list will be presented, so only they are counted.
+                int remaining = jdbc.queryForObject("""
+                        SELECT COUNT(*) FROM training_puzzle_session_item i
+                        JOIN training_puzzle_performance s
+                          ON s.account_id = ? AND s.puzzle_id = i.puzzle_id AND s.list = ?
+                        WHERE i.session_id = ? AND i.presented_at_ms IS NULL
+                        """, Integer.class, accountId, databaseValue(session.list()), session.id());
+                return Optional.of(new SessionItem(item.puzzleId(), presented, presented + remaining));
             }
+            jdbc.update("""
+                    DELETE FROM training_puzzle_session_item WHERE session_id = ? AND position = ?
+                    """, session.id(), item.position());
         }
     }
 

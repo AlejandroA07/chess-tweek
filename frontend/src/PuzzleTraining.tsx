@@ -61,13 +61,13 @@ const LIST_SLUGS: Record<ActiveList, string> = {
 /** What it takes to leave each active list, in the owner-approved rules' terms. */
 const LIST_RULES: Record<ActiveList, string> = {
   hard_to_solve:
-    'Ten Successful Repetitions in a row move a puzzle to Wrong Moves. A solution with at most one Wrong Move counts; two Wrong Moves or a hint restart the count.',
+    'Ten Successful Repetitions in a row move a puzzle to Wrong Moves. A solution with at most one Wrong Move counts; two Wrong Moves or a hint keep it here and restart the count.',
   wrong_moves:
     'Ten clean solutions in a row move a puzzle to Worth Repeating. One Wrong Move restarts the count; two Wrong Moves or a hint move it to Hard to Solve.',
   worth_repeating:
-    'Ten clean solutions in a row within the fast-solve limit move a puzzle to Retiring. A slow solve restarts the count.',
+    'Ten clean solutions in a row within the fast-solve limit move a puzzle to Retiring. A slow solve restarts the count. One Wrong Move moves it to Wrong Moves; two Wrong Moves or a hint move it to Hard to Solve.',
   retiring:
-    'Five clean solutions within the fast-solve limit move a puzzle to Mastered. The second slow solve moves it back to Worth Repeating.',
+    'Five clean solutions within the fast-solve limit move a puzzle to Mastered. The second slow solve moves it back to Worth Repeating. One Wrong Move moves it to Wrong Moves; two Wrong Moves or a hint move it to Hard to Solve.',
 }
 
 const KIND_LABELS: Record<CategoryKind, string> = {

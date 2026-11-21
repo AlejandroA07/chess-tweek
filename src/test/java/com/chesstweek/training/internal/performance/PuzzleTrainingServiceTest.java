@@ -403,6 +403,8 @@ class PuzzleTrainingServiceTest {
             assertThat(session.total()).isEqualTo(3);
 
             PuzzleTraining.SessionAttempt first = training.nextInSession(OWNER, session.sessionId());
+            assertThat(first.position()).isEqualTo(1);
+            assertThat(first.total()).isEqualTo(3);
             PuzzleTraining.Attempt attempt = first.attempt();
             // One Wrong Move still counts as a Successful Repetition in Hard to Solve.
             training.move(OWNER, attempt.attemptId(), wrongMove(application, attempt, 0));
@@ -424,6 +426,9 @@ class PuzzleTrainingServiceTest {
             PuzzleTraining.SessionAttempt second = training.nextInSession(OWNER, session.sessionId());
             assertThat(second.outcome()).isEqualTo(PuzzleTraining.SessionOutcome.STARTED);
             assertThat(second.attempt().puzzleId()).isNotIn(attempt.puzzleId(), remaining);
+            // The session shrinks to the Puzzles still in the list; its progress never skips.
+            assertThat(second.position()).isEqualTo(2);
+            assertThat(second.total()).isEqualTo(2);
             assertThat(training.nextInSession(OWNER, session.sessionId()).outcome())
                     .isEqualTo(PuzzleTraining.SessionOutcome.COMPLETE);
         }

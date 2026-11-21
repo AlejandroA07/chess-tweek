@@ -305,6 +305,206 @@ class PuzzleTrainingServiceTest {
         }
     }
 
+    @Test
+    void aPracticeSessionPresentsEveryPuzzleInItsListOnceInAFreshOrder() {
+        try (var application = start()) {
+            PuzzleTraining training = training(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            assertThat(training.startSession(OWNER, TrainingList.WORTH_REPEATING)).isEmpty();
+            jdbc.update("""
+                    INSERT INTO training_puzzle_performance
+                    SELECT ?, puzzle_id, 'worth_repeating', 3, 0, 0, 0 FROM training_puzzle_current
+                    """, OWNER);
+            assertThat(training.startSession(OWNER, TrainingList.MASTERED)).isEmpty();
+            assertThat(training.listCounts(OWNER)).containsExactly(
+                    new PuzzleTraining.ListCount(TrainingList.HARD_TO_SOLVE, 0),
+                    new PuzzleTraining.ListCount(TrainingList.WRONG_MOVES, 0),
+                    new PuzzleTraining.ListCount(TrainingList.WORTH_REPEATING, BUILT_IN),
+                    new PuzzleTraining.ListCount(TrainingList.RETIRING, 0),
+                    new PuzzleTraining.ListCount(TrainingList.MASTERED, 0));
+
+            PuzzleTraining.Session session =
+                    training.startSession(OWNER, TrainingList.WORTH_REPEATING).orElseThrow();
+            assertThat(session.total()).isEqualTo(BUILT_IN);
+            assertThat(training.nextInSession(OTHER, session.sessionId()).outcome())
+                    .isEqualTo(PuzzleTraining.SessionOutcome.NOT_FOUND);
+            List<Long> order = new java.util.ArrayList<>();
+            for (int index = 1; index <= BUILT_IN; index++) {
+                PuzzleTraining.SessionAttempt next = training.nextInSession(OWNER, session.sessionId());
+                assertThat(next.outcome()).isEqualTo(PuzzleTraining.SessionOutcome.STARTED);
+                assertThat(next.position()).isEqualTo(index);
+                assertThat(next.total()).isEqualTo(BUILT_IN);
+                assertThat(next.attempt().currentList()).isEqualTo(TrainingList.WORTH_REPEATING);
+                order.add(next.attempt().puzzleId());
+            }
+            assertThat(new HashSet<>(order)).hasSize(BUILT_IN);
+            assertThat(training.nextInSession(OWNER, session.sessionId()).outcome())
+                    .isEqualTo(PuzzleTraining.SessionOutcome.COMPLETE);
+
+            // Opening the list again starts a new session with a fresh order; the old one is gone.
+            boolean reshuffled = false;
+            long previous = session.sessionId();
+            for (int round = 0; round < 5 && !reshuffled; round++) {
+                PuzzleTraining.Session again =
+                        training.startSession(OWNER, TrainingList.WORTH_REPEATING).orElseThrow();
+                assertThat(training.nextInSession(OWNER, previous).outcome())
+                        .isEqualTo(PuzzleTraining.SessionOutcome.NOT_FOUND);
+                previous = again.sessionId();
+                List<Long> next = new java.util.ArrayList<>();
+                for (int index = 0; index < BUILT_IN; index++) {
+                    next.add(training.nextInSession(OWNER, again.sessionId()).attempt().puzzleId());
+                }
+                reshuffled = !next.equals(order);
+            }
+            assertThat(reshuffled).isTrue();
+        }
+    }
+
+    @Test
+    void aNewRoundNeverOpensWithThePuzzleThatEndedThePreviousOne() {
+        try (var application = start()) {
+            PuzzleTraining training = training(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            jdbc.update("""
+                    INSERT INTO training_puzzle_performance
+                    SELECT ?, puzzle_id, 'wrong_moves', 0, 0, 0, 0 FROM training_puzzle_current
+                    ORDER BY puzzle_id LIMIT 2
+                    """, OWNER);
+            long last = -1;
+            for (int round = 0; round < 20; round++) {
+                clock.advance(Duration.ofSeconds(1));
+                PuzzleTraining.Session session =
+                        training.startSession(OWNER, TrainingList.WRONG_MOVES).orElseThrow();
+                long first = training.nextInSession(OWNER, session.sessionId()).attempt().puzzleId();
+                assertThat(first).isNotEqualTo(last);
+                clock.advance(Duration.ofSeconds(1));
+                last = training.nextInSession(OWNER, session.sessionId()).attempt().puzzleId();
+                assertThat(last).isNotEqualTo(first);
+            }
+        }
+    }
+
+    @Test
+    void aSessionAppliesTheListRulesAndPassesOverPuzzlesThatLeftTheList() {
+        try (var application = start()) {
+            PuzzleTraining training = training(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            List<Long> puzzles = jdbc.queryForList("""
+                    SELECT puzzle_id FROM training_puzzle_current ORDER BY puzzle_id LIMIT 3
+                    """, Long.class);
+            for (long puzzle : puzzles) {
+                jdbc.update("""
+                        INSERT INTO training_puzzle_performance
+                        VALUES (?, ?, 'hard_to_solve', 2, 0, 0, 0)
+                        """, OWNER, puzzle);
+            }
+            PuzzleTraining.Session session =
+                    training.startSession(OWNER, TrainingList.HARD_TO_SOLVE).orElseThrow();
+            assertThat(session.total()).isEqualTo(3);
+
+            PuzzleTraining.SessionAttempt first = training.nextInSession(OWNER, session.sessionId());
+            assertThat(first.position()).isEqualTo(1);
+            assertThat(first.total()).isEqualTo(3);
+            PuzzleTraining.Attempt attempt = first.attempt();
+            // One Wrong Move still counts as a Successful Repetition in Hard to Solve.
+            training.move(OWNER, attempt.attemptId(), wrongMove(application, attempt, 0));
+            PuzzleTraining.Completion completion = solve(application, training, attempt, 0).completion();
+            assertThat(completion.previousList()).isEqualTo(TrainingList.HARD_TO_SOLVE);
+            assertThat(completion.performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.HARD_TO_SOLVE, 3, 0));
+            assertThat(jdbc.queryForObject("""
+                    SELECT entry FROM training_puzzle_attempt WHERE id = ?
+                    """, String.class, attempt.attemptId())).isEqualTo("repetition");
+
+            // A Puzzle that left the list since the session started is passed over.
+            long remaining = puzzles.stream().filter(id -> id != attempt.puzzleId())
+                    .findFirst().orElseThrow();
+            jdbc.update("""
+                    UPDATE training_puzzle_performance SET list = 'retiring', successes = 0
+                    WHERE account_id = ? AND puzzle_id = ?
+                    """, OWNER, remaining);
+            PuzzleTraining.SessionAttempt second = training.nextInSession(OWNER, session.sessionId());
+            assertThat(second.outcome()).isEqualTo(PuzzleTraining.SessionOutcome.STARTED);
+            assertThat(second.attempt().puzzleId()).isNotIn(attempt.puzzleId(), remaining);
+            // The session shrinks to the Puzzles still in the list; its progress never skips.
+            assertThat(second.position()).isEqualTo(2);
+            assertThat(second.total()).isEqualTo(2);
+            assertThat(training.nextInSession(OWNER, session.sessionId()).outcome())
+                    .isEqualTo(PuzzleTraining.SessionOutcome.COMPLETE);
+        }
+    }
+
+    @Test
+    void masteredPracticeIsGroupedByCategoryAndNeverChangesState() {
+        try (var application = start()) {
+            PuzzleTraining training = training(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            assertThat(training.mastered(OWNER))
+                    .isEqualTo(new PuzzleTraining.MasteredSummary(0, List.of()));
+            List<Long> intermezzo = jdbc.queryForList("""
+                    SELECT m.puzzle_id FROM training_puzzle_category_member m
+                    JOIN training_puzzle_category c ON c.id = m.category_id
+                    WHERE c.kind = 'theme' AND c.classification_key = 'intermezzo'
+                    """, Long.class);
+            for (long puzzle : intermezzo) {
+                jdbc.update("""
+                        INSERT INTO training_puzzle_performance
+                        VALUES (?, ?, 'mastered', 0, 0, 0, 0)
+                        """, OWNER, puzzle);
+            }
+
+            PuzzleTraining.MasteredSummary summary = training.mastered(OWNER);
+            assertThat(summary.total()).isEqualTo(intermezzo.size());
+            assertThat(summary.categories())
+                    .anySatisfy(entry -> {
+                        assertThat(entry.category()).isEqualTo(new PuzzleLibrary.Category(
+                                PuzzleLibrary.CategoryKind.THEME, "intermezzo"));
+                        assertThat(entry.puzzles()).isEqualTo(intermezzo.size());
+                    })
+                    .allSatisfy(entry -> assertThat(entry.puzzles())
+                            .isBetween(1, intermezzo.size()));
+            assertThat(training.mastered(OTHER).total()).isZero();
+            assertThat(training.startMasteredSession(OWNER, new PuzzleLibrary.Category(
+                    PuzzleLibrary.CategoryKind.THEME, "notATheme"))).isEmpty();
+            assertThat(training.startMasteredSession(OWNER, new PuzzleLibrary.Category(
+                    PuzzleLibrary.CategoryKind.THEME, "bad key!"))).isEmpty();
+            assertThat(training.startMasteredSession(OTHER, new PuzzleLibrary.Category(
+                    PuzzleLibrary.CategoryKind.THEME, "intermezzo"))).isEmpty();
+
+            PuzzleTraining.Session session = training.startMasteredSession(OWNER,
+                    new PuzzleLibrary.Category(PuzzleLibrary.CategoryKind.THEME, "intermezzo"))
+                    .orElseThrow();
+            assertThat(session.list()).isEqualTo(TrainingList.MASTERED);
+            assertThat(session.total()).isEqualTo(intermezzo.size());
+
+            PuzzleTraining.Attempt wrong = training.nextInSession(OWNER, session.sessionId()).attempt();
+            assertThat(wrong.currentList()).isEqualTo(TrainingList.MASTERED);
+            String move = wrongMove(application, wrong, 0);
+            training.move(OWNER, wrong.attemptId(), move);
+            training.move(OWNER, wrong.attemptId(), move);
+            training.hint(OWNER, wrong.attemptId());
+            assertThat(training.performance(OWNER, wrong.puzzleId()))
+                    .contains(new PuzzleTraining.Performance(TrainingList.MASTERED, 0, 0));
+            PuzzleTraining.Completion completion =
+                    training.reveal(OWNER, wrong.attemptId()).completion();
+            assertThat(completion.previousList()).isEqualTo(TrainingList.MASTERED);
+            assertThat(completion.performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.MASTERED, 0, 0));
+
+            PuzzleTraining.Attempt fast = training.nextInSession(OWNER, session.sessionId()).attempt();
+            assertThat(solve(application, training, fast, 0).completion().performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.MASTERED, 0, 0));
+            assertThat(jdbc.queryForList("""
+                    SELECT DISTINCT updated_at_ms FROM training_puzzle_performance
+                    WHERE account_id = ?
+                    """, Long.class, OWNER)).containsExactly(0L);
+            assertThat(jdbc.queryForList("""
+                    SELECT DISTINCT entry || '/' || list_after FROM training_puzzle_attempt
+                    WHERE status = 'completed'
+                    """, String.class)).containsExactly("mastered_practice/mastered");
+        }
+    }
+
     /** Plays the remaining solution from {@code ply}; returns the final result. */
     private PuzzleTraining.MoveResult solve(
             ConfigurableApplicationContext application,

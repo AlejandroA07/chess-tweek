@@ -20,6 +20,15 @@ describe('PuzzleTraining', () => {
     expect(puzzleRoute('#/puzzles/category/rating/fork')).toBeNull()
     expect(puzzleRoute('#/puzzles/category/theme/fork%20x')).toBeNull()
     expect(puzzleRoute('#/puzzles/other')).toBeNull()
+    expect(puzzleRoute('#/puzzles/repetition')).toEqual({ kind: 'repetition' })
+    expect(puzzleRoute('#/puzzles/repetition/wrong-moves')).toEqual({ kind: 'session', list: 'wrong_moves' })
+    expect(puzzleRoute('#/puzzles/repetition/mastered')).toEqual({ kind: 'mastered' })
+    expect(puzzleRoute('#/puzzles/repetition/mastered/opening-variation/Sicilian_Defense_Najdorf_Variation'))
+      .toEqual({ kind: 'mastered-practice', category: 'opening-variation', key: 'Sicilian_Defense_Najdorf_Variation' })
+    // Mastered is practiced by category only, and list segments use the hyphenated form.
+    expect(puzzleRoute('#/puzzles/repetition/wrong_moves')).toBeNull()
+    expect(puzzleRoute('#/puzzles/repetition/unclassified')).toBeNull()
+    expect(puzzleRoute('#/puzzles/repetition/mastered/rating/fork')).toBeNull()
   })
 
   it('asks for a Lichess connection before training', () => {
@@ -29,14 +38,15 @@ describe('PuzzleTraining', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('shows cards that lead to Random, Themes, and Openings, with planned modules', () => {
+  it('shows cards that lead to Random, Themes, Openings, and Repetition, with Own Puzzles planned', () => {
     vi.stubGlobal('fetch', vi.fn(async () => response({ categories: categories() })))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'dashboard' }} onSessionFailure={vi.fn()} />)
 
     expect(screen.getByRole('link', { name: 'Start Random' })).toHaveAttribute('href', '#/puzzles/random')
     expect(screen.getByRole('link', { name: 'Browse themes' })).toHaveAttribute('href', '#/puzzles/themes')
     expect(screen.getByRole('link', { name: 'Browse openings' })).toHaveAttribute('href', '#/puzzles/openings')
-    expect(screen.getAllByText('Planned')).toHaveLength(2)
+    expect(screen.getByRole('link', { name: 'Open Repetition' })).toHaveAttribute('href', '#/puzzles/repetition')
+    expect(screen.getAllByText('Planned')).toHaveLength(1)
     expect(screen.queryByRole('link', { name: /Fork/ })).not.toBeInTheDocument()
   })
 
@@ -269,6 +279,197 @@ describe('PuzzleTraining', () => {
     expect(await screen.findByRole('button', { name: 'b2, white queen' })).toBeInTheDocument()
   })
 
+  it('shows each Training List with its size, rule, and a Practice Session link', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/repetition')) return response({ lists: listCounts() })
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'repetition' }} onSessionFailure={vi.fn()} />)
+
+    expect(await screen.findByRole('link', { name: 'Practice Hard to Solve' }))
+      .toHaveAttribute('href', '#/puzzles/repetition/hard-to-solve')
+    expect(screen.getByRole('heading', { name: 'Worth Repeating 1,250' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Practice Worth Repeating' }))
+      .toHaveAttribute('href', '#/puzzles/repetition/worth-repeating')
+    const wrongMoves = screen.getByRole('region', { name: 'Wrong Moves 0' })
+    expect(within(wrongMoves).queryByRole('link')).not.toBeInTheDocument()
+    expect(within(wrongMoves).getByText('No puzzles in this list yet.')).toBeInTheDocument()
+    expect(screen.getByText(/Five clean solutions within the fast-solve limit move a puzzle to Mastered/))
+      .toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Browse Mastered' })).toHaveAttribute('href', '#/puzzles/repetition/mastered')
+  })
+
+  it('runs a Practice Session through every puzzle once and then starts a new round by itself', async () => {
+    const requests: string[] = []
+    let sessions = 0
+    let presented = 0
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString()
+      requests.push(`${init?.method ?? 'GET'} ${url}`)
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/repetition/worth_repeating/sessions')) {
+        sessions += 1
+        presented = 0
+        return response({ sessionId: sessions, list: 'worth_repeating', total: 2 }, 201)
+      }
+      if (url.endsWith(`/sessions/${sessions}/attempts`)) {
+        presented += 1
+        if (presented > 2) return response({ error: 'session_complete' }, 409)
+        return response({ attempt: attempt('worth_repeating'), position: presented, total: 2 }, 201)
+      }
+      if (url.endsWith('/attempts/7/reveal')) {
+        return response({
+          remainingMoves: ['b2g7', 'g8g7', 'g2f3'],
+          completion: completion({ previousList: 'worth_repeating', list: 'hard_to_solve', wrongMoves: 0, hintUsed: true }),
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(
+      <PuzzleTraining
+        connectionState="connected"
+        route={{ kind: 'session', list: 'worth_repeating' }}
+        onSessionFailure={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Worth Repeating' })).toBeInTheDocument()
+    expect(await screen.findByText('1 of 2')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '← Repetition' })).toHaveAttribute('href', '#/puzzles/repetition')
+    fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
+    expect(await screen.findByText('Moved from Worth Repeating to Hard to Solve.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next puzzle' }))
+    expect(await screen.findByText('2 of 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
+    expect(requests.filter((request) => request.endsWith('/sessions'))).toHaveLength(1)
+    fireEvent.click(await screen.findByRole('button', { name: 'Next puzzle' }))
+
+    // The finished round is followed straight away by a reshuffled one, without leaving the board.
+    expect(await screen.findByText('Round 2 · 1 of 2')).toBeInTheDocument()
+    expect(screen.getByText(/Round 2 has started/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'White to move' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(requests.filter((request) => request.endsWith('/sessions'))).toEqual([
+      'POST /api/training/puzzles/repetition/worth_repeating/sessions',
+      'POST /api/training/puzzles/repetition/worth_repeating/sessions',
+    ])
+    expect(requests).toContain('POST /api/training/puzzles/sessions/2/attempts')
+  })
+
+  it('explains an empty list and a session replaced by a newer one', async () => {
+    let replaced = false
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/repetition/retiring/sessions')) {
+        return replaced
+          ? response({ sessionId: 9, list: 'retiring', total: 1 }, 201)
+          : response({ error: 'no_puzzle_available' }, 404)
+      }
+      if (url.endsWith('/sessions/9/attempts')) return response({ error: 'session_not_found' }, 404)
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(
+      <PuzzleTraining connectionState="connected" route={{ kind: 'session', list: 'retiring' }} onSessionFailure={vi.fn()} />,
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('Retiring has no puzzles right now.')
+
+    replaced = true
+    fireEvent.click(screen.getByRole('button', { name: 'Start a new session' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('another Practice Session was started')
+    expect(screen.getByRole('button', { name: 'Start a new session' })).toBeInTheDocument()
+  })
+
+  it('groups Mastered puzzles by theme and opening, linking to practice', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/repetition/mastered')) {
+        return response({
+          total: 4,
+          categories: [
+            { kind: 'theme', key: 'fork', name: 'Fork', group: 'Motifs', parentKey: null, puzzles: 3 },
+            { kind: 'theme', key: 'endgame', name: 'Endgame', group: 'Phases', parentKey: null, puzzles: 4 },
+            { kind: 'theme', key: 'mix', name: 'Healthy mix', group: 'Recommended', parentKey: null, puzzles: 4 },
+            { kind: 'opening-family', key: 'Sicilian_Defense', name: 'Sicilian Defense', group: 'Openings', parentKey: null, puzzles: 2 },
+            {
+              kind: 'opening-variation',
+              key: 'Sicilian_Defense_Accelerated_Dragon_Gurgenidze_Variation',
+              name: LONG_OPENING,
+              group: 'Openings',
+              parentKey: 'Sicilian_Defense',
+              puzzles: 1,
+            },
+          ],
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'mastered' }} onSessionFailure={vi.fn()} />)
+
+    expect(await screen.findByText('4 Mastered puzzles.')).toBeInTheDocument()
+    const themes = within(screen.getByRole('region', { name: 'By theme' })).getAllByRole('link')
+    expect(themes.map((link) => link.textContent)).toEqual(['Endgame 4', 'Fork 3'])
+    expect(themes[1]).toHaveAttribute('href', '#/puzzles/repetition/mastered/theme/fork')
+    const openings = within(screen.getByRole('region', { name: 'By opening' }))
+    expect(openings.getByRole('link', { name: 'Sicilian Defense' }))
+      .toHaveAttribute('href', '#/puzzles/repetition/mastered/opening-family/Sicilian_Defense')
+    expect(openings.getByRole('link', { name: 'Accelerated Dragon, Maróczy Bind, Gurgenidze Variation' }))
+      .toHaveAttribute('href', '#/puzzles/repetition/mastered/opening-variation/Sicilian_Defense_Accelerated_Dragon_Gurgenidze_Variation')
+    expect(screen.getByText(/never\s+changes Mastered status/)).toBeInTheDocument()
+  })
+
+  it('says when no puzzle is Mastered yet', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/repetition/mastered')) return response({ total: 0, categories: [] })
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'mastered' }} onSessionFailure={vi.fn()} />)
+    expect(await screen.findByText(/No Mastered puzzles yet/)).toBeInTheDocument()
+  })
+
+  it('practices a Mastered category without changing its status', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: categories() })
+      if (url.endsWith('/repetition/mastered/theme/fork/sessions')) {
+        return response({ sessionId: 3, list: 'mastered', total: 1 }, 201)
+      }
+      if (url.endsWith('/sessions/3/attempts')) {
+        return response({ attempt: attempt('mastered'), position: 1, total: 1 }, 201)
+      }
+      if (url.endsWith('/attempts/7/hint')) return response({ fromSquare: 'b2' })
+      if (url.endsWith('/attempts/7/reveal')) {
+        return response({
+          remainingMoves: ['b2g7', 'g8g7', 'g2f3'],
+          completion: completion({ previousList: 'mastered', list: 'mastered', wrongMoves: 0, hintUsed: true }),
+        })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(
+      <PuzzleTraining
+        connectionState="connected"
+        route={{ kind: 'mastered-practice', category: 'theme', key: 'fork' }}
+        onSessionFailure={vi.fn()}
+      />,
+    )
+    expect(await screen.findByRole('heading', { name: 'Fork' })).toBeInTheDocument()
+    expect(await screen.findByText('1 of 1')).toBeInTheDocument()
+    expect(screen.getByText(/Practice only: a hint or Show solution does not change Mastered status/)).toBeInTheDocument()
+    expect(screen.queryByText(/places this puzzle in Hard to Solve/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Hint' }))
+    expect(await screen.findByText(/the puzzle stays Mastered/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
+    expect(await screen.findByText('Practice only: stays Mastered.')).toBeInTheDocument()
+    expect(screen.queryByText(/Progress in/)).not.toBeInTheDocument()
+  })
+
   it('rejects a response that would reveal an unexpected shape', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const url = input.toString()
@@ -320,6 +521,16 @@ function categories() {
       parentKey: 'Sicilian_Defense',
       puzzles: 700,
     },
+  ]
+}
+
+function listCounts() {
+  return [
+    { list: 'hard_to_solve', puzzles: 3 },
+    { list: 'wrong_moves', puzzles: 0 },
+    { list: 'worth_repeating', puzzles: 1_250 },
+    { list: 'retiring', puzzles: 7 },
+    { list: 'mastered', puzzles: 4 },
   ]
 }
 

@@ -1,8 +1,12 @@
 package com.chesstweek.training.internal.performance;
 
+import java.security.SecureRandom;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
@@ -35,9 +39,16 @@ public class PuzzleTrainingService implements PuzzleTraining {
     /** The stored bound; further Wrong Moves change nothing because two already decide. */
     static final int MAX_WRONG_MOVES = 10_000;
 
+    private static final List<TrainingList> ACTIVE_LISTS = List.of(
+            TrainingList.HARD_TO_SOLVE,
+            TrainingList.WRONG_MOVES,
+            TrainingList.WORTH_REPEATING,
+            TrainingList.RETIRING);
+
     private final PuzzleLibrary library;
     private final JdbcPuzzlePerformanceStore store;
     private final Clock clock;
+    private final Random shuffle = new SecureRandom();
 
     @Autowired
     public PuzzleTrainingService(PuzzleLibrary library, JdbcPuzzlePerformanceStore store) {
@@ -60,17 +71,88 @@ public class PuzzleTrainingService implements PuzzleTraining {
     @Override
     public Optional<Attempt> startInCategory(String accountId, PuzzleLibrary.Category category) {
         requireAccount(accountId);
-        if (category == null || category.kind() == null || category.key() == null
-                || !CATEGORY_KEY.matcher(category.key()).matches()) {
+        if (!validCategory(category)) {
             return Optional.empty();
         }
-        PuzzleImportBatch.Kind kind = switch (category.kind()) {
-            case THEME -> PuzzleImportBatch.Kind.THEME;
-            case OPENING_FAMILY -> PuzzleImportBatch.Kind.OPENING_FAMILY;
-            case OPENING_VARIATION -> PuzzleImportBatch.Kind.OPENING_VARIATION;
-        };
-        return store.randomInCategory(accountId, kind, category.key(), ThreadLocalRandom.current())
+        return store.randomInCategory(
+                        accountId, kind(category), category.key(), ThreadLocalRandom.current())
                 .flatMap(puzzleId -> start(accountId, puzzleId, Entry.CATEGORY));
+    }
+
+    @Override
+    public List<ListCount> listCounts(String accountId) {
+        requireAccount(accountId);
+        Map<TrainingList, Integer> counts = store.listCounts(accountId);
+        List<ListCount> lists = new ArrayList<>();
+        for (TrainingList list : TrainingList.values()) {
+            lists.add(new ListCount(list, counts.getOrDefault(list, 0)));
+        }
+        return List.copyOf(lists);
+    }
+
+    @Override
+    public MasteredSummary mastered(String accountId) {
+        requireAccount(accountId);
+        var counts = store.masteredCategoryCounts(accountId);
+        List<PuzzleLibrary.CategoryEntry> categories = new ArrayList<>();
+        if (!counts.isEmpty()) {
+            for (PuzzleLibrary.CategoryEntry entry : library.categories()) {
+                Integer count = counts.getOrDefault(kind(entry.category()), Map.of())
+                        .get(entry.category().key());
+                if (count != null) {
+                    categories.add(new PuzzleLibrary.CategoryEntry(
+                            entry.category(), entry.displayName(), entry.groupName(),
+                            entry.parentKey(), count));
+                }
+            }
+        }
+        return new MasteredSummary(
+                store.count(accountId, TrainingList.MASTERED), List.copyOf(categories));
+    }
+
+    @Override
+    public Optional<Session> startSession(String accountId, TrainingList list) {
+        requireAccount(accountId);
+        if (!ACTIVE_LISTS.contains(list)) {
+            return Optional.empty();
+        }
+        return store.startSession(accountId, list, null, null, shuffle, now())
+                .map(row -> new Session(row.id(), row.list(), row.total()));
+    }
+
+    @Override
+    public Optional<Session> startMasteredSession(
+            String accountId, PuzzleLibrary.Category category) {
+        requireAccount(accountId);
+        if (!validCategory(category)) {
+            return Optional.empty();
+        }
+        return store.startSession(accountId, TrainingList.MASTERED, kind(category),
+                        category.key(), shuffle, now())
+                .map(row -> new Session(row.id(), row.list(), row.total()));
+    }
+
+    @Override
+    public SessionAttempt nextInSession(String accountId, long sessionId) {
+        requireAccount(accountId);
+        var session = store.session(accountId, sessionId).orElse(null);
+        if (session == null) {
+            return new SessionAttempt(SessionOutcome.NOT_FOUND, null, 0, 0);
+        }
+        Entry entry = session.list() == TrainingList.MASTERED
+                ? Entry.MASTERED_PRACTICE
+                : Entry.REPETITION;
+        while (true) {
+            var item = store.presentNext(accountId, session, now()).orElse(null);
+            if (item == null) {
+                return new SessionAttempt(SessionOutcome.COMPLETE, null, 0, session.total());
+            }
+            Optional<Attempt> attempt = start(accountId, item.puzzleId(), entry);
+            if (attempt.isPresent()) {
+                return new SessionAttempt(
+                        SessionOutcome.STARTED, attempt.get(), item.position(), item.total());
+            }
+        }
     }
 
     @Override
@@ -183,10 +265,17 @@ public class PuzzleTrainingService implements PuzzleTraining {
                 current));
     }
 
-    /** Records progress and applies any repetition demotion the attempt has already decided. */
+    /**
+     * Records progress and applies any repetition demotion the attempt has already decided.
+     * Mastered practice never moves a Puzzle.
+     */
     private boolean progress(AttemptRow attempt, int nextPly, int wrongMoves, boolean hintUsed) {
+        boolean practice = attempt.entry() == Entry.MASTERED_PRACTICE;
         return store.progress(attempt, nextPly, wrongMoves, hintUsed,
-                current -> PerformanceRules.immediate(current, wrongMoves, hintUsed), now());
+                current -> practice
+                        ? Optional.empty()
+                        : PerformanceRules.immediate(current, wrongMoves, hintUsed),
+                now());
     }
 
     private Completion complete(
@@ -204,7 +293,10 @@ public class PuzzleTrainingService implements PuzzleTraining {
                         attempt,
                         new JdbcPuzzlePerformanceStore.Completed(
                                 finalPly, wrongMoves, hintUsed, revealed, elapsed),
-                        current -> PerformanceRules.apply(current, outcome),
+                        current -> attempt.entry() == Entry.MASTERED_PRACTICE
+                                ? current.orElseThrow(() -> new IllegalStateException(
+                                        "Mastered practice needs a Mastered Puzzle"))
+                                : PerformanceRules.apply(current, outcome),
                         now)
                 .map(performance -> new Completion(
                         attempt.listBefore(),
@@ -259,6 +351,19 @@ public class PuzzleTrainingService implements PuzzleTraining {
         ChessGame after = game.clone();
         after.playMove(move);
         return after.isKingAttacked() && after.getLegalMoves().isEmpty();
+    }
+
+    private static boolean validCategory(PuzzleLibrary.Category category) {
+        return category != null && category.kind() != null && category.key() != null
+                && CATEGORY_KEY.matcher(category.key()).matches();
+    }
+
+    private static PuzzleImportBatch.Kind kind(PuzzleLibrary.Category category) {
+        return switch (category.kind()) {
+            case THEME -> PuzzleImportBatch.Kind.THEME;
+            case OPENING_FAMILY -> PuzzleImportBatch.Kind.OPENING_FAMILY;
+            case OPENING_VARIATION -> PuzzleImportBatch.Kind.OPENING_VARIATION;
+        };
     }
 
     private static void requireAccount(String accountId) {

@@ -63,6 +63,78 @@ class PuzzleTrainingControllerTest {
     }
 
     @Test
+    void reportsTrainingListSizesAndMasteredCategoriesForTheConnectedOwnerOnly() throws Exception {
+        MockMvc mockMvc = mockMvc(connected());
+        mockMvc.perform(get(BASE + "/repetition").cookie(SESSION))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.lists[0].list").value("hard_to_solve"))
+                .andExpect(jsonPath("$.lists[0].puzzles").value(3))
+                .andExpect(jsonPath("$.lists[4].list").value("mastered"));
+        mockMvc.perform(get(BASE + "/repetition/mastered").cookie(SESSION))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.total").value(4))
+                .andExpect(jsonPath("$.categories[0].kind").value("theme"))
+                .andExpect(jsonPath("$.categories[0].key").value("fork"))
+                .andExpect(jsonPath("$.categories[0].puzzles").value(3));
+        assertThat(training.accounts).containsExactly("owner-id", "owner-id");
+
+        for (String path : List.of("/repetition", "/repetition/mastered")) {
+            mockMvc(sealed -> LichessSessionAuthorization.disconnected(false))
+                    .perform(get(BASE + path).cookie(SESSION))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error").value("not_connected"));
+        }
+        assertThat(training.calls).hasValue(2);
+    }
+
+    @Test
+    void startsPracticeSessionsAndPresentsTheirPuzzlesInOrder() throws Exception {
+        MockMvc mockMvc = mockMvc(connected());
+        mockMvc.perform(post(BASE + "/repetition/worth_repeating/sessions")
+                        .cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.sessionId").value(5))
+                .andExpect(jsonPath("$.list").value("worth_repeating"))
+                .andExpect(jsonPath("$.total").value(12));
+        assertThat(training.lists).containsExactly(PuzzleTraining.TrainingList.WORTH_REPEATING);
+
+        mockMvc.perform(post(BASE + "/repetition/mastered/theme/fork/sessions")
+                        .cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.list").value("mastered"))
+                .andExpect(jsonPath("$.total").value(3));
+        assertThat(training.categories).containsExactly(
+                new PuzzleLibrary.Category(PuzzleLibrary.CategoryKind.THEME, "fork"));
+
+        mockMvc.perform(post(BASE + "/sessions/5/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.position").value(2))
+                .andExpect(jsonPath("$.total").value(12))
+                .andExpect(jsonPath("$.attempt.attemptId").value(7))
+                .andExpect(jsonPath("$.attempt.currentList").value("worth_repeating"))
+                .andExpect(content().string(not(containsString("b2g7"))));
+
+        training.sessionOutcome = PuzzleTraining.SessionOutcome.COMPLETE;
+        mockMvc.perform(post(BASE + "/sessions/5/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("session_complete"));
+        training.sessionOutcome = PuzzleTraining.SessionOutcome.NOT_FOUND;
+        mockMvc.perform(post(BASE + "/sessions/5/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("session_not_found"));
+
+        training.empty = true;
+        mockMvc.perform(post(BASE + "/repetition/retiring/sessions")
+                        .cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("no_puzzle_available"));
+    }
+
+    @Test
     void listsSelectableCategoriesForTheConnectedOwnerOnly() throws Exception {
         mockMvc(connected())
                 .perform(get(BASE + "/categories").cookie(SESSION))
@@ -146,6 +218,21 @@ class PuzzleTrainingControllerTest {
         mockMvc.perform(post(BASE + "/categories/theme/fork%20x/attempts")
                         .cookie(SESSION).header("Origin", ORIGIN))
                 .andExpect(status().isBadRequest());
+        // Mastered is practiced by category, never as a whole-list repetition session.
+        for (String list : List.of("mastered", "MASTERED", "hard-to-solve", "unclassified")) {
+            mockMvc.perform(post(BASE + "/repetition/" + list + "/sessions")
+                            .cookie(SESSION).header("Origin", ORIGIN))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("invalid_training_request"));
+        }
+        mockMvc.perform(post(BASE + "/repetition/mastered/rating/fork/sessions")
+                        .cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(BASE + "/repetition/mastered/theme/fork%20x/sessions")
+                        .cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(BASE + "/sessions/0/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isBadRequest());
         assertThat(authorizations).hasValue(0);
         assertThat(training.calls).hasValue(0);
     }
@@ -159,7 +246,9 @@ class PuzzleTrainingControllerTest {
         });
         for (String path : List.of(
                 "/random/attempts", "/categories/theme/fork/attempts",
-                "/attempts/7/moves", "/attempts/7/hint", "/attempts/7/reveal")) {
+                "/attempts/7/moves", "/attempts/7/hint", "/attempts/7/reveal",
+                "/repetition/hard_to_solve/sessions", "/repetition/mastered/theme/fork/sessions",
+                "/sessions/5/attempts")) {
             mockMvc.perform(post(BASE + path).cookie(SESSION).header("Origin", "https://example.com")
                             .contentType(MediaType.APPLICATION_JSON).content("{\"move\":\"b2g7\"}"))
                     .andExpect(status().isForbidden());
@@ -266,6 +355,8 @@ class PuzzleTrainingControllerTest {
         final AtomicInteger calls = new AtomicInteger();
         final List<String> accounts = new ArrayList<>();
         final List<PuzzleLibrary.Category> categories = new ArrayList<>();
+        final List<TrainingList> lists = new ArrayList<>();
+        SessionOutcome sessionOutcome = SessionOutcome.STARTED;
         boolean empty;
         boolean finished;
         RuntimeException failure;
@@ -316,6 +407,51 @@ class PuzzleTrainingControllerTest {
         public Optional<Performance> performance(String accountId, long puzzleId) {
             act(accountId);
             return Optional.empty();
+        }
+
+        @Override
+        public List<ListCount> listCounts(String accountId) {
+            act(accountId);
+            return List.of(
+                    new ListCount(TrainingList.HARD_TO_SOLVE, 3),
+                    new ListCount(TrainingList.WRONG_MOVES, 0),
+                    new ListCount(TrainingList.WORTH_REPEATING, 12),
+                    new ListCount(TrainingList.RETIRING, 1),
+                    new ListCount(TrainingList.MASTERED, 4));
+        }
+
+        @Override
+        public MasteredSummary mastered(String accountId) {
+            act(accountId);
+            return new MasteredSummary(4, List.of(new PuzzleLibrary.CategoryEntry(
+                    new PuzzleLibrary.Category(PuzzleLibrary.CategoryKind.THEME, "fork"),
+                    "Fork", "Motifs", null, 3)));
+        }
+
+        @Override
+        public Optional<Session> startSession(String accountId, TrainingList list) {
+            act(accountId);
+            lists.add(list);
+            return empty ? Optional.empty() : Optional.of(new Session(5, list, 12));
+        }
+
+        @Override
+        public Optional<Session> startMasteredSession(
+                String accountId, PuzzleLibrary.Category category) {
+            act(accountId);
+            categories.add(category);
+            return Optional.of(new Session(6, TrainingList.MASTERED, 3));
+        }
+
+        @Override
+        public SessionAttempt nextInSession(String accountId, long sessionId) {
+            act(accountId);
+            return switch (sessionOutcome) {
+                case STARTED -> new SessionAttempt(
+                        SessionOutcome.STARTED, attempt(TrainingList.WORTH_REPEATING), 2, 12);
+                case COMPLETE -> new SessionAttempt(SessionOutcome.COMPLETE, null, 0, 12);
+                case NOT_FOUND -> new SessionAttempt(SessionOutcome.NOT_FOUND, null, 0, 0);
+            };
         }
 
         private void act(String accountId) {

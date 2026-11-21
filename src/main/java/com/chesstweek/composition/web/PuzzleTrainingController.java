@@ -66,17 +66,78 @@ public final class PuzzleTrainingController {
         }
         try {
             return ok(new CategoriesResponse(library.categories().stream()
-                    .map(entry -> new CategoryResponse(
-                            kind(entry.category().kind()),
-                            entry.category().key(),
-                            entry.displayName(),
-                            entry.groupName(),
-                            entry.parentKey(),
-                            entry.puzzles()))
+                    .map(PuzzleTrainingController::category)
                     .toList()));
         } catch (DataAccessException | IllegalStateException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
         }
+    }
+
+    /** The account's Training List sizes for the Repetition dashboard; read-only. */
+    @GetMapping("/repetition")
+    public ResponseEntity<?> repetition(
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession) {
+        return read(sealedSession, account -> ok(new RepetitionResponse(
+                training.listCounts(account).stream()
+                        .map(count -> new ListCountResponse(lower(count.list()), count.puzzles()))
+                        .toList())));
+    }
+
+    /** The account's Mastered Puzzles grouped by Theme and opening category; read-only. */
+    @GetMapping("/repetition/mastered")
+    public ResponseEntity<?> mastered(
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession) {
+        return read(sealedSession, account -> {
+            PuzzleTraining.MasteredSummary summary = training.mastered(account);
+            return ok(new MasteredResponse(
+                    summary.total(),
+                    summary.categories().stream().map(PuzzleTrainingController::category).toList()));
+        });
+    }
+
+    @PostMapping("/repetition/{list}/sessions")
+    public ResponseEntity<?> startSession(
+            HttpServletRequest request,
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession,
+            @PathVariable("list") String list) {
+        PuzzleTraining.TrainingList trainingList = activeList(list);
+        return authorized(request, sealedSession, trainingList != null, account ->
+                session(training.startSession(account, trainingList)));
+    }
+
+    @PostMapping("/repetition/mastered/{kind}/{key}/sessions")
+    public ResponseEntity<?> startMasteredSession(
+            HttpServletRequest request,
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession,
+            @PathVariable("kind") String kind,
+            @PathVariable("key") String key) {
+        PuzzleLibrary.CategoryKind categoryKind = categoryKind(kind);
+        boolean valid = categoryKind != null && key != null && CATEGORY_KEY.matcher(key).matches();
+        return authorized(request, sealedSession, valid, account -> session(
+                training.startMasteredSession(account, new PuzzleLibrary.Category(categoryKind, key))));
+    }
+
+    @PostMapping("/sessions/{sessionId}/attempts")
+    public ResponseEntity<?> nextInSession(
+            HttpServletRequest request,
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession,
+            @PathVariable("sessionId") long sessionId) {
+        return authorized(request, sealedSession, sessionId > 0, account -> {
+            PuzzleTraining.SessionAttempt next = training.nextInSession(account, sessionId);
+            return switch (next.outcome()) {
+                case STARTED -> ResponseEntity.status(HttpStatus.CREATED)
+                        .cacheControl(CacheControl.noStore())
+                        .body(new SessionAttemptResponse(
+                                attempt(next.attempt()), next.position(), next.total()));
+                case COMPLETE -> error(HttpStatus.CONFLICT, "session_complete");
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "session_not_found");
+            };
+        });
     }
 
     @PostMapping("/random/attempts")
@@ -95,12 +156,7 @@ public final class PuzzleTrainingController {
                     String sealedSession,
             @PathVariable("kind") String kind,
             @PathVariable("key") String key) {
-        PuzzleLibrary.CategoryKind categoryKind = switch (kind) {
-            case THEME -> PuzzleLibrary.CategoryKind.THEME;
-            case OPENING_FAMILY -> PuzzleLibrary.CategoryKind.OPENING_FAMILY;
-            case OPENING_VARIATION -> PuzzleLibrary.CategoryKind.OPENING_VARIATION;
-            default -> null;
-        };
+        PuzzleLibrary.CategoryKind categoryKind = categoryKind(kind);
         boolean valid = categoryKind != null && key != null && CATEGORY_KEY.matcher(key).matches();
         return authorized(request, sealedSession, valid, account -> started(
                 training.startInCategory(account, new PuzzleLibrary.Category(categoryKind, key))));
@@ -163,6 +219,21 @@ public final class PuzzleTrainingController {
         });
     }
 
+    /** Authorization, then a read-only action; reads need no same-origin check. */
+    private ResponseEntity<?> read(
+            String sealedSession, Function<String, ResponseEntity<?>> action) {
+        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
+        ResponseEntity<TrainingError> denied = deny(authorization);
+        if (denied != null) {
+            return denied;
+        }
+        try {
+            return action.apply(authorization.accountId());
+        } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
+            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
+        }
+    }
+
     /** Same-origin check, then input validation, then authorization, then the action. */
     private ResponseEntity<?> authorized(
             HttpServletRequest request,
@@ -190,17 +261,59 @@ public final class PuzzleTrainingController {
     private static ResponseEntity<?> started(Optional<PuzzleTraining.Attempt> attempt) {
         return attempt.<ResponseEntity<?>>map(value -> ResponseEntity.status(HttpStatus.CREATED)
                         .cacheControl(CacheControl.noStore())
-                        .body(new AttemptResponse(
-                                value.attemptId(),
-                                value.puzzleId(),
-                                value.externalId(),
-                                value.positionFen(),
-                                value.setupMove(),
-                                value.rating(),
-                                value.ownerMoves(),
-                                value.fastSolveLimitMillis(),
-                                value.currentList() == null ? null : lower(value.currentList()))))
+                        .body(attempt(value)))
                 .orElseGet(() -> error(HttpStatus.NOT_FOUND, "no_puzzle_available"));
+    }
+
+    private static AttemptResponse attempt(PuzzleTraining.Attempt value) {
+        return new AttemptResponse(
+                value.attemptId(),
+                value.puzzleId(),
+                value.externalId(),
+                value.positionFen(),
+                value.setupMove(),
+                value.rating(),
+                value.ownerMoves(),
+                value.fastSolveLimitMillis(),
+                value.currentList() == null ? null : lower(value.currentList()));
+    }
+
+    private static ResponseEntity<?> session(Optional<PuzzleTraining.Session> session) {
+        return session.<ResponseEntity<?>>map(value -> ResponseEntity.status(HttpStatus.CREATED)
+                        .cacheControl(CacheControl.noStore())
+                        .body(new SessionResponse(
+                                value.sessionId(), lower(value.list()), value.total())))
+                .orElseGet(() -> error(HttpStatus.NOT_FOUND, "no_puzzle_available"));
+    }
+
+    private static CategoryResponse category(PuzzleLibrary.CategoryEntry entry) {
+        return new CategoryResponse(
+                kind(entry.category().kind()),
+                entry.category().key(),
+                entry.displayName(),
+                entry.groupName(),
+                entry.parentKey(),
+                entry.puzzles());
+    }
+
+    private static PuzzleLibrary.CategoryKind categoryKind(String kind) {
+        return switch (kind) {
+            case THEME -> PuzzleLibrary.CategoryKind.THEME;
+            case OPENING_FAMILY -> PuzzleLibrary.CategoryKind.OPENING_FAMILY;
+            case OPENING_VARIATION -> PuzzleLibrary.CategoryKind.OPENING_VARIATION;
+            default -> null;
+        };
+    }
+
+    /** The four lists a repetition Practice Session can cover; Mastered is practiced by category. */
+    private static PuzzleTraining.TrainingList activeList(String list) {
+        return switch (list) {
+            case "hard_to_solve" -> PuzzleTraining.TrainingList.HARD_TO_SOLVE;
+            case "wrong_moves" -> PuzzleTraining.TrainingList.WRONG_MOVES;
+            case "worth_repeating" -> PuzzleTraining.TrainingList.WORTH_REPEATING;
+            case "retiring" -> PuzzleTraining.TrainingList.RETIRING;
+            default -> null;
+        };
     }
 
     private static CompletionResponse completion(PuzzleTraining.Completion completion) {
@@ -266,6 +379,17 @@ public final class PuzzleTrainingController {
     public record CategoriesResponse(List<CategoryResponse> categories) {}
 
     public record MoveRequest(String move) {}
+
+    public record ListCountResponse(String list, int puzzles) {}
+
+    public record RepetitionResponse(List<ListCountResponse> lists) {}
+
+    /** {@code categories[].puzzles} is the account's Mastered count in that category. */
+    public record MasteredResponse(int total, List<CategoryResponse> categories) {}
+
+    public record SessionResponse(long sessionId, String list, int total) {}
+
+    public record SessionAttemptResponse(AttemptResponse attempt, int position, int total) {}
 
     public record AttemptResponse(
             long attemptId,

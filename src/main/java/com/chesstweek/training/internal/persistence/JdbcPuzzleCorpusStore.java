@@ -509,7 +509,7 @@ public class JdbcPuzzleCorpusStore {
         for (Missing candidate : candidates) {
             boolean keep = jdbc.queryForObject(RETAINED, Integer.class,
                     candidate.puzzleId(), candidate.puzzleId(), candidate.puzzleId(),
-                    candidate.puzzleId(), candidate.puzzleId()) == 1;
+                    candidate.puzzleId(), candidate.puzzleId(), candidate.puzzleId()) == 1;
             if (keep) {
                 retained++;
                 continue;
@@ -547,6 +547,7 @@ public class JdbcPuzzleCorpusStore {
                 OR EXISTS (SELECT 1 FROM training_puzzle_observation WHERE puzzle_id = ?)
                 OR EXISTS (SELECT 1 FROM training_puzzle_attempt WHERE puzzle_id = ?)
                 OR EXISTS (SELECT 1 FROM training_puzzle_performance WHERE puzzle_id = ?)
+                OR EXISTS (SELECT 1 FROM training_puzzle_session_item WHERE puzzle_id = ?)
             """;
 
     /**

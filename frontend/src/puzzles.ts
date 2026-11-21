@@ -5,6 +5,9 @@ export type TrainingList =
   | 'retiring'
   | 'mastered'
 
+/** The lists a repetition Practice Session covers; Mastered is practiced by category. */
+export type ActiveList = Exclude<TrainingList, 'mastered'>
+
 export type CategoryKind = 'theme' | 'opening-family' | 'opening-variation'
 
 export type PuzzleCategory = {
@@ -28,6 +31,16 @@ export type PuzzleAttempt = {
   fastSolveLimitMillis: number
   currentList: TrainingList | null
 }
+
+export type ListCount = { list: TrainingList; puzzles: number }
+
+/** {@code categories[].puzzles} is the owner's Mastered count in that category. */
+export type MasteredSummary = { total: number; categories: PuzzleCategory[] }
+
+export type PracticeSession = { sessionId: number; list: TrainingList; total: number }
+
+/** {@code position} is the one-based place of the puzzle in the session's shuffled order. */
+export type SessionAttempt = { attempt: PuzzleAttempt; position: number; total: number }
 
 export type PuzzleCompletion = {
   previousList: TrainingList | null
@@ -58,6 +71,8 @@ export type PuzzleFailure =
   | 'no_puzzle_available'
   | 'attempt_finished'
   | 'illegal_move'
+  | 'session_complete'
+  | 'session_not_found'
   | 'unavailable'
 
 export class PuzzleRequestError extends Error {
@@ -73,6 +88,8 @@ export const LIST_LABELS: Record<TrainingList, string> = {
   retiring: 'Retiring',
   mastered: 'Mastered',
 }
+
+export const ACTIVE_LISTS: ActiveList[] = ['hard_to_solve', 'wrong_moves', 'worth_repeating', 'retiring']
 
 const base = '/api/training/puzzles'
 const LISTS = Object.keys(LIST_LABELS) as TrainingList[]
@@ -90,6 +107,46 @@ export async function loadCategories(signal?: AbortSignal): Promise<PuzzleCatego
     throw new PuzzleRequestError('unavailable')
   }
   return value.categories.map(parseCategory)
+}
+
+export async function loadListCounts(signal?: AbortSignal): Promise<ListCount[]> {
+  const value = await read(`${base}/repetition`, signal)
+  if (
+    !isRecord(value) || !Array.isArray(value.lists) || value.lists.length !== LISTS.length ||
+    !value.lists.every((entry, index) =>
+      isRecord(entry) && entry.list === LISTS[index] && isInteger(entry.puzzles, 0, 100_000_000))
+  ) throw new PuzzleRequestError('unavailable')
+  return value.lists.map((entry) => ({ list: entry.list, puzzles: entry.puzzles }))
+}
+
+export async function loadMastered(signal?: AbortSignal): Promise<MasteredSummary> {
+  const value = await read(`${base}/repetition/mastered`, signal)
+  if (
+    !isRecord(value) || !isInteger(value.total, 0, 100_000_000) ||
+    !Array.isArray(value.categories) || value.categories.length > 25_000
+  ) throw new PuzzleRequestError('unavailable')
+  return { total: value.total, categories: value.categories.map(parseCategory) }
+}
+
+export async function startListSession(list: ActiveList): Promise<PracticeSession> {
+  if (!ACTIVE_LISTS.includes(list)) throw new PuzzleRequestError('unavailable')
+  return parseSession(await (await send(`${base}/repetition/${list}/sessions`)).json())
+}
+
+export async function startMasteredSession(kind: CategoryKind, key: string): Promise<PracticeSession> {
+  if (!KINDS.includes(kind) || !isCategoryKey(key)) throw new PuzzleRequestError('unavailable')
+  const response = await send(`${base}/repetition/mastered/${kind}/${encodeURIComponent(key)}/sessions`)
+  return parseSession(await response.json())
+}
+
+export async function nextSessionPuzzle(sessionId: number): Promise<SessionAttempt> {
+  if (!isInteger(sessionId, 1, Number.MAX_SAFE_INTEGER)) throw new PuzzleRequestError('unavailable')
+  const value: unknown = await (await send(`${base}/sessions/${sessionId}/attempts`)).json()
+  if (
+    !isRecord(value) || !isInteger(value.total, 1, 100_000_000) ||
+    !isInteger(value.position, 1, value.total)
+  ) throw new PuzzleRequestError('unavailable')
+  return { attempt: parseAttempt(value.attempt), position: value.position, total: value.total }
 }
 
 export async function startRandomPuzzle(): Promise<PuzzleAttempt> {
@@ -141,6 +198,16 @@ export async function revealPuzzle(attemptId: number): Promise<PuzzleRevealResul
   return { remainingMoves: value.remainingMoves, completion: parseCompletion(value.completion) }
 }
 
+async function read(url: string, signal?: AbortSignal): Promise<unknown> {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+    signal,
+  })
+  await requireResponse(response)
+  return response.json()
+}
+
 async function send(url: string, body?: unknown) {
   const response = await fetch(url, {
     method: 'POST',
@@ -165,6 +232,8 @@ async function requireResponse(response: Response) {
     throw new PuzzleRequestError('attempt_finished')
   }
   if (code === 'illegal_training_move') throw new PuzzleRequestError('illegal_move')
+  if (code === 'session_complete') throw new PuzzleRequestError('session_complete')
+  if (code === 'session_not_found') throw new PuzzleRequestError('session_not_found')
   throw new PuzzleRequestError('unavailable')
 }
 
@@ -192,6 +261,14 @@ function parseCategory(value: unknown): PuzzleCategory {
     parentKey: typeof value.parentKey === 'string' ? value.parentKey : null,
     puzzles: value.puzzles,
   }
+}
+
+function parseSession(value: unknown): PracticeSession {
+  if (
+    !isRecord(value) || !isInteger(value.sessionId, 1, Number.MAX_SAFE_INTEGER) ||
+    !isList(value.list) || !isInteger(value.total, 1, 100_000_000)
+  ) throw new PuzzleRequestError('unavailable')
+  return { sessionId: value.sessionId, list: value.list, total: value.total }
 }
 
 function parseAttempt(value: unknown): PuzzleAttempt {

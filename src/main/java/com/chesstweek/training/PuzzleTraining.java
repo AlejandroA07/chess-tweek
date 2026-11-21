@@ -25,9 +25,39 @@ public interface PuzzleTraining {
 
     Optional<Performance> performance(String accountId, long puzzleId);
 
+    /** The number of the account's Puzzles in every Training List, in progression order. */
+    List<ListCount> listCounts(String accountId);
+
+    /**
+     * The account's Mastered Puzzles grouped by the Themes and opening categories of their current
+     * observation. A Mastered Puzzle belongs to every category it is a member of.
+     */
+    MasteredSummary mastered(String accountId);
+
+    /**
+     * Starts a Practice Session over one active Training List in a freshly randomized order,
+     * replacing the account's previous session. Empty when the list has no Puzzles. Mastered is not
+     * an active list; use {@link #startMasteredSession}.
+     */
+    Optional<Session> startSession(String accountId, TrainingList list);
+
+    /**
+     * Starts optional practice of the account's Mastered Puzzles in one category, in a freshly
+     * randomized order. Its attempts never change Mastered status or create repetition progress.
+     */
+    Optional<Session> startMasteredSession(String accountId, PuzzleLibrary.Category category);
+
+    /**
+     * Starts an attempt on the session's next Puzzle that has not been presented and is still in the
+     * session's list. Every Puzzle is presented at most once per session.
+     */
+    SessionAttempt nextInSession(String accountId, long sessionId);
+
     enum Entry {
         RANDOM,
-        CATEGORY
+        CATEGORY,
+        REPETITION,
+        MASTERED_PRACTICE
     }
 
     enum TrainingList {
@@ -54,6 +84,23 @@ public interface PuzzleTraining {
             TrainingList currentList) {}
 
     record Performance(TrainingList list, int successes, int strikes) {}
+
+    record ListCount(TrainingList list, int puzzles) {}
+
+    /** {@code puzzles} in each category is the account's Mastered count, not the library's. */
+    record MasteredSummary(int total, List<PuzzleLibrary.CategoryEntry> categories) {}
+
+    record Session(long sessionId, TrainingList list, int total) {}
+
+    enum SessionOutcome {
+        STARTED,
+        /** Every Puzzle in the session has been presented. */
+        COMPLETE,
+        NOT_FOUND
+    }
+
+    /** {@code position} is the one-based place of the attempt's Puzzle in the session order. */
+    record SessionAttempt(SessionOutcome outcome, Attempt attempt, int position, int total) {}
 
     /** The classification an attempt produced, and the list it started from (null if new). */
     record Completion(

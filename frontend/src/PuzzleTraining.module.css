@@ -278,7 +278,16 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* A Mastered opening family nested under the "By opening" section heading. */
+.openingFamily h4 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
 .openingFamily h3 a,
+.openingFamily h4 a,
 .variationGrid a {
   color: var(--color-primary);
   text-decoration: none;
@@ -286,6 +295,7 @@
 }
 
 .openingFamily h3 a:hover,
+.openingFamily h4 a:hover,
 .variationGrid a:hover {
   text-decoration: underline;
 }

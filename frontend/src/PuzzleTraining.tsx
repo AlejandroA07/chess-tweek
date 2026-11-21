@@ -10,15 +10,24 @@ import {
   type ThemeEntry,
 } from './puzzleThemes'
 import {
+  ACTIVE_LISTS,
   LIST_LABELS,
   loadCategories,
+  loadListCounts,
+  loadMastered,
+  nextSessionPuzzle,
   PuzzleRequestError,
   requestPuzzleHint,
   revealPuzzle,
   startCategoryPuzzle,
+  startListSession,
+  startMasteredSession,
   startRandomPuzzle,
   submitPuzzleMove,
+  type ActiveList,
   type CategoryKind,
+  type ListCount,
+  type MasteredSummary,
   type PuzzleAttempt,
   type PuzzleCategory,
   type PuzzleCompletion,
@@ -34,6 +43,32 @@ export type PuzzleRoute =
   | { kind: 'openings' }
   | { kind: 'random' }
   | { kind: 'category'; category: CategoryKind; key: string }
+  | { kind: 'repetition' }
+  | { kind: 'mastered' }
+  | { kind: 'session'; list: ActiveList }
+  | { kind: 'mastered-practice'; category: CategoryKind; key: string }
+
+type PlayerRoute = Extract<PuzzleRoute, { kind: 'random' | 'category' | 'session' | 'mastered-practice' }>
+
+/** The hash segment of each list a Practice Session covers. */
+const LIST_SLUGS: Record<ActiveList, string> = {
+  hard_to_solve: 'hard-to-solve',
+  wrong_moves: 'wrong-moves',
+  worth_repeating: 'worth-repeating',
+  retiring: 'retiring',
+}
+
+/** What it takes to leave each active list, in the owner-approved rules' terms. */
+const LIST_RULES: Record<ActiveList, string> = {
+  hard_to_solve:
+    'Ten Successful Repetitions in a row move a puzzle to Wrong Moves. A solution with at most one Wrong Move counts; two Wrong Moves or a hint restart the count.',
+  wrong_moves:
+    'Ten clean solutions in a row move a puzzle to Worth Repeating. One Wrong Move restarts the count; two Wrong Moves or a hint move it to Hard to Solve.',
+  worth_repeating:
+    'Ten clean solutions in a row within the fast-solve limit move a puzzle to Retiring. A slow solve restarts the count.',
+  retiring:
+    'Five clean solutions within the fast-solve limit move a puzzle to Mastered. The second slow solve moves it back to Worth Repeating.',
+}
 
 const KIND_LABELS: Record<CategoryKind, string> = {
   theme: 'Theme',
@@ -46,7 +81,7 @@ export const PUZZLE_SECTIONS: { label: string; href: string | null }[] = [
   { label: 'Dashboard', href: '#/puzzles' },
   { label: 'Themes', href: '#/puzzles/themes' },
   { label: 'Openings', href: '#/puzzles/openings' },
-  { label: 'Repetition: normal puzzles', href: null },
+  { label: 'Repetition: normal puzzles', href: '#/puzzles/repetition' },
   { label: 'Repetition: own puzzles', href: null },
 ]
 
@@ -56,6 +91,15 @@ export function puzzleRoute(hash: string): PuzzleRoute | null {
   if (hash === '#/puzzles/themes') return { kind: 'themes' }
   if (hash === '#/puzzles/openings') return { kind: 'openings' }
   if (hash === '#/puzzles/random') return { kind: 'random' }
+  if (hash === '#/puzzles/repetition') return { kind: 'repetition' }
+  if (hash === '#/puzzles/repetition/mastered') return { kind: 'mastered' }
+  const list = ACTIVE_LISTS.find((candidate) => hash === `#/puzzles/repetition/${LIST_SLUGS[candidate]}`)
+  if (list !== undefined) return { kind: 'session', list }
+  const mastered = /^#\/puzzles\/repetition\/mastered\/(theme|opening-family|opening-variation)\/([A-Za-z0-9_-]{1,120})$/
+    .exec(hash)
+  if (mastered !== null) {
+    return { kind: 'mastered-practice', category: mastered[1] as CategoryKind, key: mastered[2] }
+  }
   const match = /^#\/puzzles\/category\/(theme|opening-family|opening-variation)\/([A-Za-z0-9_-]{1,120})$/
     .exec(hash)
   return match === null
@@ -112,6 +156,8 @@ export function PuzzleTraining({
   }
 
   if (route.kind === 'dashboard') return <PuzzleDashboard />
+  if (route.kind === 'repetition') return <RepetitionDashboard onSessionFailure={onSessionFailure} />
+  if (route.kind === 'mastered') return <MasteredView onSessionFailure={onSessionFailure} />
   if (route.kind === 'themes' || route.kind === 'openings') {
     return (
       <CategoryPage
@@ -124,7 +170,7 @@ export function PuzzleTraining({
   }
   return (
     <PuzzlePlayer
-      key={route.kind === 'random' ? 'random' : `${route.category}/${route.key}`}
+      key={playerKey(route)}
       route={route}
       categories={categories}
       onSessionFailure={onSessionFailure}
@@ -174,6 +220,8 @@ function PuzzleDashboard() {
           eyebrow="Repetition"
           title="Practice your Training Lists"
           text="Repeat Hard to Solve, Wrong Moves, Worth Repeating, and Retiring puzzles until they are Mastered."
+          href="#/puzzles/repetition"
+          action="Open Repetition"
         />
         <DashboardCard
           id="own"
@@ -210,6 +258,210 @@ function DashboardCard({
       {planned ? <strong>Planned</strong> : <a className={styles.primaryLink} href={href}>{action}</a>}
     </section>
   )
+}
+
+/** Loads one read-only view, reporting a revoked session; {@code reload} retries it. */
+function useLoaded<T>(
+  load: (signal: AbortSignal) => Promise<T>,
+  onSessionFailure: (failure: SessionFailure) => void,
+) {
+  const [value, setValue] = useState<T | null>(null)
+  const [state, setState] = useState<LoadState>('loading')
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    setState('loading')
+    load(controller.signal).then((loaded) => {
+      setValue(loaded)
+      setState('ready')
+    }, (error: unknown) => {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      reportSessionFailure(error, onSessionFailure)
+      setState('failed')
+    })
+    return () => controller.abort()
+  }, [load, onSessionFailure, attempt])
+  return { value, state, reload: () => setAttempt((current) => current + 1) }
+}
+
+function RepetitionDashboard({ onSessionFailure }: { onSessionFailure: (failure: SessionFailure) => void }) {
+  const { value: counts, state, reload } = useLoaded<ListCount[]>(loadListCounts, onSessionFailure)
+  const count = (list: ListCount['list']) => counts?.find((entry) => entry.list === list)?.puzzles ?? 0
+  return (
+    <div className={styles.page}>
+      <section className={styles.intro} aria-labelledby="repetition-title">
+        <p className={styles.eyebrow}>Repetition · Normal puzzles</p>
+        <h2 id="repetition-title">Practice your Training Lists</h2>
+        <p>
+          Choose a list to start a Practice Session. Each session shows every puzzle in the list once,
+          in a fresh random order, before any puzzle repeats. Your results move puzzles between lists
+          until they are Mastered.
+        </p>
+      </section>
+      {state === 'loading' && <p className={styles.muted} aria-live="polite">Loading your Training Lists…</p>}
+      {state === 'failed' && (
+        <div className={styles.inlineError} role="alert">
+          <p>Your Training Lists could not be loaded. Nothing has changed.</p>
+          <button className={styles.secondaryButton} type="button" onClick={reload}>Retry</button>
+        </div>
+      )}
+      {state === 'ready' && counts !== null && (
+        <div className={styles.modules}>
+          {ACTIVE_LISTS.map((list) => (
+            <ListCard
+              key={list}
+              id={`list-${LIST_SLUGS[list]}`}
+              title={LIST_LABELS[list]}
+              puzzles={count(list)}
+              text={LIST_RULES[list]}
+              href={`#/puzzles/repetition/${LIST_SLUGS[list]}`}
+              action={`Practice ${LIST_LABELS[list]}`}
+              empty="No puzzles in this list yet."
+            />
+          ))}
+          <ListCard
+            id="list-mastered"
+            title="Mastered"
+            puzzles={count('mastered')}
+            text="Puzzles that no longer need repetition, grouped by theme and opening. Practicing them never changes their status."
+            href="#/puzzles/repetition/mastered"
+            action="Browse Mastered"
+            empty="No Mastered puzzles yet."
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ListCard({
+  id,
+  title,
+  puzzles,
+  text,
+  href,
+  action,
+  empty,
+}: {
+  id: string
+  title: string
+  puzzles: number
+  text: string
+  href: string
+  action: string
+  empty: string
+}) {
+  return (
+    <section className={styles.module} aria-labelledby={`${id}-title`}>
+      <p className={styles.eyebrow}>Training List</p>
+      <h3 id={`${id}-title`}>
+        {title} <span className={styles.count}>{formatCount(puzzles)}</span>
+      </h3>
+      <p>{text}</p>
+      {puzzles === 0 ? <p className={styles.muted}>{empty}</p> : <a className={styles.primaryLink} href={href}>{action}</a>}
+    </section>
+  )
+}
+
+function MasteredView({ onSessionFailure }: { onSessionFailure: (failure: SessionFailure) => void }) {
+  const { value: summary, state, reload } = useLoaded<MasteredSummary>(loadMastered, onSessionFailure)
+  const themes = useMemo(
+    () => (summary?.categories ?? [])
+      .filter((category) => category.kind === 'theme' && !HIDDEN_THEMES.has(category.key))
+      .sort(byCount),
+    [summary],
+  )
+  const families = useMemo(
+    () => summary === null ? [] : openingFamilies(summary.categories, 'popular'),
+    [summary],
+  )
+  return (
+    <div className={styles.page}>
+      <section className={styles.categoryPage} aria-labelledby="mastered-title">
+        <a className={styles.backLink} href="#/puzzles/repetition">← Repetition</a>
+        <header className={styles.categoryHeader}>
+          <div>
+            <p className={styles.eyebrow}>Repetition · Normal puzzles</p>
+            <h2 id="mastered-title">Mastered puzzles</h2>
+            <p className={styles.muted}>
+              Choose a theme or opening to practice its Mastered puzzles. Practice is optional: it never
+              changes Mastered status or starts repetition progress. A puzzle appears under every theme
+              and opening it belongs to.
+            </p>
+          </div>
+        </header>
+        {state === 'loading' && <p className={styles.muted} aria-live="polite">Loading Mastered puzzles…</p>}
+        {state === 'failed' && (
+          <div className={styles.inlineError} role="alert">
+            <p>Mastered puzzles could not be loaded. Nothing has changed.</p>
+            <button className={styles.secondaryButton} type="button" onClick={reload}>Retry</button>
+          </div>
+        )}
+        {state === 'ready' && summary !== null && (
+          summary.total === 0 ? (
+            <p className={styles.muted}>
+              No Mastered puzzles yet. A puzzle is Mastered after five fast, clean solutions in Retiring.
+            </p>
+          ) : (
+            <div className={styles.themeSections}>
+              <p className={styles.muted}>
+                {formatCount(summary.total)} Mastered {summary.total === 1 ? 'puzzle' : 'puzzles'}.
+              </p>
+              {themes.length > 0 && (
+                <section className={styles.themeSection} aria-labelledby="mastered-themes">
+                  <h3 id="mastered-themes">By theme</h3>
+                  <ul className={styles.themeGrid}>
+                    {themes.map((theme) => (
+                      <li key={theme.key}>
+                        <a className={styles.themeLink} href={masteredHref(theme)}>
+                          <span className={styles.themeText}>
+                            <span className={styles.themeName}>
+                              {theme.name} <span className={styles.count}>{formatCount(theme.puzzles)}</span>
+                            </span>
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+              {families.length > 0 && (
+                <section className={styles.themeSection} aria-labelledby="mastered-openings">
+                  <h3 id="mastered-openings">By opening</h3>
+                  {families.map((family) => (
+                    <div key={family.key} className={styles.openingFamily}>
+                      <h4>
+                        <a href={masteredHref(family)}>{family.name}</a>{' '}
+                        <span className={styles.count}>{formatCount(family.puzzles)}</span>
+                      </h4>
+                      {family.variations.length > 0 && (
+                        <ul className={styles.variationGrid}>
+                          {family.variations.map((variation) => (
+                            <li key={variation.key}>
+                              <a href={masteredHref(variation)}>{variation.name}</a>{' '}
+                              <span className={styles.count}>{formatCount(variation.puzzles)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </section>
+              )}
+            </div>
+          )
+        )}
+      </section>
+    </div>
+  )
+}
+
+function byCount(left: PuzzleCategory, right: PuzzleCategory) {
+  return right.puzzles - left.puzzles || left.name.localeCompare(right.name)
+}
+
+function masteredHref(category: PuzzleCategory) {
+  return `#/puzzles/repetition/mastered/${category.kind}/${encodeURIComponent(category.key)}`
 }
 
 function CategoryPage({
@@ -459,11 +711,16 @@ function PuzzlePlayer({
   categories,
   onSessionFailure,
 }: {
-  route: Extract<PuzzleRoute, { kind: 'random' } | { kind: 'category' }>
+  route: PlayerRoute
   categories: PuzzleCategory[] | null
   onSessionFailure: (failure: SessionFailure) => void
 }) {
   const [phase, setPhase] = useState<Phase>({ kind: 'starting' })
+  // A Practice Session is created when the route opens and again only after it ends.
+  const [sessionId, setSessionId] = useState<number | null>(null)
+  const [progress, setProgress] = useState<{ position: number; total: number } | null>(null)
+  const practice = route.kind === 'mastered-practice'
+  const inSession = route.kind === 'session' || route.kind === 'mastered-practice'
   const [line, setLine] = useState<string[]>([])
   const [wrongMoves, setWrongMoves] = useState(0)
   const [hintSquare, setHintSquare] = useState<string | null>(null)
@@ -474,11 +731,48 @@ function PuzzlePlayer({
   const puzzleTitleRef = useRef<HTMLHeadingElement>(null)
   const startRef = useRef<HTMLButtonElement>(null)
 
-  const categoryName = route.kind === 'category'
+  const categoryName = route.kind === 'category' || route.kind === 'mastered-practice'
     ? categories?.find((category) => category.kind === route.category && category.key === route.key)?.name
       ?? route.key.replaceAll('_', ' ')
     : null
-  const title = route.kind === 'random' ? 'Random puzzle' : categoryName ?? ''
+  const title = route.kind === 'random'
+    ? 'Random puzzle'
+    : route.kind === 'session' ? LIST_LABELS[route.list] : categoryName ?? ''
+
+  const nextAttempt = async (): Promise<PuzzleAttempt> => {
+    if (route.kind === 'random') return startRandomPuzzle()
+    if (route.kind === 'category') return startCategoryPuzzle(route.category, route.key)
+    let current = sessionId
+    if (current === null) {
+      const session = route.kind === 'session'
+        ? await startListSession(route.list)
+        : await startMasteredSession(route.category, route.key)
+      current = session.sessionId
+      setSessionId(current)
+    }
+    const next = await nextSessionPuzzle(current)
+    setProgress({ position: next.position, total: next.total })
+    return next.attempt
+  }
+
+  const startFailure = (requestError: unknown) => {
+    const code = requestError instanceof PuzzleRequestError ? requestError.code : null
+    if (code === 'session_complete' || code === 'session_not_found') setSessionId(null)
+    if (code === 'session_complete') {
+      const practiced = progress === null || progress.total === 1 ? 'every puzzle' : `all ${progress.total} puzzles`
+      return `Session complete: you practiced ${practiced} once. A new session shuffles them again.`
+    }
+    if (code === 'session_not_found') {
+      return 'This session ended because another Practice Session was started. Start a new session to continue.'
+    }
+    if (code !== 'no_puzzle_available') return 'A puzzle could not be started. Try again.'
+    if (route.kind === 'random') {
+      return 'No new puzzle is available: every stored puzzle is already in one of your Training Lists, or the library is empty.'
+    }
+    if (route.kind === 'category') return 'No puzzle is available: every puzzle in this category is Mastered.'
+    if (route.kind === 'session') return `${LIST_LABELS[route.list]} has no puzzles right now.`
+    return 'You have no Mastered puzzles in this category.'
+  }
 
   const start = async () => {
     setPhase({ kind: 'starting' })
@@ -489,18 +783,12 @@ function PuzzlePlayer({
     setError(null)
     try {
       // The attempt (and its Solve Time) starts here; the board is interactive as soon as it returns.
-      const attempt = route.kind === 'random'
-        ? await startRandomPuzzle()
-        : await startCategoryPuzzle(route.category, route.key)
+      const attempt = await nextAttempt()
       setPhase({ kind: 'playing', attempt })
     } catch (requestError) {
       reportSessionFailure(requestError, onSessionFailure)
       setPhase({ kind: 'ready' })
-      setError(requestError instanceof PuzzleRequestError && requestError.code === 'no_puzzle_available'
-        ? route.kind === 'random'
-          ? 'No new puzzle is available: every stored puzzle is already in one of your Training Lists, or the library is empty.'
-          : 'No puzzle is available: every puzzle in this category is Mastered.'
-        : 'A puzzle could not be started. Try again.')
+      setError(startFailure(requestError))
     }
   }
 
@@ -608,17 +896,33 @@ function PuzzlePlayer({
 
   return (
     <article className={styles.playerPage}>
-      <a className={styles.backLink} href="#/puzzles">← Puzzles</a>
+      {route.kind === 'session' ? (
+        <a className={styles.backLink} href="#/puzzles/repetition">← Repetition</a>
+      ) : route.kind === 'mastered-practice' ? (
+        <a className={styles.backLink} href="#/puzzles/repetition/mastered">← Mastered puzzles</a>
+      ) : (
+        <a className={styles.backLink} href="#/puzzles">← Puzzles</a>
+      )}
       <header className={styles.playerHeader}>
         <div>
           <p className={styles.eyebrow}>
-            {route.kind === 'random' ? 'Random' : `By Category · ${KIND_LABELS[route.category]}`}
+            {route.kind === 'random'
+              ? 'Random'
+              : route.kind === 'category'
+                ? `By Category · ${KIND_LABELS[route.category]}`
+                : route.kind === 'session'
+                  ? 'Repetition · Practice Session'
+                  : `Mastered practice · ${KIND_LABELS[route.category]}`}
           </p>
           <h2>{title}</h2>
           <p>
             {route.kind === 'random'
               ? 'Puzzles you have not completed before, one at a time.'
-              : 'Any puzzle in this category except Mastered ones.'}
+              : route.kind === 'category'
+                ? 'Any puzzle in this category except Mastered ones.'
+                : route.kind === 'session'
+                  ? 'Every puzzle in this list once, in a fresh random order.'
+                  : 'Your Mastered puzzles in this category, in a fresh random order. Practice only: attempts never change Mastered status.'}
           </p>
         </div>
       </header>
@@ -636,7 +940,7 @@ function PuzzlePlayer({
               type="button"
               onClick={() => void start()}
             >
-              Try another puzzle
+              {inSession && sessionId === null ? 'Start a new session' : 'Try another puzzle'}
             </button>
           )}
         </section>
@@ -676,6 +980,12 @@ function PuzzlePlayer({
                 <dt>Wrong Moves</dt>
                 <dd>{wrongMoves}</dd>
               </div>
+              {inSession && progress !== null && (
+                <div>
+                  <dt>Session</dt>
+                  <dd>{progress.position} of {progress.total}</dd>
+                </div>
+              )}
             </dl>
             <div ref={statusRef} tabIndex={-1} className={styles.status} aria-live="polite">
               {feedback && (
@@ -686,13 +996,17 @@ function PuzzlePlayer({
               )}
               {hintSquare && phase.kind === 'playing' && (
                 <p className={styles.hint}>
-                  <strong>Hint:</strong> move the piece on {hintSquare}. This puzzle goes to Hard to Solve, with its progress there restarted.
+                  <strong>Hint:</strong> move the piece on {hintSquare}.{' '}
+                  {practice
+                    ? 'Practice only: the puzzle stays Mastered.'
+                    : 'This puzzle goes to Hard to Solve, with its progress there restarted.'}
                 </p>
               )}
               {phase.kind === 'complete' && (
                 <CompletionSummary
                   completion={phase.completion}
                   revealed={phase.revealed}
+                  practice={practice}
                   categories={categories}
                 />
               )}
@@ -720,13 +1034,15 @@ function PuzzlePlayer({
                 </>
               ) : (
                 <button className={styles.primaryButton} type="button" onClick={() => void start()}>
-                  {route.kind === 'random' ? 'Next puzzle' : `Next in ${title}`}
+                  {route.kind === 'category' ? `Next in ${title}` : 'Next puzzle'}
                 </button>
               )}
             </div>
             {phase.kind === 'playing' && (
               <p className={styles.muted}>
-                A hint or Show solution places this puzzle in Hard to Solve and restarts its progress there.
+                {practice
+                  ? 'Practice only: a hint or Show solution does not change Mastered status.'
+                  : 'A hint or Show solution places this puzzle in Hard to Solve and restarts its progress there.'}
               </p>
             )}
           </div>
@@ -739,10 +1055,12 @@ function PuzzlePlayer({
 function CompletionSummary({
   completion,
   revealed,
+  practice,
   categories,
 }: {
   completion: PuzzleCompletion
   revealed: boolean
+  practice: boolean
   categories: PuzzleCategory[] | null
 }) {
   const list = LIST_LABELS[completion.list]
@@ -752,7 +1070,9 @@ function CompletionSummary({
     <div className={styles.summary}>
       <p>
         <strong>{revealed ? 'Solution shown.' : 'Puzzle complete.'}</strong>{' '}
-        {completion.previousList === null
+        {practice
+          ? 'Practice only: stays Mastered.'
+          : completion.previousList === null
           ? `Placed in ${list}.`
           : completion.previousList === completion.list
             ? `Stays in ${list}.`
@@ -794,6 +1114,12 @@ function CompletionSummary({
       </a>
     </div>
   )
+}
+
+function playerKey(route: PlayerRoute) {
+  if (route.kind === 'random') return 'random'
+  if (route.kind === 'session') return `session/${route.list}`
+  return `${route.kind}/${route.category}/${route.key}`
 }
 
 function categoryHref(category: PuzzleCategory) {

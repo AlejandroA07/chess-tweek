@@ -376,6 +376,18 @@ class PuzzleTrainingControllerTest {
         }
 
         @Override
+        public Optional<Attempt> startForMethod(String accountId, long puzzleId) {
+            act(accountId);
+            return Optional.of(attempt(null));
+        }
+
+        @Override
+        public Optional<Long> methodAttemptPuzzle(String accountId, long attemptId) {
+            act(accountId);
+            return Optional.empty();
+        }
+
+        @Override
         public MoveResult move(String accountId, long attemptId, String moveUci) {
             act(accountId);
             return switch (moveOutcome) {

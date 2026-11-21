@@ -265,7 +265,8 @@ public final class PuzzleTrainingController {
                 .orElseGet(() -> error(HttpStatus.NOT_FOUND, "no_puzzle_available"));
     }
 
-    private static AttemptResponse attempt(PuzzleTraining.Attempt value) {
+    /** Shared with the guided-course controller, whose Exercises are Puzzle attempts. */
+    static AttemptResponse attempt(PuzzleTraining.Attempt value) {
         return new AttemptResponse(
                 value.attemptId(),
                 value.puzzleId(),
@@ -316,7 +317,8 @@ public final class PuzzleTrainingController {
         };
     }
 
-    private static CompletionResponse completion(PuzzleTraining.Completion completion) {
+    /** Shared with the guided-course controller, whose Exercises are Puzzle attempts. */
+    static CompletionResponse completion(PuzzleTraining.Completion completion) {
         if (completion == null) {
             return null;
         }

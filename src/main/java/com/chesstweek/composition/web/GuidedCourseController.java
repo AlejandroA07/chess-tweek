@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +26,7 @@ import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 import com.chesstweek.identity.LichessSessionService;
 import com.chesstweek.training.GuidedCourses;
+import com.chesstweek.training.PuzzleTraining;
 
 @RestController
 @RequestMapping("/api/training/courses/grandmaster-thinking-method")
@@ -92,84 +94,101 @@ public final class GuidedCourseController {
         }
     }
 
+    /** Starts a full Puzzle attempt on the Exercise's Puzzle; Solve Time starts now. */
     @PostMapping("/exercises/{exerciseKey}/attempts")
-    public ResponseEntity<?> attempt(
+    public ResponseEntity<?> startExercise(
+            HttpServletRequest request,
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession,
+            @PathVariable("exerciseKey") String exerciseKey) {
+        return authorized(request, sealedSession, validKey(exerciseKey), account ->
+                courses.startExercise(account, exerciseKey)
+                        .<ResponseEntity<?>>map(attempt -> ResponseEntity.status(HttpStatus.CREATED)
+                                .cacheControl(CacheControl.noStore())
+                                .body(PuzzleTrainingController.attempt(attempt)))
+                        .orElseGet(() -> error(HttpStatus.NOT_FOUND, "exercise_not_found")));
+    }
+
+    @PostMapping("/exercises/{exerciseKey}/attempts/{attemptId}/moves")
+    public ResponseEntity<?> move(
             HttpServletRequest request,
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession,
             @PathVariable("exerciseKey") String exerciseKey,
+            @PathVariable("attemptId") long attemptId,
             @RequestBody(required = false) AttemptRequest body) {
-        if (!LoopbackRequestPolicy.isSameOrigin(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        if (!validKey(exerciseKey)
-                || body == null
-                || body.move() == null
-                || !UCI.matcher(body.move()).matches()) {
-            return error(HttpStatus.BAD_REQUEST, "invalid_training_request");
-        }
-        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
-        ResponseEntity<CourseError> denied = deny(authorization);
-        if (denied != null) {
-            return denied;
-        }
-        try {
-            GuidedCourses.AttemptResult result = courses.attempt(
-                    authorization.accountId(), exerciseKey, body.move());
-            return switch (result.outcome()) {
-                case CORRECT, INCORRECT -> ok(new AttemptResponse(
-                        lower(result.outcome()),
+        boolean valid = validKey(exerciseKey) && attemptId > 0 && body != null
+                && body.move() != null && UCI.matcher(body.move()).matches();
+        return authorized(request, sealedSession, valid, account -> {
+            GuidedCourses.ExerciseMoveResult result =
+                    courses.exerciseMove(account, exerciseKey, attemptId, body.move());
+            PuzzleTraining.MoveResult move = result.move();
+            return switch (move.outcome()) {
+                case CORRECT, SOLVED, WRONG -> ok(new ExerciseMoveResponse(
+                        lower(move.outcome()),
+                        move.opponentReply(),
+                        move.wrongMoves(),
                         result.feedback(),
-                        result.solutionMove(),
-                        result.explanation()));
-                case INVALID_MOVE -> error(HttpStatus.BAD_REQUEST, "illegal_training_move");
-                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "exercise_not_found");
+                        result.explanation(),
+                        PuzzleTrainingController.completion(move.completion())));
+                case ILLEGAL -> error(HttpStatus.BAD_REQUEST, "illegal_training_move");
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "attempt_not_found");
+                case FINISHED -> error(HttpStatus.CONFLICT, "attempt_finished");
             };
-        } catch (DataAccessException | IllegalArgumentException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
-        }
+        });
     }
 
-    @PostMapping("/exercises/{exerciseKey}/hint")
+    @PostMapping("/exercises/{exerciseKey}/attempts/{attemptId}/hint")
     public ResponseEntity<?> hint(
             HttpServletRequest request,
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession,
             @PathVariable("exerciseKey") String exerciseKey,
+            @PathVariable("attemptId") long attemptId,
             @RequestBody(required = false) HintRequest body) {
-        if (!LoopbackRequestPolicy.isSameOrigin(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        if (!validKey(exerciseKey) || body == null || body.level() < 1 || body.level() > 2) {
-            return error(HttpStatus.BAD_REQUEST, "invalid_training_request");
-        }
-        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
-        ResponseEntity<CourseError> denied = deny(authorization);
-        if (denied != null) {
-            return denied;
-        }
-        try {
-            GuidedCourses.HintResult result = courses.hint(
-                    authorization.accountId(), exerciseKey, body.level());
+        boolean valid = validKey(exerciseKey) && attemptId > 0 && body != null
+                && body.level() >= 1 && body.level() <= 2;
+        return authorized(request, sealedSession, valid, account -> {
+            GuidedCourses.HintResult result =
+                    courses.exerciseHint(account, exerciseKey, attemptId, body.level());
             return switch (result.outcome()) {
                 case SHOWN -> ok(new HintResponse(result.level(), result.text()));
                 case INVALID_LEVEL -> error(HttpStatus.BAD_REQUEST, "invalid_training_request");
-                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "exercise_not_found");
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "attempt_not_found");
+                case FINISHED -> error(HttpStatus.CONFLICT, "attempt_finished");
             };
-        } catch (DataAccessException | IllegalArgumentException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
-        }
+        });
     }
 
-    @PostMapping("/exercises/{exerciseKey}/reveal")
+    @PostMapping("/exercises/{exerciseKey}/attempts/{attemptId}/reveal")
     public ResponseEntity<?> reveal(
             HttpServletRequest request,
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession,
+            @PathVariable("exerciseKey") String exerciseKey,
+            @PathVariable("attemptId") long attemptId) {
+        boolean valid = validKey(exerciseKey) && attemptId > 0;
+        return authorized(request, sealedSession, valid, account -> {
+            GuidedCourses.ExerciseRevealResult result =
+                    courses.exerciseReveal(account, exerciseKey, attemptId);
+            PuzzleTraining.RevealResult reveal = result.reveal();
+            return switch (reveal.outcome()) {
+                case REVEALED -> ok(new ExerciseRevealResponse(
+                        reveal.remainingMoves(),
+                        result.explanation(),
+                        PuzzleTrainingController.completion(reveal.completion())));
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "attempt_not_found");
+                case FINISHED -> error(HttpStatus.CONFLICT, "attempt_finished");
+            };
+        });
+    }
+
+    /** The full answer of an Exercise the owner already solved or revealed; read-only. */
+    @GetMapping("/exercises/{exerciseKey}/answer")
+    public ResponseEntity<?> answer(
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession,
             @PathVariable("exerciseKey") String exerciseKey) {
-        if (!LoopbackRequestPolicy.isSameOrigin(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
         if (!validKey(exerciseKey)) {
             return error(HttpStatus.BAD_REQUEST, "invalid_training_request");
         }
@@ -179,14 +198,38 @@ public final class GuidedCourseController {
             return denied;
         }
         try {
-            GuidedCourses.RevealResult result = courses.reveal(
-                    authorization.accountId(), exerciseKey);
+            GuidedCourses.ReviewResult result =
+                    courses.review(authorization.accountId(), exerciseKey);
             return switch (result.outcome()) {
-                case REVEALED -> ok(new RevealResponse(
-                        result.solutionMove(), result.explanation()));
+                case REVIEWED -> ok(new AnswerResponse(result.solutionLine(), result.explanation()));
+                case NOT_RESOLVED -> error(HttpStatus.CONFLICT, "exercise_not_resolved");
                 case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "exercise_not_found");
             };
         } catch (DataAccessException | IllegalArgumentException exception) {
+            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
+        }
+    }
+
+    /** Same-origin check, then input validation, then authorization, then the action. */
+    private ResponseEntity<?> authorized(
+            HttpServletRequest request,
+            String sealedSession,
+            boolean valid,
+            Function<String, ResponseEntity<?>> action) {
+        if (!LoopbackRequestPolicy.isSameOrigin(request)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (!valid) {
+            return error(HttpStatus.BAD_REQUEST, "invalid_training_request");
+        }
+        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
+        ResponseEntity<CourseError> denied = deny(authorization);
+        if (denied != null) {
+            return denied;
+        }
+        try {
+            return action.apply(authorization.accountId());
+        } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
         }
     }
@@ -361,14 +404,24 @@ public final class GuidedCourseController {
 
     public record AttemptRequest(String move) {}
 
-    public record AttemptResponse(
-            String outcome, String feedback, String solutionMove, String explanation) {}
+    public record ExerciseMoveResponse(
+            String outcome,
+            String opponentReply,
+            int wrongMoves,
+            String feedback,
+            String explanation,
+            PuzzleTrainingController.CompletionResponse completion) {}
 
     public record HintRequest(int level) {}
 
     public record HintResponse(int level, String text) {}
 
-    public record RevealResponse(String solutionMove, String explanation) {}
+    public record ExerciseRevealResponse(
+            List<String> remainingMoves,
+            String explanation,
+            PuzzleTrainingController.CompletionResponse completion) {}
+
+    public record AnswerResponse(List<String> solutionLine, String explanation) {}
 
     public record CompletionError(String error, ProgressResponse progress) {}
 

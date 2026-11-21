@@ -12,31 +12,36 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.chesstweek.training.GuidedCourses;
+import com.chesstweek.training.PuzzleTraining;
 import com.chesstweek.training.internal.content.CourseContent;
 import com.chesstweek.training.internal.content.CourseContentLoader;
 import com.chesstweek.training.internal.persistence.CourseProgressStore;
 
-import io.github.wolfraam.chessgame.ChessGame;
-import io.github.wolfraam.chessgame.notation.NotationType;
 
 @Service
 public class GuidedCourseService implements GuidedCourses {
 
     private static final Pattern ACCOUNT_ID = Pattern.compile("[A-Za-z0-9_-]{1,32}");
-    private static final Pattern UCI = Pattern.compile("[a-h][1-8][a-h][1-8][qrbn]?");
 
     private final CourseContent content;
     private final CourseProgressStore progressStore;
+    private final PuzzleTraining puzzles;
     private final Clock clock;
 
     @Autowired
-    public GuidedCourseService(CourseContentLoader loader, CourseProgressStore progressStore) {
-        this(loader.content(), progressStore, Clock.systemUTC());
+    public GuidedCourseService(
+            CourseContentLoader loader, CourseProgressStore progressStore, PuzzleTraining puzzles) {
+        this(loader.content(), progressStore, puzzles, Clock.systemUTC());
     }
 
-    GuidedCourseService(CourseContent content, CourseProgressStore progressStore, Clock clock) {
+    GuidedCourseService(
+            CourseContent content,
+            CourseProgressStore progressStore,
+            PuzzleTraining puzzles,
+            Clock clock) {
         this.content = content;
         this.progressStore = progressStore;
+        this.puzzles = puzzles;
         this.clock = clock;
     }
 
@@ -70,61 +75,57 @@ public class GuidedCourseService implements GuidedCourses {
 
     @Override
     @Transactional
-    public AttemptResult attempt(String accountId, String exerciseKey, String moveUci) {
+    public Optional<PuzzleTraining.Attempt> startExercise(String accountId, String exerciseKey) {
         requireAccount(accountId);
         CourseContent.ExerciseAnswer answer = content.answer(exerciseKey).orElse(null);
         if (answer == null) {
-            return new AttemptResult(AttemptOutcome.NOT_FOUND, null, null, null);
+            return Optional.empty();
         }
-        if (moveUci == null || !UCI.matcher(moveUci).matches() || !legal(answer.fen(), moveUci)) {
-            return new AttemptResult(
-                    AttemptOutcome.INVALID_MOVE,
-                    "That move is not legal in this position.",
-                    null,
-                    null);
-        }
-        long timestamp = now();
-        progressStore.startLesson(
-                accountId,
-                course().key(),
-                course().version(),
-                answer.lessonKey(),
-                timestamp);
-        boolean correct = answer.acceptedMoves().contains(moveUci);
-        progressStore.recordAttempt(
-                accountId,
-                course().key(),
-                course().version(),
-                answer.lessonKey(),
-                exerciseKey,
-                moveUci,
-                correct,
-                timestamp);
-        return new AttemptResult(
-                correct ? AttemptOutcome.CORRECT : AttemptOutcome.INCORRECT,
-                correct ? answer.correctFeedback() : answer.incorrectFeedback(),
-                correct ? moveUci : null,
-                correct ? answer.explanation() : null);
+        startLesson(accountId, answer);
+        return puzzles.startForMethod(accountId, answer.source().id());
     }
 
     @Override
     @Transactional
-    public HintResult hint(String accountId, String exerciseKey, int level) {
+    public ExerciseMoveResult exerciseMove(
+            String accountId, String exerciseKey, long attemptId, String moveUci) {
+        requireAccount(accountId);
+        CourseContent.ExerciseAnswer answer = bound(accountId, exerciseKey, attemptId);
+        if (answer == null) {
+            return new ExerciseMoveResult(new PuzzleTraining.MoveResult(
+                    PuzzleTraining.MoveOutcome.NOT_FOUND, null, 0, null), null, null);
+        }
+        PuzzleTraining.MoveResult result = puzzles.move(accountId, attemptId, moveUci);
+        return switch (result.outcome()) {
+            case WRONG -> {
+                record(accountId, answer, exerciseKey, moveUci, false);
+                yield new ExerciseMoveResult(result, answer.incorrectFeedback(), null);
+            }
+            case SOLVED -> {
+                record(accountId, answer, exerciseKey, moveUci, true);
+                yield new ExerciseMoveResult(
+                        result, answer.correctFeedback(), answer.explanation());
+            }
+            default -> new ExerciseMoveResult(result, null, null);
+        };
+    }
+
+    @Override
+    @Transactional
+    public HintResult exerciseHint(
+            String accountId, String exerciseKey, long attemptId, int level) {
         requireAccount(accountId);
         if (level < 1 || level > 2) {
             return new HintResult(HintOutcome.INVALID_LEVEL, 0, null);
         }
-        CourseContent.ExerciseAnswer answer = content.answer(exerciseKey).orElse(null);
+        CourseContent.ExerciseAnswer answer = bound(accountId, exerciseKey, attemptId);
         if (answer == null) {
             return new HintResult(HintOutcome.NOT_FOUND, 0, null);
         }
-        long timestamp = now();
-        progressStore.startLesson(
-                accountId,
-                course().key(),
-                course().version(),
-                answer.lessonKey(),
-                timestamp);
+        // A written hint is a hint: it counts against the Puzzle's Training List first.
+        if (puzzles.hint(accountId, attemptId).outcome() != PuzzleTraining.HintOutcome.SHOWN) {
+            return new HintResult(HintOutcome.FINISHED, 0, null);
+        }
         progressStore.recordHint(
                 accountId,
                 course().key(),
@@ -132,36 +133,94 @@ public class GuidedCourseService implements GuidedCourses {
                 answer.lessonKey(),
                 exerciseKey,
                 level,
-                timestamp);
+                now());
         return new HintResult(HintOutcome.SHOWN, level, answer.hints().get(level - 1));
     }
 
     @Override
     @Transactional
-    public RevealResult reveal(String accountId, String exerciseKey) {
+    public ExerciseRevealResult exerciseReveal(
+            String accountId, String exerciseKey, long attemptId) {
         requireAccount(accountId);
-        CourseContent.ExerciseAnswer answer = content.answer(exerciseKey).orElse(null);
+        CourseContent.ExerciseAnswer answer = bound(accountId, exerciseKey, attemptId);
         if (answer == null) {
-            return new RevealResult(RevealOutcome.NOT_FOUND, null, null);
+            return new ExerciseRevealResult(new PuzzleTraining.RevealResult(
+                    PuzzleTraining.RevealOutcome.NOT_FOUND, List.of(), null), null);
         }
-        long timestamp = now();
-        progressStore.startLesson(
-                accountId,
-                course().key(),
-                course().version(),
-                answer.lessonKey(),
-                timestamp);
+        PuzzleTraining.RevealResult result = puzzles.reveal(accountId, attemptId);
+        if (result.outcome() != PuzzleTraining.RevealOutcome.REVEALED) {
+            return new ExerciseRevealResult(result, null);
+        }
         progressStore.reveal(
                 accountId,
                 course().key(),
                 course().version(),
                 answer.lessonKey(),
                 exerciseKey,
+                now());
+        return new ExerciseRevealResult(result, answer.explanation());
+    }
+
+    @Override
+    public ReviewResult review(String accountId, String exerciseKey) {
+        requireAccount(accountId);
+        CourseContent.ExerciseAnswer answer = content.answer(exerciseKey).orElse(null);
+        if (answer == null) {
+            return new ReviewResult(ReviewOutcome.NOT_FOUND, List.of(), null);
+        }
+        CourseProgressStore.ExerciseRow row = progressStore
+                .load(accountId, course().key(), course().version())
+                .exercises().get(exerciseKey);
+        boolean resolved = row != null
+                && (row.state() == CourseProgressStore.State.SOLVED
+                        || row.state() == CourseProgressStore.State.REVEALED);
+        if (!resolved) {
+            return new ReviewResult(ReviewOutcome.NOT_RESOLVED, List.of(), null);
+        }
+        return new ReviewResult(
+                ReviewOutcome.REVIEWED, answer.solutionLine(), answer.explanation());
+    }
+
+    /**
+     * The Exercise's answer when {@code attemptId} is one of the account's guided-method attempts
+     * on that Exercise's Puzzle; null for an unknown Exercise or any other attempt.
+     */
+    private CourseContent.ExerciseAnswer bound(
+            String accountId, String exerciseKey, long attemptId) {
+        CourseContent.ExerciseAnswer answer = content.answer(exerciseKey).orElse(null);
+        if (answer == null) {
+            return null;
+        }
+        long puzzleId = answer.source().id();
+        return puzzles.methodAttemptPuzzle(accountId, attemptId)
+                .filter(id -> id == puzzleId)
+                .map(id -> answer)
+                .orElse(null);
+    }
+
+    private void startLesson(String accountId, CourseContent.ExerciseAnswer answer) {
+        progressStore.startLesson(
+                accountId, course().key(), course().version(), answer.lessonKey(), now());
+    }
+
+    private void record(
+            String accountId,
+            CourseContent.ExerciseAnswer answer,
+            String exerciseKey,
+            String moveUci,
+            boolean solved) {
+        long timestamp = now();
+        progressStore.startLesson(
+                accountId, course().key(), course().version(), answer.lessonKey(), timestamp);
+        progressStore.recordAttempt(
+                accountId,
+                course().key(),
+                course().version(),
+                answer.lessonKey(),
+                exerciseKey,
+                moveUci,
+                solved,
                 timestamp);
-        return new RevealResult(
-                RevealOutcome.REVEALED,
-                answer.acceptedMoves().getFirst(),
-                answer.explanation());
     }
 
     @Override
@@ -247,15 +306,6 @@ public class GuidedCourseService implements GuidedCourses {
             case SOLVED -> ExerciseState.SOLVED;
             case REVEALED -> ExerciseState.REVEALED;
         };
-    }
-
-    private static boolean legal(String fen, String moveUci) {
-        try {
-            ChessGame game = new ChessGame(fen);
-            return game.getLegalMoves().contains(game.getMove(NotationType.UCI, moveUci));
-        } catch (RuntimeException exception) {
-            return false;
-        }
     }
 
     private static void requireAccount(String accountId) {

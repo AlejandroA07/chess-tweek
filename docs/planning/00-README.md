@@ -12,3 +12,4 @@ Planning documents are product truth. Change them deliberately when product deci
 | [`06-puzzle-library-taxonomy-and-sizing.md`](06-puzzle-library-taxonomy-and-sizing.md) | Canonical Theme and Opening Tag taxonomy, shared-reference design, and curated collection sizing. |
 | [`07-performance-training-lists.md`](07-performance-training-lists.md) | Owner decisions for measurement, classification, repetition, and retirement of normal and game-derived Puzzles. |
 | [`08-lichess-puzzle-dataset-sizing.md`](08-lichess-puzzle-dataset-sizing.md) | Current official Lichess Puzzle dataset size and estimated Chess Tweek storage for full and curated imports. |
+| [`09-game-review-explanation-research.md`](09-game-review-explanation-research.md) | How chess apps, research, and coaches turn engine analysis into explanations, and the recommended method for Stage 8B and the Stage 10 opening context. |

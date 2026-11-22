@@ -89,6 +89,18 @@ Deliver this stage as three independently reviewed parts:
 - Add New Own Puzzles, Discarded with Restore, all-category summaries, and a separate Own Puzzles repetition dashboard. Apply the same performance rules as normal Puzzles without sharing selection pools, history, or state.
 - Acceptance: game retrieval and Own Puzzle creation are idempotent; each owner inaccuracy, mistake, and blunder produces one Own Puzzle; leaving a new attempt incomplete keeps it new; discard prevents classification and restore returns it new; the normal Puzzle dashboard never returns an Own Puzzle; progress survives restart.
 
+Owner decisions (2026-11-22):
+
+- **Solution:** an Own Puzzle starts at the position before the owner's labelled move and asks for two owner moves: the engine's top move, the engine's reply played automatically, then the engine's top move again. Only the top line counts as correct; other good moves are Wrong Moves. When the stored top line is shorter than three plies, for example because the first move mates, the puzzle is that shorter line. The mating-move rule of Stage 7 still applies: any mating move solves.
+- **Source analyses:** only My Moves analyses completed after Stage 8 ships create Own Puzzles. Analyses stored before then are not backfilled.
+- **Labels:** inaccuracies, mistakes, and blunders all create Own Puzzles; the owner discards unwanted ones.
+
+Deliver this stage as three independently reviewed parts (owner decision, 2026-11-22):
+
+1. **8a — Own Puzzle creation (backend).** On completion of a My Moves analysis, create one Own Puzzle per owner inaccuracy, mistake, and blunder from the stored analysis: position, two-move solution, label, opening, game phase, tactic label, and a link to the exact Game Review position. Creation is idempotent, never uses Opponent Moves findings, and is stored separately from the Lichess Puzzle Library. Prevent reanalysis of a perspective that already completed while still allowing the missing one.
+2. **8b — Own Puzzle training state (backend).** Account-scoped attempts and Training Lists for Own Puzzles under the same rules as normal Puzzles, with separate selection pools, history, and state. New, Discard, and Restore: an incomplete attempt keeps a puzzle New, Discard prevents classification, and Restore returns it New.
+3. **8c — Own Puzzles interface.** New Own Puzzles, Discarded with Restore, summaries by opening, game phase, and tactic label, and a separate Own Puzzles Repetition dashboard, all built from `docs/app-material/DESIGN.md`.
+
 ### Stage 9 — Curated Puzzle collections
 
 **Branch:** `feature/puzzle-collections` · **Needs:** Stage 7 Part 3.
@@ -433,7 +445,7 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-22):**
 
-1. Plan Stage 8 Own Puzzles with the owner before any code: agree on its independently reviewed parts, as was done for Stage 7 Part 3. The scope and acceptance are in "Stage 8 — Own Puzzles" above, and the performance rules are those of `07-performance-training-lists.md`.
+1. Implement Stage 8 Part 8a on its own `feature/<topic>` branch: Own Puzzle creation from newly completed My Moves analyses, following the owner decisions and the part split recorded in "Stage 8 — Own Puzzles" above.
 2. Owner checks still open:
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

@@ -201,6 +201,18 @@ class GuidedCourseControllerTest {
         assertThat(courses.attempts).hasValue(0);
     }
 
+    @Test
+    void reportsAnAnswerFailureAsSafeUnavailableError() throws Exception {
+        FakeCourses courses = new FakeCourses();
+        courses.reviewFailure = new IllegalStateException("internal detail");
+
+        mockMvc(sealed -> connected(), courses)
+                .perform(get(BASE + "/exercises/answer-the-check/answer").cookie(SESSION))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error").value("training_unavailable"))
+                .andExpect(content().string(not(containsString("internal detail"))));
+    }
+
     private static org.springframework.test.web.servlet.RequestBuilder move(String path, String uci) {
         return post(BASE + path).cookie(SESSION).header("Origin", ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -226,6 +238,7 @@ class GuidedCourseControllerTest {
         HintOutcome hintOutcome = HintOutcome.SHOWN;
         PuzzleTraining.RevealOutcome revealOutcome = PuzzleTraining.RevealOutcome.REVEALED;
         ReviewOutcome reviewOutcome = ReviewOutcome.REVIEWED;
+        RuntimeException reviewFailure;
         boolean empty;
 
         @Override
@@ -317,6 +330,9 @@ class GuidedCourseControllerTest {
         @Override
         public ReviewResult review(String accountId, String exerciseKey) {
             accountSeen.set(accountId);
+            if (reviewFailure != null) {
+                throw reviewFailure;
+            }
             return reviewOutcome == ReviewOutcome.REVIEWED
                     ? new ReviewResult(reviewOutcome, List.of("e1e2"), "Checks come first.")
                     : new ReviewResult(reviewOutcome, List.of(), null);

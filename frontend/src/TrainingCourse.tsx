@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { InteractiveChessBoard } from './ChessBoard'
 import styles from './TrainingCourse.module.css'
-import { LIST_LABELS, type PuzzleAttempt, type PuzzleCompletion } from './puzzles'
+import { LIST_LABELS, seconds, type PuzzleAttempt, type PuzzleCompletion } from './puzzles'
 import {
   completeLesson,
   loadCourse,
@@ -647,12 +647,6 @@ function listResult(completion: PuzzleCompletion) {
   if (completion.previousList === null) return `placed in ${list}.`
   if (completion.previousList === completion.list) return `stays in ${list}.`
   return `moved from ${LIST_LABELS[completion.previousList]} to ${list}.`
-}
-
-/** Rounds down, so a time under the limit never displays as the limit itself. */
-function seconds(milliseconds: number) {
-  const tenths = Math.floor(milliseconds / 100)
-  return tenths % 10 === 0 ? `${tenths / 10} s` : `${(tenths / 10).toFixed(1)} s`
 }
 
 function difficultyLabel(tier: Exercise['difficultyTier']) {

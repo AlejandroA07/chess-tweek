@@ -205,7 +205,7 @@ public final class GuidedCourseController {
                 case NOT_RESOLVED -> error(HttpStatus.CONFLICT, "exercise_not_resolved");
                 case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "exercise_not_found");
             };
-        } catch (DataAccessException | IllegalArgumentException exception) {
+        } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
         }
     }

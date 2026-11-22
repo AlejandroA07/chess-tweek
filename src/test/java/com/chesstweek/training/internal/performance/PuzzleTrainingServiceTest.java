@@ -505,6 +505,62 @@ class PuzzleTrainingServiceTest {
         }
     }
 
+    @Test
+    void aMethodAttemptAppliesTheGlobalRulesIncludingSolveTime() {
+        try (var application = start()) {
+            PuzzleTraining training = training(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            List<Long> puzzles = jdbc.queryForList(
+                    "SELECT id FROM training_puzzle ORDER BY id LIMIT 4", Long.class);
+            assertThat(puzzles).hasSize(4);
+
+            // A fast first solve places the Puzzle in Retiring, timed from the attempt's start.
+            PuzzleTraining.Attempt fast = training.startForMethod(OWNER, puzzles.get(0)).orElseThrow();
+            clock.advance(Duration.ofMillis(fast.fastSolveLimitMillis()));
+            PuzzleTraining.Completion fastCompletion =
+                    solve(application, training, fast, 0).completion();
+            assertThat(fastCompletion.elapsedMillis()).isEqualTo(fast.fastSolveLimitMillis());
+            assertThat(fastCompletion.performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.RETIRING, 0, 0));
+
+            // One millisecond over the fast-solve limit places it in Worth Repeating.
+            PuzzleTraining.Attempt slow = training.startForMethod(OWNER, puzzles.get(1)).orElseThrow();
+            clock.advance(Duration.ofMillis(slow.fastSolveLimitMillis() + 1));
+            assertThat(solve(application, training, slow, 0).completion().performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.WORTH_REPEATING, 0, 0));
+
+            // A repetition through the method advances the list's success counter.
+            jdbc.update("""
+                    INSERT INTO training_puzzle_performance
+                    VALUES (?, ?, 'worth_repeating', 3, 0, 0, 0)
+                    """, OWNER, puzzles.get(2));
+            PuzzleTraining.Attempt repeat = training.startForMethod(OWNER, puzzles.get(2)).orElseThrow();
+            assertThat(repeat.currentList()).isEqualTo(TrainingList.WORTH_REPEATING);
+            PuzzleTraining.Completion repeated = solve(application, training, repeat, 0).completion();
+            assertThat(repeated.previousList()).isEqualTo(TrainingList.WORTH_REPEATING);
+            assertThat(repeated.performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.WORTH_REPEATING, 4, 0));
+
+            // A Mastered Puzzle stays Mastered, even after Wrong Moves and a hint.
+            jdbc.update("""
+                    INSERT INTO training_puzzle_performance
+                    VALUES (?, ?, 'mastered', 0, 0, 0, 0)
+                    """, OWNER, puzzles.get(3));
+            PuzzleTraining.Attempt mastered =
+                    training.startForMethod(OWNER, puzzles.get(3)).orElseThrow();
+            String wrong = wrongMove(application, mastered, 0);
+            training.move(OWNER, mastered.attemptId(), wrong);
+            training.move(OWNER, mastered.attemptId(), wrong);
+            training.hint(OWNER, mastered.attemptId());
+            assertThat(solve(application, training, mastered, 0).completion().performance())
+                    .isEqualTo(new PuzzleTraining.Performance(TrainingList.MASTERED, 0, 0));
+
+            assertThat(jdbc.queryForList(
+                    "SELECT DISTINCT entry FROM training_puzzle_attempt", String.class))
+                    .containsExactly("method");
+        }
+    }
+
     /** Plays the remaining solution from {@code ply}; returns the final result. */
     private PuzzleTraining.MoveResult solve(
             ConfigurableApplicationContext application,

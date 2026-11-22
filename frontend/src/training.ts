@@ -149,9 +149,7 @@ export async function revealExercise(exerciseKey: string, attemptId: number) {
   const response = await send(`${attemptPath(exerciseKey, attemptId)}/reveal`)
   const value: unknown = await response.json()
   if (
-    !isRecord(value) || !Array.isArray(value.remainingMoves) ||
-    value.remainingMoves.length < 1 || value.remainingMoves.length > 200 ||
-    !value.remainingMoves.every(isUci) || !isText(value.explanation, 500)
+    !isRecord(value) || !isUciLine(value.remainingMoves) || !isText(value.explanation, 500)
   ) throw new TrainingRequestError('unavailable')
   return {
     remainingMoves: value.remainingMoves,
@@ -169,11 +167,14 @@ export async function loadExerciseAnswer(exerciseKey: string) {
   await requireResponse(response)
   const value: unknown = await response.json()
   if (
-    !isRecord(value) || !Array.isArray(value.solutionLine) ||
-    value.solutionLine.length < 1 || value.solutionLine.length > 200 ||
-    !value.solutionLine.every(isUci) || !isText(value.explanation, 500)
+    !isRecord(value) || !isUciLine(value.solutionLine) || !isText(value.explanation, 500)
   ) throw new TrainingRequestError('unavailable')
   return { solutionLine: value.solutionLine, explanation: value.explanation }
+}
+
+/** A non-empty line of at most 200 UCI moves. */
+function isUciLine(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length >= 1 && value.length <= 200 && value.every(isUci)
 }
 
 function attemptPath(exerciseKey: string, attemptId: number) {

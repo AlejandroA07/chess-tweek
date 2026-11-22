@@ -89,6 +89,12 @@ export const LIST_LABELS: Record<TrainingList, string> = {
   mastered: 'Mastered',
 }
 
+/** Rounds down, so a time under the limit never displays as the limit itself. */
+export function seconds(milliseconds: number) {
+  const tenths = Math.floor(milliseconds / 100)
+  return tenths % 10 === 0 ? `${tenths / 10} s` : `${(tenths / 10).toFixed(1)} s`
+}
+
 export const ACTIVE_LISTS: ActiveList[] = ['hard_to_solve', 'wrong_moves', 'worth_repeating', 'retiring']
 
 const base = '/api/training/puzzles'

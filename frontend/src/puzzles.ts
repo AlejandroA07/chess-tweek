@@ -89,6 +89,12 @@ export const LIST_LABELS: Record<TrainingList, string> = {
   mastered: 'Mastered',
 }
 
+/** Rounds down, so a time under the limit never displays as the limit itself. */
+export function seconds(milliseconds: number) {
+  const tenths = Math.floor(milliseconds / 100)
+  return tenths % 10 === 0 ? `${tenths / 10} s` : `${(tenths / 10).toFixed(1)} s`
+}
+
 export const ACTIVE_LISTS: ActiveList[] = ['hard_to_solve', 'wrong_moves', 'worth_repeating', 'retiring']
 
 const base = '/api/training/puzzles'
@@ -271,7 +277,8 @@ function parseSession(value: unknown): PracticeSession {
   return { sessionId: value.sessionId, list: value.list, total: value.total }
 }
 
-function parseAttempt(value: unknown): PuzzleAttempt {
+/** Shared with the guided course, whose Exercises are Puzzle attempts. */
+export function parseAttempt(value: unknown): PuzzleAttempt {
   if (
     !isRecord(value) || !isInteger(value.attemptId, 1, Number.MAX_SAFE_INTEGER) ||
     !isInteger(value.puzzleId, 1, Number.MAX_SAFE_INTEGER) ||
@@ -294,7 +301,8 @@ function parseAttempt(value: unknown): PuzzleAttempt {
   }
 }
 
-function parseCompletion(value: unknown): PuzzleCompletion {
+/** Shared with the guided course, whose Exercises are Puzzle attempts. */
+export function parseCompletion(value: unknown): PuzzleCompletion {
   if (
     !isRecord(value) ||
     !(value.previousList === null || value.previousList === undefined || isList(value.previousList)) ||

@@ -17,6 +17,15 @@ public interface PuzzleTraining {
     /** Starts an attempt on a Puzzle in one category that is not Mastered for the account. */
     Optional<Attempt> startInCategory(String accountId, PuzzleLibrary.Category category);
 
+    /**
+     * Starts an attempt on the Puzzle that a guided method's Exercise references. It applies the
+     * same rules as every other attempt; the method's own course progress stays separate.
+     */
+    Optional<Attempt> startForMethod(String accountId, long puzzleId);
+
+    /** The Puzzle of one of the account's guided-method attempts, or empty for any other. */
+    Optional<Long> methodAttemptPuzzle(String accountId, long attemptId);
+
     MoveResult move(String accountId, long attemptId, String moveUci);
 
     HintResult hint(String accountId, long attemptId);
@@ -57,7 +66,8 @@ public interface PuzzleTraining {
         RANDOM,
         CATEGORY,
         REPETITION,
-        MASTERED_PRACTICE
+        MASTERED_PRACTICE,
+        METHOD
     }
 
     enum TrainingList {

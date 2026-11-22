@@ -80,6 +80,20 @@ public class PuzzleTrainingService implements PuzzleTraining {
     }
 
     @Override
+    public Optional<Attempt> startForMethod(String accountId, long puzzleId) {
+        requireAccount(accountId);
+        return start(accountId, puzzleId, Entry.METHOD);
+    }
+
+    @Override
+    public Optional<Long> methodAttemptPuzzle(String accountId, long attemptId) {
+        requireAccount(accountId);
+        return store.attempt(accountId, attemptId)
+                .filter(attempt -> attempt.entry() == Entry.METHOD)
+                .map(AttemptRow::puzzleId);
+    }
+
+    @Override
     public List<ListCount> listCounts(String accountId) {
         requireAccount(accountId);
         Map<TrainingList, Integer> counts = store.listCounts(accountId);

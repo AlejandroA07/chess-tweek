@@ -1,3 +1,5 @@
+import { parseAttempt, parseCompletion, type PuzzleAttempt, type PuzzleCompletion } from './puzzles'
+
 export type Course = {
   key: string
   version: number
@@ -54,15 +56,27 @@ export type ExerciseProgress = {
   hintLevel: number
 }
 
-export type AttemptResult = {
-  outcome: 'correct' | 'incorrect'
-  feedback: string
-  solutionMove: string | null
-  explanation: string | null
-}
+export type ExerciseMoveResult =
+  | { outcome: 'correct'; opponentReply: string; wrongMoves: number }
+  | { outcome: 'wrong'; wrongMoves: number; feedback: string | null }
+  | {
+    outcome: 'solved'
+    wrongMoves: number
+    feedback: string | null
+    explanation: string
+    completion: PuzzleCompletion
+  }
 
 export class TrainingRequestError extends Error {
-  constructor(readonly code: 'not_connected' | 'session_unavailable' | 'unavailable' | 'incomplete') {
+  constructor(
+    readonly code:
+      | 'not_connected'
+      | 'session_unavailable'
+      | 'unavailable'
+      | 'incomplete'
+      | 'attempt_finished'
+      | 'illegal_move',
+  ) {
     super(code)
   }
 }
@@ -86,19 +100,43 @@ export async function startLesson(lessonKey: string): Promise<Progress> {
   return parseProgress(await response.json())
 }
 
-export async function submitMove(exerciseKey: string, move: string): Promise<AttemptResult> {
-  const response = await send(
-    `${base}/exercises/${encodeURIComponent(exerciseKey)}/attempts`,
-    { move },
-  )
-  return parseAttempt(await response.json())
+/** Starts a full Puzzle attempt on the Exercise's Puzzle; its Solve Time starts now. */
+export async function startExercise(exerciseKey: string): Promise<PuzzleAttempt> {
+  const response = await send(`${base}/exercises/${encodeURIComponent(exerciseKey)}/attempts`)
+  const value: unknown = await response.json()
+  return parsePuzzle(() => parseAttempt(value))
 }
 
-export async function requestHint(exerciseKey: string, level: number) {
-  const response = await send(
-    `${base}/exercises/${encodeURIComponent(exerciseKey)}/hint`,
-    { level },
-  )
+export async function submitExerciseMove(
+  exerciseKey: string,
+  attemptId: number,
+  move: string,
+): Promise<ExerciseMoveResult> {
+  const response = await send(`${attemptPath(exerciseKey, attemptId)}/moves`, { move })
+  const value: unknown = await response.json()
+  if (
+    !isRecord(value) ||
+    (value.outcome !== 'correct' && value.outcome !== 'solved' && value.outcome !== 'wrong') ||
+    !isInteger(value.wrongMoves, 0, 10_000) ||
+    !(value.feedback === null || value.feedback === undefined || isText(value.feedback, 300)) ||
+    !(value.explanation === null || value.explanation === undefined || isText(value.explanation, 500))
+  ) throw new TrainingRequestError('unavailable')
+  const feedback = typeof value.feedback === 'string' ? value.feedback : null
+  if (value.outcome === 'correct') {
+    if (!isUci(value.opponentReply)) throw new TrainingRequestError('unavailable')
+    return { outcome: 'correct', opponentReply: value.opponentReply, wrongMoves: value.wrongMoves }
+  }
+  if (value.outcome === 'wrong') {
+    return { outcome: 'wrong', wrongMoves: value.wrongMoves, feedback }
+  }
+  if (typeof value.explanation !== 'string') throw new TrainingRequestError('unavailable')
+  const completion = parsePuzzle(() => parseCompletion(value.completion))
+  return { outcome: 'solved', wrongMoves: value.wrongMoves, feedback, explanation: value.explanation, completion }
+}
+
+/** A written hint; it counts as a hint for the Puzzle's Training List. */
+export async function requestExerciseHint(exerciseKey: string, attemptId: number, level: number) {
+  const response = await send(`${attemptPath(exerciseKey, attemptId)}/hint`, { level })
   const value: unknown = await response.json()
   if (!isRecord(value) || !isInteger(value.level, 1, 2) || !isText(value.text, 180)) {
     throw new TrainingRequestError('unavailable')
@@ -106,13 +144,51 @@ export async function requestHint(exerciseKey: string, level: number) {
   return { level: value.level, text: value.text }
 }
 
-export async function revealExercise(exerciseKey: string) {
-  const response = await send(`${base}/exercises/${encodeURIComponent(exerciseKey)}/reveal`)
+/** Show solution: completes the attempt as hinted and returns the remaining line. */
+export async function revealExercise(exerciseKey: string, attemptId: number) {
+  const response = await send(`${attemptPath(exerciseKey, attemptId)}/reveal`)
   const value: unknown = await response.json()
-  if (!isRecord(value) || !isUci(value.solutionMove) || !isText(value.explanation, 500)) {
+  if (
+    !isRecord(value) || !isUciLine(value.remainingMoves) || !isText(value.explanation, 500)
+  ) throw new TrainingRequestError('unavailable')
+  return {
+    remainingMoves: value.remainingMoves,
+    explanation: value.explanation,
+    completion: parsePuzzle(() => parseCompletion(value.completion)),
+  }
+}
+
+/** The full answer of an Exercise already solved or revealed; it changes nothing. */
+export async function loadExerciseAnswer(exerciseKey: string) {
+  const response = await fetch(`${base}/exercises/${encodeURIComponent(exerciseKey)}/answer`, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  })
+  await requireResponse(response)
+  const value: unknown = await response.json()
+  if (
+    !isRecord(value) || !isUciLine(value.solutionLine) || !isText(value.explanation, 500)
+  ) throw new TrainingRequestError('unavailable')
+  return { solutionLine: value.solutionLine, explanation: value.explanation }
+}
+
+/** A non-empty line of at most 200 UCI moves. */
+function isUciLine(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length >= 1 && value.length <= 200 && value.every(isUci)
+}
+
+function attemptPath(exerciseKey: string, attemptId: number) {
+  if (!isInteger(attemptId, 1, Number.MAX_SAFE_INTEGER)) throw new TrainingRequestError('unavailable')
+  return `${base}/exercises/${encodeURIComponent(exerciseKey)}/attempts/${attemptId}`
+}
+
+/** Runs a shared Puzzle parser, reporting its failure as a course failure. */
+function parsePuzzle<T>(parse: () => T): T {
+  try {
+    return parse()
+  } catch {
     throw new TrainingRequestError('unavailable')
   }
-  return { solutionMove: value.solutionMove, explanation: value.explanation }
 }
 
 export async function completeLesson(lessonKey: string): Promise<Progress> {
@@ -143,8 +219,24 @@ async function send(url: string, body?: unknown) {
 async function requireResponse(response: Response) {
   if (response.ok) return
   if (response.status === 401) throw new TrainingRequestError('not_connected')
-  if (response.status === 503) throw new TrainingRequestError('session_unavailable')
+  const code = await errorCode(response)
+  if (code === 'attempt_finished' || code === 'attempt_not_found') {
+    throw new TrainingRequestError('attempt_finished')
+  }
+  if (code === 'illegal_training_move') throw new TrainingRequestError('illegal_move')
+  if (response.status === 503 && code !== 'training_unavailable') {
+    throw new TrainingRequestError('session_unavailable')
+  }
   throw new TrainingRequestError('unavailable')
+}
+
+async function errorCode(response: Response) {
+  try {
+    const value: unknown = await response.json()
+    return isRecord(value) && typeof value.error === 'string' ? value.error : null
+  } catch {
+    return null
+  }
 }
 
 function parseCourse(value: unknown): Course {
@@ -259,21 +351,6 @@ function parseProgress(value: unknown): Progress {
     totalLessons: value.totalLessons,
     recommendedLessonKey: value.recommendedLessonKey,
     lessons,
-  }
-}
-
-function parseAttempt(value: unknown): AttemptResult {
-  if (
-    !isRecord(value) || (value.outcome !== 'correct' && value.outcome !== 'incorrect') ||
-    !isText(value.feedback, 300) ||
-    !(value.solutionMove === null || isUci(value.solutionMove)) ||
-    !(value.explanation === null || isText(value.explanation, 500))
-  ) throw new TrainingRequestError('unavailable')
-  return {
-    outcome: value.outcome,
-    feedback: value.feedback,
-    solutionMove: value.solutionMove,
-    explanation: value.explanation,
   }
 }
 

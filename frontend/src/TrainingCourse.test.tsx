@@ -29,91 +29,143 @@ describe('TrainingCourse', () => {
     expect(screen.getByText(/independent Chess Tweek course/)).toBeInTheDocument()
   })
 
-  it('submits an interactive move and reveals only the validated answer', async () => {
+  it('plays the whole line as a timed puzzle attempt with a written hint', async () => {
     const requests: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString()
-      requests.push(`${init?.method ?? 'GET'} ${url}`)
+      requests.push(`${init?.method ?? 'GET'} ${url} ${init?.body ?? ''}`.trim())
       if (url.endsWith('/progress')) return response(progress())
       if (url.endsWith('/lessons/read-the-last-move/start')) return response(progress('in_progress'))
-      if (url.endsWith('/exercises/answer-the-check/attempts')) {
-        expect(init).toMatchObject({ method: 'POST', credentials: 'same-origin' })
-        expect(init?.body).toBe('{"move":"e1e2"}')
-        return response({
-          outcome: 'correct',
-          feedback: 'Correct. Checks come first.',
-          solutionMove: 'e1e2',
-          explanation: 'Kxe2 removes the checking rook.',
-        })
+      if (url.endsWith('/exercises/answer-the-check/attempts')) return response(attempt(), 201)
+      if (url.endsWith('/attempts/5/hint')) return response({ level: 1, text: 'Use the king.' })
+      if (url.endsWith('/attempts/5/moves')) {
+        const move = JSON.parse(String(init?.body)).move
+        if (move === 'e1d1') {
+          return response({ outcome: 'wrong', opponentReply: null, wrongMoves: 1, feedback: 'Look at the checking rook.', explanation: null, completion: null })
+        }
+        if (move === 'e1e2') {
+          return response({ outcome: 'correct', opponentReply: 'e8d7', wrongMoves: 1, feedback: null, explanation: null, completion: null })
+        }
+        if (move === 'e2d3') {
+          return response({
+            outcome: 'solved',
+            opponentReply: null,
+            wrongMoves: 1,
+            feedback: 'Correct. Checks come first.',
+            explanation: 'Kxe2 removes the checking rook.',
+            completion: completion({ hintUsed: true }),
+          })
+        }
       }
       if (url === '/api/training/courses/grandmaster-thinking-method') return response(course())
       throw new Error(`Unexpected request: ${url}`)
     }))
 
-    render(
-      <TrainingCourse
-        connectionState="connected"
-        lessonKey="read-the-last-move"
-        onSessionFailure={vi.fn()}
-      />,
-    )
+    render(<TrainingCourse connectionState="connected" lessonKey="read-the-last-move" onSessionFailure={vi.fn()} />)
 
     expect(await screen.findByRole('heading', { name: 'Read the last move' })).toBeInTheDocument()
-    await waitFor(() => expect(requests).toContain(
-      'POST /api/training/courses/grandmaster-thinking-method/lessons/read-the-last-move/start',
-    ))
-    fireEvent.click(screen.getByRole('button', { name: 'e1, white king' }))
-    fireEvent.click(screen.getByRole('button', { name: 'e2, black rook' }))
+    // The timer starts only when solving starts, so the board waits for that choice.
+    expect(screen.getByRole('button', { name: 'e1, white king' })).toBeDisabled()
+    expect(screen.getByText(/also counts as an attempt on its Lichess puzzle/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Start solving' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'e1, white king' })).toBeEnabled())
+    expect(screen.getByText(/2 moves to find/)).toBeInTheDocument()
+    expect(screen.getByText(/places this puzzle in Hard to Solve/)).toBeInTheDocument()
 
-    expect(await screen.findByText('Reference move: e1e2')).toBeInTheDocument()
+    play('e1', 'd1')
+    expect(await screen.findByText('Look at the checking rook.')).toBeInTheDocument()
+    expect(screen.getByText(/Wrong Moves 1/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e1, white king' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hint: thinking step' }))
+    expect(await screen.findByText('Use the king.')).toBeInTheDocument()
+    expect(requests).toContain('POST /api/training/courses/grandmaster-thinking-method/exercises/answer-the-check/attempts/5/hint {"level":1}')
+
+    play('e1', 'e2')
+    expect(await screen.findByRole('button', { name: 'd7, black king' })).toBeInTheDocument()
+    expect(screen.getByText(/Your opponent replied/)).toBeInTheDocument()
+
+    play('e2', 'd3')
+    expect(await screen.findByText('Line complete')).toBeInTheDocument()
     expect(screen.getByText('Kxe2 removes the checking rook.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'e1, empty' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'e2, white king' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'e8, black king' })).toBeEnabled()
-    expect(screen.queryByTestId('best-move-arrow')).not.toBeInTheDocument()
+    expect(screen.getByText('Puzzle training: placed in Hard to Solve. Solve Time 7.4 s of 11 s.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Solve again' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'd3, white king' })).toBeInTheDocument()
     await waitFor(() => expect(requests.filter((request) => request.endsWith('/progress')).length).toBeGreaterThan(1))
   })
 
-  it('lets a saved solved position be practiced again', async () => {
+  it('shows the solution as a hint and says Solve Time is not counted', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/progress')) return response(progress())
+      if (url.endsWith('/lessons/read-the-last-move/start')) return response(progress('in_progress'))
+      if (url.endsWith('/exercises/answer-the-check/attempts')) return response(attempt('retiring'), 201)
+      if (url.endsWith('/attempts/5/reveal')) {
+        return response({
+          remainingMoves: ['e1e2', 'e8d7', 'e2d3'],
+          explanation: 'Kxe2 removes the checking rook.',
+          completion: completion({ previousList: 'retiring', hintUsed: true }),
+        })
+      }
+      if (url === '/api/training/courses/grandmaster-thinking-method') return response(course())
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(<TrainingCourse connectionState="connected" lessonKey="read-the-last-move" onSessionFailure={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Start solving' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Show solution' }))
+    expect(await screen.findByText('Solution shown')).toBeInTheDocument()
+    expect(screen.getByText('Puzzle training: moved from Retiring to Hard to Solve. Solve Time is not counted.'))
+      .toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'd3, white king' })).toBeInTheDocument()
+  })
+
+  it('reviews a resolved answer without an attempt and can solve it again', async () => {
     const requests: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString()
       requests.push(`${init?.method ?? 'GET'} ${url}`)
       if (url.endsWith('/progress')) return response(progress('in_progress', 'solved'))
-      if (url.endsWith('/lessons/read-the-last-move/start')) {
-        return response(progress('in_progress', 'solved'))
+      if (url.endsWith('/lessons/read-the-last-move/start')) return response(progress('in_progress', 'solved'))
+      if (url.endsWith('/exercises/answer-the-check/answer')) {
+        return response({ solutionLine: ['e1e2', 'e8d7', 'e2d3'], explanation: 'Kxe2 removes the checking rook.' })
       }
-      if (url.endsWith('/exercises/answer-the-check/attempts')) {
-        return response({
-          outcome: 'correct',
-          feedback: 'Correct. Checks come first.',
-          solutionMove: 'e1e2',
-          explanation: 'Kxe2 removes the checking rook.',
-        })
-      }
+      if (url.endsWith('/exercises/answer-the-check/attempts')) return response(attempt('retiring'), 201)
       if (url === '/api/training/courses/grandmaster-thinking-method') return response(course())
       throw new Error(`Unexpected request: ${url}`)
     }))
-
-    render(
-      <TrainingCourse
-        connectionState="connected"
-        lessonKey="read-the-last-move"
-        onSessionFailure={vi.fn()}
-      />,
-    )
+    render(<TrainingCourse connectionState="connected" lessonKey="read-the-last-move" onSessionFailure={vi.fn()} />)
 
     expect(await screen.findByText('Solved')).toBeInTheDocument()
-    const king = screen.getByRole('button', { name: 'e1, white king' })
-    const rook = screen.getByRole('button', { name: 'e2, black rook' })
-    expect(king).toBeEnabled()
-    expect(rook).toBeEnabled()
-    fireEvent.click(king)
-    fireEvent.click(rook)
+    fireEvent.click(screen.getByRole('button', { name: 'Review answer' }))
+    expect(await screen.findByText('Answer review')).toBeInTheDocument()
+    expect(screen.getByText('Reviewing the answer does not change your Training Lists.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'd3, white king' })).toBeInTheDocument()
+    expect(requests.some((request) => request.startsWith('POST') && request.endsWith('/attempts'))).toBe(false)
 
-    await waitFor(() => expect(requests).toContain(
+    fireEvent.click(screen.getByRole('button', { name: 'Solve again' }))
+    expect(await screen.findByRole('button', { name: 'Show solution' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'e1, white king' })).toBeEnabled()
+    expect(requests).toContain(
       'POST /api/training/courses/grandmaster-thinking-method/exercises/answer-the-check/attempts',
-    ))
+    )
+  })
+
+  it('explains an attempt that ended elsewhere and offers to start again', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/progress')) return response(progress())
+      if (url.endsWith('/lessons/read-the-last-move/start')) return response(progress('in_progress'))
+      if (url.endsWith('/exercises/answer-the-check/attempts')) return response(attempt(), 201)
+      if (url.endsWith('/attempts/5/hint')) return response({ error: 'attempt_finished' }, 409)
+      if (url === '/api/training/courses/grandmaster-thinking-method') return response(course())
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(<TrainingCourse connectionState="connected" lessonKey="read-the-last-move" onSessionFailure={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Start solving' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Hint: thinking step' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('This attempt has ended')
+    expect(screen.getByRole('button', { name: 'Start solving' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'e1, white king' })).toBeDisabled()
   })
 
   it('shows one exercise board and moves through the lesson in order', async () => {
@@ -145,8 +197,43 @@ describe('TrainingCourse', () => {
   })
 })
 
-function response(body: unknown): Response {
-  return { ok: true, status: 200, json: async () => body } as Response
+function response(body: unknown, status = 200): Response {
+  return { ok: status < 400, status, json: async () => body } as Response
+}
+
+function play(from: string, to: string) {
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${from}, white`) }))
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${to},`) }))
+}
+
+function attempt(currentList: string | null = null) {
+  return {
+    attemptId: 5,
+    puzzleId: 42,
+    externalId: 'lDWH9',
+    positionFen: '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1',
+    setupMove: 'e3e2',
+    rating: 1600,
+    ownerMoves: 2,
+    fastSolveLimitMillis: 11_000,
+    currentList,
+  }
+}
+
+function completion(overrides: Record<string, unknown> = {}) {
+  return {
+    previousList: null,
+    list: 'hard_to_solve',
+    successes: 0,
+    strikes: 0,
+    wrongMoves: 1,
+    hintUsed: false,
+    elapsedMillis: 7_400,
+    fastSolveLimitMillis: 11_000,
+    gameUrl: 'https://lichess.org/game/OHeXKNku/black#52',
+    themes: ['intermezzo'],
+    ...overrides,
+  }
 }
 
 function course() {

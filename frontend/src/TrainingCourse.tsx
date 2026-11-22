@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { InteractiveChessBoard } from './ChessBoard'
 import styles from './TrainingCourse.module.css'
+import { LIST_LABELS, seconds, type PuzzleAttempt, type PuzzleCompletion } from './puzzles'
 import {
   completeLesson,
   loadCourse,
+  loadExerciseAnswer,
   loadProgress,
-  requestHint,
+  requestExerciseHint,
   revealExercise,
+  startExercise,
   startLesson,
-  submitMove,
+  submitExerciseMove,
   TrainingRequestError,
-  type AttemptResult,
   type Course,
   type Exercise,
   type Lesson,
@@ -365,6 +367,19 @@ function LessonView({
   )
 }
 
+type ExercisePhase =
+  | { kind: 'ready' }
+  | { kind: 'starting' }
+  | { kind: 'playing'; attempt: PuzzleAttempt }
+  | {
+    kind: 'done'
+    attempt: PuzzleAttempt
+    completion: PuzzleCompletion
+    revealed: boolean
+    explanation: string
+  }
+  | { kind: 'review'; solutionLine: string[]; explanation: string }
+
 function ExerciseCard({
   exercise,
   number,
@@ -380,78 +395,153 @@ function ExerciseCard({
   onResolved: () => Promise<void>
   onSessionFailure: (failure: 'not_connected' | 'session_unavailable') => void
 }) {
-  const [action, setAction] = useState<'idle' | 'move' | 'hint' | 'reveal'>('idle')
-  const [result, setResult] = useState<AttemptResult | null>(null)
+  const [phase, setPhase] = useState<ExercisePhase>({ kind: 'ready' })
+  const [line, setLine] = useState<string[]>([])
+  const [wrongMoves, setWrongMoves] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [feedback, setFeedback] = useState<{ tone: 'correct' | 'incorrect'; text: string } | null>(null)
   const [hint, setHint] = useState<{ level: number; text: string } | null>(null)
-  const [solution, setSolution] = useState<string | null>(null)
-  const [explanation, setExplanation] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const savedResolved = savedState === 'solved' || savedState === 'revealed'
-  const resolved = solution !== null
+  const attempt = phase.kind === 'playing' || phase.kind === 'done' ? phase.attempt : null
 
-  const move = async (uci: string) => {
-    setAction('move')
+  const failed = (requestError: unknown, message: string) => {
+    handleFailure(requestError, onSessionFailure)
+    if (requestError instanceof TrainingRequestError && requestError.code === 'attempt_finished') {
+      setPhase({ kind: 'ready' })
+      setError('This attempt has ended, for example because another puzzle was started. Start solving again.')
+      return
+    }
+    setError(message)
+  }
+
+  // Solve Time starts when the server creates the attempt, so the board becomes interactive
+  // only after the owner chooses to start, not while the lesson text is being read.
+  const start = async () => {
+    setPhase({ kind: 'starting' })
+    setLine([])
+    setWrongMoves(0)
+    setFeedback(null)
+    setHint(null)
     setError(null)
     try {
-      const answer = await submitMove(exercise.key, uci)
-      setResult(answer)
-      if (answer.outcome === 'correct') {
-        setSolution(answer.solutionMove)
-        setExplanation(answer.explanation)
-        await onResolved()
-        return true
-      }
-      return false
+      setPhase({ kind: 'playing', attempt: await startExercise(exercise.key) })
     } catch (requestError) {
       handleFailure(requestError, onSessionFailure)
-      setError('That move could not be checked. Try again.')
+      setPhase({ kind: 'ready' })
+      setError('The position could not be started. Try again.')
+    }
+  }
+
+  const move = async (uci: string) => {
+    // After completion or in review the board stays open for local exploration only.
+    if (phase.kind === 'done' || phase.kind === 'review') return true
+    if (phase.kind !== 'playing') return false
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await submitExerciseMove(exercise.key, phase.attempt.attemptId, uci)
+      setWrongMoves(result.wrongMoves)
+      if (result.outcome === 'wrong') {
+        setFeedback({ tone: 'incorrect', text: result.feedback ?? 'Not the solution. Try another move.' })
+        return false
+      }
+      if (result.outcome === 'correct') {
+        setLine((current) => [...current, uci, result.opponentReply])
+        setFeedback({ tone: 'correct', text: 'Correct. Your opponent replied; find the next move.' })
+        return true
+      }
+      setLine((current) => [...current, uci])
+      setFeedback({ tone: 'correct', text: result.feedback ?? 'Solved.' })
+      setPhase({
+        kind: 'done',
+        attempt: phase.attempt,
+        completion: result.completion,
+        revealed: false,
+        explanation: result.explanation,
+      })
+      await onResolved()
+      return true
+    } catch (requestError) {
+      if (requestError instanceof TrainingRequestError && requestError.code === 'illegal_move') {
+        setError('That move is not legal in this position.')
+        return false
+      }
+      failed(requestError, 'That move could not be checked. Try again.')
       return false
     } finally {
-      setAction('idle')
+      setBusy(false)
     }
   }
 
   const askHint = async () => {
+    if (phase.kind !== 'playing') return
     const level = Math.min(2, (hint?.level ?? 0) + 1)
-    setAction('hint')
+    setBusy(true)
     setError(null)
     try {
-      setHint(await requestHint(exercise.key, level))
+      setHint(await requestExerciseHint(exercise.key, phase.attempt.attemptId, level))
       await onResolved()
     } catch (requestError) {
-      handleFailure(requestError, onSessionFailure)
-      setError('The hint could not be loaded. Try again.')
+      failed(requestError, 'The hint could not be loaded. Try again.')
     } finally {
-      setAction('idle')
+      setBusy(false)
     }
   }
 
   const reveal = async () => {
-    setAction('reveal')
+    if (phase.kind !== 'playing') return
+    setBusy(true)
     setError(null)
     try {
-      const answer = await revealExercise(exercise.key)
-      setSolution(answer.solutionMove)
-      setExplanation(answer.explanation)
-      setResult(null)
+      const answer = await revealExercise(exercise.key, phase.attempt.attemptId)
+      setLine((current) => [...current, ...answer.remainingMoves])
+      setFeedback(null)
+      setPhase({
+        kind: 'done',
+        attempt: phase.attempt,
+        completion: answer.completion,
+        revealed: true,
+        explanation: answer.explanation,
+      })
       await onResolved()
     } catch (requestError) {
-      handleFailure(requestError, onSessionFailure)
-      setError('The answer could not be revealed. Try again.')
+      failed(requestError, 'The solution could not be shown. Try again.')
     } finally {
-      setAction('idle')
+      setBusy(false)
     }
   }
 
+  const review = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const answer = await loadExerciseAnswer(exercise.key)
+      setLine(answer.solutionLine)
+      setFeedback(null)
+      setHint(null)
+      setPhase({ kind: 'review', solutionLine: answer.solutionLine, explanation: answer.explanation })
+    } catch (requestError) {
+      handleFailure(requestError, onSessionFailure)
+      setError('The answer could not be loaded. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const playing = phase.kind === 'playing'
   return (
     <article className={styles.exerciseCard} aria-labelledby={`${exercise.key}-title`}>
       <div className={styles.exerciseBoard}>
         <InteractiveChessBoard
+          key={attempt?.attemptId ?? phase.kind}
           fen={exercise.fen}
           orientation={exercise.orientation}
           label={`Position ${number}: ${exercise.prompt}`}
-          disabled={!connected || action !== 'idle'}
-          solution={solution}
+          disabled={!connected || busy || phase.kind === 'ready' || phase.kind === 'starting'}
+          solution={null}
+          line={line}
+          initialLastMove={attempt?.setupMove ?? null}
           onMove={move}
         />
       </div>
@@ -460,42 +550,103 @@ function ExerciseCard({
           Position {number} · {difficultyLabel(exercise.difficultyTier)} · Lichess {exercise.sourceRating}
         </p>
         <h4 id={`${exercise.key}-title`}>{exercise.prompt}</h4>
-        <p className={styles.statusText}>{exerciseStatus(savedState, solution)}</p>
-        {result && (
-          <div className={styles.feedback} data-outcome={result.outcome} role="status">
-            <strong>{result.outcome === 'correct' ? 'Correct' : 'Try again'}</strong>
-            <p>{result.feedback}</p>
+        <p className={styles.statusText}>{exerciseStatus(savedState, phase.kind === 'done' && !phase.revealed)}</p>
+        {attempt !== null && (
+          <p className={styles.statusText}>
+            Play the whole line · {attempt.ownerMoves} {attempt.ownerMoves === 1 ? 'move' : 'moves'} to find ·
+            Fast-solve limit {seconds(attempt.fastSolveLimitMillis)} · Wrong Moves {wrongMoves}
+          </p>
+        )}
+        {feedback && (
+          <div className={styles.feedback} data-outcome={feedback.tone} role="status">
+            <strong>{feedback.tone === 'correct' ? 'Correct' : 'Try again'}</strong>
+            <p>{feedback.text}</p>
           </div>
         )}
         {hint && <p className={styles.hint} role="status"><strong>Hint {hint.level}:</strong> {hint.text}</p>}
-        {explanation && (
+        {phase.kind === 'done' && (
           <div className={styles.feedback} data-outcome="correct" role="status">
-            <strong>Reference move: {solution}</strong>
-            <p>{explanation}</p>
+            <strong>{phase.revealed ? 'Solution shown' : 'Line complete'}</strong>
+            <p>{phase.explanation}</p>
+            <p>
+              Puzzle training: {listResult(phase.completion)}{' '}
+              {phase.revealed
+                ? 'Solve Time is not counted.'
+                : `Solve Time ${seconds(phase.completion.elapsedMillis)} of ${seconds(phase.completion.fastSolveLimitMillis)}.`}
+            </p>
           </div>
+        )}
+        {phase.kind === 'review' && (
+          <div className={styles.feedback} data-outcome="correct" role="status">
+            <strong>Answer review</strong>
+            <p>{phase.explanation}</p>
+            <p>Reviewing the answer does not change your Training Lists.</p>
+          </div>
+        )}
+        {(phase.kind === 'done' || phase.kind === 'review') && (
+          <p className={styles.statusText}>The board stays open: keep moving pieces to explore. These moves are not saved.</p>
         )}
         {error && <p className={styles.error} role="alert">{error}</p>}
         <div className={styles.exerciseActions}>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            disabled={!connected || action !== 'idle' || resolved || hint?.level === 2}
-            onClick={() => void askHint()}
-          >
-            {action === 'hint' ? 'Loading hint…' : hint === null ? 'Hint: thinking step' : 'Hint: tactical area'}
-          </button>
-          <button
-            className={styles.textButton}
-            type="button"
-            disabled={!connected || action !== 'idle' || solution !== null}
-            onClick={() => void reveal()}
-          >
-            {action === 'reveal' ? 'Revealing…' : savedResolved ? 'Review answer' : 'Reveal answer'}
-          </button>
+          {playing ? (
+            <>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={!connected || busy || hint?.level === 2}
+                onClick={() => void askHint()}
+              >
+                {hint === null ? 'Hint: thinking step' : 'Hint: tactical area'}
+              </button>
+              <button
+                className={styles.textButton}
+                type="button"
+                disabled={!connected || busy}
+                onClick={() => void reveal()}
+              >
+                Show solution
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className={styles.primaryButton}
+                type="button"
+                disabled={!connected || busy || phase.kind === 'starting'}
+                onClick={() => void start()}
+              >
+                {phase.kind === 'starting'
+                  ? 'Starting…'
+                  : savedResolved || phase.kind === 'done' ? 'Solve again' : 'Start solving'}
+              </button>
+              {savedResolved && phase.kind !== 'review' && (
+                <button
+                  className={styles.textButton}
+                  type="button"
+                  disabled={!connected || busy}
+                  onClick={() => void review()}
+                >
+                  Review answer
+                </button>
+              )}
+            </>
+          )}
         </div>
+        <p className={styles.statusText}>
+          {playing
+            ? 'A hint or Show solution places this puzzle in Hard to Solve and restarts its progress there.'
+            : 'Solving this position also counts as an attempt on its Lichess puzzle in your Training Lists. The timer starts when you start solving.'}
+        </p>
       </div>
     </article>
   )
+}
+
+function listResult(completion: PuzzleCompletion) {
+  const list = LIST_LABELS[completion.list]
+  if (completion.previousList === null) return `placed in ${list}.`
+  if (completion.previousList === completion.list) return `stays in ${list}.`
+  return `moved from ${LIST_LABELS[completion.previousList]} to ${list}.`
 }
 
 function difficultyLabel(tier: Exercise['difficultyTier']) {
@@ -511,8 +662,8 @@ function lessonState(progress: Progress | null, lessonKey: string) {
   return 'Available'
 }
 
-function exerciseStatus(state: string, solution: string | null) {
-  if (solution !== null || state === 'solved') return 'Solved'
+function exerciseStatus(state: string, solvedNow: boolean) {
+  if (solvedNow || state === 'solved') return 'Solved'
   if (state === 'revealed') return 'Answer revealed'
   if (state === 'in_progress') return 'In progress'
   return 'Not attempted'

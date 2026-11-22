@@ -18,6 +18,7 @@ import {
   nextSessionPuzzle,
   PuzzleRequestError,
   requestPuzzleHint,
+  seconds,
   revealPuzzle,
   startCategoryPuzzle,
   startListSession,
@@ -1148,12 +1149,6 @@ function categoryHref(category: PuzzleCategory) {
 
 function sideToMove(fen: string): 'white' | 'black' {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white'
-}
-
-/** Rounds down, so a time under the limit never displays as the limit itself. */
-function seconds(milliseconds: number) {
-  const tenths = Math.floor(milliseconds / 100)
-  return tenths % 10 === 0 ? `${tenths / 10} s` : `${(tenths / 10).toFixed(1)} s`
 }
 
 function reportSessionFailure(error: unknown, onSessionFailure: (failure: SessionFailure) => void) {

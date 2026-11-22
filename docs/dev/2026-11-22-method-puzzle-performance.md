@@ -21,6 +21,10 @@ Exercises play the Puzzle's whole line against the opponent's replies, with Solv
   - The `POST` endpoints check, in order, a same-origin request, validated input, and the session. The `GET` requires the session. Errors are fixed codes, and responses are `no-store`.
   - The start response is the Puzzle attempt shape and never contains the solution.
 - The previous one-move endpoints `POST .../exercises/{key}/attempts` (with a move body), `.../hint`, and `.../reveal` are replaced.
+- Shared web pieces (follow-up cleanup):
+  - `PuzzleAttemptResponses` owns the attempt and completion response shapes that both the Puzzle and the guided-course controllers return.
+  - `TrainingErrorCodes` names every error code of both controllers. `frontend/src/trainingErrorCodes.ts` names the codes the interface reads, and `TrainingErrorCodesTest` fails if the interface names a code the server does not define.
+  - Every guided-course endpoint runs through one of two helpers: writes check origin, input, and session in that order; reads check the session. Both turn a storage or content failure into `503 training_unavailable`.
 
 ## Course progress rules
 

@@ -90,7 +90,7 @@ public class GuidedCourseService implements GuidedCourses {
     public ExerciseMoveResult exerciseMove(
             String accountId, String exerciseKey, long attemptId, String moveUci) {
         requireAccount(accountId);
-        CourseContent.ExerciseAnswer answer = bound(accountId, exerciseKey, attemptId);
+        CourseContent.ExerciseAnswer answer = ownMethodAttempt(accountId, exerciseKey, attemptId);
         if (answer == null) {
             return new ExerciseMoveResult(new PuzzleTraining.MoveResult(
                     PuzzleTraining.MoveOutcome.NOT_FOUND, null, 0, null), null, null);
@@ -98,11 +98,11 @@ public class GuidedCourseService implements GuidedCourses {
         PuzzleTraining.MoveResult result = puzzles.move(accountId, attemptId, moveUci);
         return switch (result.outcome()) {
             case WRONG -> {
-                record(accountId, answer, exerciseKey, moveUci, false);
+                recordCourseAttempt(accountId, answer, exerciseKey, moveUci, false);
                 yield new ExerciseMoveResult(result, answer.incorrectFeedback(), null);
             }
             case SOLVED -> {
-                record(accountId, answer, exerciseKey, moveUci, true);
+                recordCourseAttempt(accountId, answer, exerciseKey, moveUci, true);
                 yield new ExerciseMoveResult(
                         result, answer.correctFeedback(), answer.explanation());
             }
@@ -118,7 +118,7 @@ public class GuidedCourseService implements GuidedCourses {
         if (level < 1 || level > 2) {
             return new HintResult(HintOutcome.INVALID_LEVEL, 0, null);
         }
-        CourseContent.ExerciseAnswer answer = bound(accountId, exerciseKey, attemptId);
+        CourseContent.ExerciseAnswer answer = ownMethodAttempt(accountId, exerciseKey, attemptId);
         if (answer == null) {
             return new HintResult(HintOutcome.NOT_FOUND, 0, null);
         }
@@ -142,7 +142,7 @@ public class GuidedCourseService implements GuidedCourses {
     public ExerciseRevealResult exerciseReveal(
             String accountId, String exerciseKey, long attemptId) {
         requireAccount(accountId);
-        CourseContent.ExerciseAnswer answer = bound(accountId, exerciseKey, attemptId);
+        CourseContent.ExerciseAnswer answer = ownMethodAttempt(accountId, exerciseKey, attemptId);
         if (answer == null) {
             return new ExerciseRevealResult(new PuzzleTraining.RevealResult(
                     PuzzleTraining.RevealOutcome.NOT_FOUND, List.of(), null), null);
@@ -185,7 +185,7 @@ public class GuidedCourseService implements GuidedCourses {
      * The Exercise's answer when {@code attemptId} is one of the account's guided-method attempts
      * on that Exercise's Puzzle; null for an unknown Exercise or any other attempt.
      */
-    private CourseContent.ExerciseAnswer bound(
+    private CourseContent.ExerciseAnswer ownMethodAttempt(
             String accountId, String exerciseKey, long attemptId) {
         CourseContent.ExerciseAnswer answer = content.answer(exerciseKey).orElse(null);
         if (answer == null) {
@@ -203,13 +203,15 @@ public class GuidedCourseService implements GuidedCourses {
                 accountId, course().key(), course().version(), answer.lessonKey(), now());
     }
 
-    private void record(
+    private void recordCourseAttempt(
             String accountId,
             CourseContent.ExerciseAnswer answer,
             String exerciseKey,
             String moveUci,
             boolean solved) {
         long timestamp = now();
+        // Exercise progress requires its lesson row. Starting the Exercise created it, but only
+        // for the content version current then; this keeps a move valid across a version change.
         progressStore.startLesson(
                 accountId, course().key(), course().version(), answer.lessonKey(), timestamp);
         progressStore.recordAttempt(

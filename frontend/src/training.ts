@@ -1,4 +1,5 @@
 import { parseAttempt, parseCompletion, type PuzzleAttempt, type PuzzleCompletion } from './puzzles'
+import { SERVER_ERROR } from './trainingErrorCodes'
 
 export type Course = {
   key: string
@@ -104,7 +105,7 @@ export async function startLesson(lessonKey: string): Promise<Progress> {
 export async function startExercise(exerciseKey: string): Promise<PuzzleAttempt> {
   const response = await send(`${base}/exercises/${encodeURIComponent(exerciseKey)}/attempts`)
   const value: unknown = await response.json()
-  return parsePuzzle(() => parseAttempt(value))
+  return asCourseFailure(() => parseAttempt(value))
 }
 
 export async function submitExerciseMove(
@@ -130,7 +131,7 @@ export async function submitExerciseMove(
     return { outcome: 'wrong', wrongMoves: value.wrongMoves, feedback }
   }
   if (typeof value.explanation !== 'string') throw new TrainingRequestError('unavailable')
-  const completion = parsePuzzle(() => parseCompletion(value.completion))
+  const completion = asCourseFailure(() => parseCompletion(value.completion))
   return { outcome: 'solved', wrongMoves: value.wrongMoves, feedback, explanation: value.explanation, completion }
 }
 
@@ -154,7 +155,7 @@ export async function revealExercise(exerciseKey: string, attemptId: number) {
   return {
     remainingMoves: value.remainingMoves,
     explanation: value.explanation,
-    completion: parsePuzzle(() => parseCompletion(value.completion)),
+    completion: asCourseFailure(() => parseCompletion(value.completion)),
   }
 }
 
@@ -182,8 +183,8 @@ function attemptPath(exerciseKey: string, attemptId: number) {
   return `${base}/exercises/${encodeURIComponent(exerciseKey)}/attempts/${attemptId}`
 }
 
-/** Runs a shared Puzzle parser, reporting its failure as a course failure. */
-function parsePuzzle<T>(parse: () => T): T {
+/** Runs a shared Puzzle parser; any parse failure is reported as a course request failure. */
+function asCourseFailure<T>(parse: () => T): T {
   try {
     return parse()
   } catch {
@@ -220,11 +221,11 @@ async function requireResponse(response: Response) {
   if (response.ok) return
   if (response.status === 401) throw new TrainingRequestError('not_connected')
   const code = await errorCode(response)
-  if (code === 'attempt_finished' || code === 'attempt_not_found') {
+  if (code === SERVER_ERROR.attemptFinished || code === SERVER_ERROR.attemptNotFound) {
     throw new TrainingRequestError('attempt_finished')
   }
-  if (code === 'illegal_training_move') throw new TrainingRequestError('illegal_move')
-  if (response.status === 503 && code !== 'training_unavailable') {
+  if (code === SERVER_ERROR.illegalMove) throw new TrainingRequestError('illegal_move')
+  if (response.status === 503 && code !== SERVER_ERROR.trainingUnavailable) {
     throw new TrainingRequestError('session_unavailable')
   }
   throw new TrainingRequestError('unavailable')

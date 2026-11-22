@@ -1,3 +1,5 @@
+import { SERVER_ERROR } from './trainingErrorCodes'
+
 export type TrainingList =
   | 'hard_to_solve'
   | 'wrong_moves'
@@ -232,14 +234,14 @@ async function requireResponse(response: Response) {
   if (response.ok) return
   if (response.status === 401) throw new PuzzleRequestError('not_connected')
   const code = await errorCode(response)
-  if (code === 'session_unavailable') throw new PuzzleRequestError('session_unavailable')
-  if (code === 'no_puzzle_available') throw new PuzzleRequestError('no_puzzle_available')
-  if (code === 'attempt_finished' || code === 'attempt_not_found') {
+  if (code === SERVER_ERROR.sessionUnavailable) throw new PuzzleRequestError('session_unavailable')
+  if (code === SERVER_ERROR.noPuzzleAvailable) throw new PuzzleRequestError('no_puzzle_available')
+  if (code === SERVER_ERROR.attemptFinished || code === SERVER_ERROR.attemptNotFound) {
     throw new PuzzleRequestError('attempt_finished')
   }
-  if (code === 'illegal_training_move') throw new PuzzleRequestError('illegal_move')
-  if (code === 'session_complete') throw new PuzzleRequestError('session_complete')
-  if (code === 'session_not_found') throw new PuzzleRequestError('session_not_found')
+  if (code === SERVER_ERROR.illegalMove) throw new PuzzleRequestError('illegal_move')
+  if (code === SERVER_ERROR.sessionComplete) throw new PuzzleRequestError('session_complete')
+  if (code === SERVER_ERROR.sessionNotFound) throw new PuzzleRequestError('session_not_found')
   throw new PuzzleRequestError('unavailable')
 }
 

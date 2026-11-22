@@ -69,7 +69,7 @@ public final class PuzzleTrainingController {
                     .map(PuzzleTrainingController::category)
                     .toList()));
         } catch (DataAccessException | IllegalStateException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
+            return error(HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.TRAINING_UNAVAILABLE);
         }
     }
 
@@ -133,9 +133,11 @@ public final class PuzzleTrainingController {
                 case STARTED -> ResponseEntity.status(HttpStatus.CREATED)
                         .cacheControl(CacheControl.noStore())
                         .body(new SessionAttemptResponse(
-                                attempt(next.attempt()), next.position(), next.total()));
-                case COMPLETE -> error(HttpStatus.CONFLICT, "session_complete");
-                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "session_not_found");
+                                PuzzleAttemptResponses.attempt(next.attempt()),
+                                next.position(),
+                                next.total()));
+                case COMPLETE -> error(HttpStatus.CONFLICT, TrainingErrorCodes.SESSION_COMPLETE);
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, TrainingErrorCodes.SESSION_NOT_FOUND);
             };
         });
     }
@@ -178,10 +180,10 @@ public final class PuzzleTrainingController {
                         lower(result.outcome()),
                         result.opponentReply(),
                         result.wrongMoves(),
-                        completion(result.completion())));
-                case ILLEGAL -> error(HttpStatus.BAD_REQUEST, "illegal_training_move");
-                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "attempt_not_found");
-                case FINISHED -> error(HttpStatus.CONFLICT, "attempt_finished");
+                        PuzzleAttemptResponses.completion(result.completion())));
+                case ILLEGAL -> error(HttpStatus.BAD_REQUEST, TrainingErrorCodes.ILLEGAL_MOVE);
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, TrainingErrorCodes.ATTEMPT_NOT_FOUND);
+                case FINISHED -> error(HttpStatus.CONFLICT, TrainingErrorCodes.ATTEMPT_FINISHED);
             };
         });
     }
@@ -196,8 +198,8 @@ public final class PuzzleTrainingController {
             PuzzleTraining.HintResult result = training.hint(account, attemptId);
             return switch (result.outcome()) {
                 case SHOWN -> ok(new HintResponse(result.fromSquare()));
-                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "attempt_not_found");
-                case FINISHED -> error(HttpStatus.CONFLICT, "attempt_finished");
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, TrainingErrorCodes.ATTEMPT_NOT_FOUND);
+                case FINISHED -> error(HttpStatus.CONFLICT, TrainingErrorCodes.ATTEMPT_FINISHED);
             };
         });
     }
@@ -212,9 +214,10 @@ public final class PuzzleTrainingController {
             PuzzleTraining.RevealResult result = training.reveal(account, attemptId);
             return switch (result.outcome()) {
                 case REVEALED -> ok(new RevealResponse(
-                        result.remainingMoves(), completion(result.completion())));
-                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, "attempt_not_found");
-                case FINISHED -> error(HttpStatus.CONFLICT, "attempt_finished");
+                        result.remainingMoves(),
+                        PuzzleAttemptResponses.completion(result.completion())));
+                case NOT_FOUND -> error(HttpStatus.NOT_FOUND, TrainingErrorCodes.ATTEMPT_NOT_FOUND);
+                case FINISHED -> error(HttpStatus.CONFLICT, TrainingErrorCodes.ATTEMPT_FINISHED);
             };
         });
     }
@@ -230,7 +233,7 @@ public final class PuzzleTrainingController {
         try {
             return action.apply(authorization.accountId());
         } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
+            return error(HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.TRAINING_UNAVAILABLE);
         }
     }
 
@@ -244,7 +247,7 @@ public final class PuzzleTrainingController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         if (!valid) {
-            return error(HttpStatus.BAD_REQUEST, "invalid_training_request");
+            return error(HttpStatus.BAD_REQUEST, TrainingErrorCodes.INVALID_REQUEST);
         }
         LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
         ResponseEntity<TrainingError> denied = deny(authorization);
@@ -254,29 +257,15 @@ public final class PuzzleTrainingController {
         try {
             return action.apply(authorization.accountId());
         } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, "training_unavailable");
+            return error(HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.TRAINING_UNAVAILABLE);
         }
     }
 
     private static ResponseEntity<?> started(Optional<PuzzleTraining.Attempt> attempt) {
         return attempt.<ResponseEntity<?>>map(value -> ResponseEntity.status(HttpStatus.CREATED)
                         .cacheControl(CacheControl.noStore())
-                        .body(attempt(value)))
-                .orElseGet(() -> error(HttpStatus.NOT_FOUND, "no_puzzle_available"));
-    }
-
-    /** Shared with the guided-course controller, whose Exercises are Puzzle attempts. */
-    static AttemptResponse attempt(PuzzleTraining.Attempt value) {
-        return new AttemptResponse(
-                value.attemptId(),
-                value.puzzleId(),
-                value.externalId(),
-                value.positionFen(),
-                value.setupMove(),
-                value.rating(),
-                value.ownerMoves(),
-                value.fastSolveLimitMillis(),
-                value.currentList() == null ? null : lower(value.currentList()));
+                        .body(PuzzleAttemptResponses.attempt(value)))
+                .orElseGet(() -> error(HttpStatus.NOT_FOUND, TrainingErrorCodes.NO_PUZZLE_AVAILABLE));
     }
 
     private static ResponseEntity<?> session(Optional<PuzzleTraining.Session> session) {
@@ -284,7 +273,7 @@ public final class PuzzleTrainingController {
                         .cacheControl(CacheControl.noStore())
                         .body(new SessionResponse(
                                 value.sessionId(), lower(value.list()), value.total())))
-                .orElseGet(() -> error(HttpStatus.NOT_FOUND, "no_puzzle_available"));
+                .orElseGet(() -> error(HttpStatus.NOT_FOUND, TrainingErrorCodes.NO_PUZZLE_AVAILABLE));
     }
 
     private static CategoryResponse category(PuzzleLibrary.CategoryEntry entry) {
@@ -317,24 +306,6 @@ public final class PuzzleTrainingController {
         };
     }
 
-    /** Shared with the guided-course controller, whose Exercises are Puzzle attempts. */
-    static CompletionResponse completion(PuzzleTraining.Completion completion) {
-        if (completion == null) {
-            return null;
-        }
-        return new CompletionResponse(
-                completion.previousList() == null ? null : lower(completion.previousList()),
-                lower(completion.performance().list()),
-                completion.performance().successes(),
-                completion.performance().strikes(),
-                completion.wrongMoves(),
-                completion.hintUsed(),
-                completion.elapsedMillis(),
-                completion.fastSolveLimitMillis(),
-                completion.gameUrl(),
-                completion.themes());
-    }
-
     /** The URL form of a category kind, shared by the category list and the start path. */
     private static String kind(PuzzleLibrary.CategoryKind kind) {
         return switch (kind) {
@@ -358,10 +329,10 @@ public final class PuzzleTrainingController {
                     response.header(
                             HttpHeaders.SET_COOKIE, LichessSessionCookies.cleared().toString());
                 }
-                yield response.body(new TrainingError("not_connected"));
+                yield response.body(new TrainingError(TrainingErrorCodes.NOT_CONNECTED));
             }
             case RATE_LIMITED, UPSTREAM_UNAVAILABLE -> error(
-                    HttpStatus.SERVICE_UNAVAILABLE, "session_unavailable");
+                    HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.SESSION_UNAVAILABLE);
         };
     }
 
@@ -391,37 +362,19 @@ public final class PuzzleTrainingController {
 
     public record SessionResponse(long sessionId, String list, int total) {}
 
-    public record SessionAttemptResponse(AttemptResponse attempt, int position, int total) {}
-
-    public record AttemptResponse(
-            long attemptId,
-            long puzzleId,
-            String externalId,
-            String positionFen,
-            String setupMove,
-            int rating,
-            int ownerMoves,
-            long fastSolveLimitMillis,
-            String currentList) {}
-
-    public record CompletionResponse(
-            String previousList,
-            String list,
-            int successes,
-            int strikes,
-            int wrongMoves,
-            boolean hintUsed,
-            long elapsedMillis,
-            long fastSolveLimitMillis,
-            String gameUrl,
-            List<String> themes) {}
+    public record SessionAttemptResponse(
+            PuzzleAttemptResponses.AttemptResponse attempt, int position, int total) {}
 
     public record MoveResponse(
-            String outcome, String opponentReply, int wrongMoves, CompletionResponse completion) {}
+            String outcome,
+            String opponentReply,
+            int wrongMoves,
+            PuzzleAttemptResponses.CompletionResponse completion) {}
 
     public record HintResponse(String fromSquare) {}
 
-    public record RevealResponse(List<String> remainingMoves, CompletionResponse completion) {}
+    public record RevealResponse(
+            List<String> remainingMoves, PuzzleAttemptResponses.CompletionResponse completion) {}
 
     public record TrainingError(String error) {}
 }

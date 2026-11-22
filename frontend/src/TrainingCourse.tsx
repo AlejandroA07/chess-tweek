@@ -405,7 +405,8 @@ function ExerciseCard({
   const savedResolved = savedState === 'solved' || savedState === 'revealed'
   const attempt = phase.kind === 'playing' || phase.kind === 'done' ? phase.attempt : null
 
-  const failed = (requestError: unknown, message: string) => {
+  /** Shows a request failure; an ended attempt returns the exercise to Start solving. */
+  const showRequestFailure = (requestError: unknown, message: string) => {
     handleFailure(requestError, onSessionFailure)
     if (requestError instanceof TrainingRequestError && requestError.code === 'attempt_finished') {
       setPhase({ kind: 'ready' })
@@ -467,7 +468,7 @@ function ExerciseCard({
         setError('That move is not legal in this position.')
         return false
       }
-      failed(requestError, 'That move could not be checked. Try again.')
+      showRequestFailure(requestError, 'That move could not be checked. Try again.')
       return false
     } finally {
       setBusy(false)
@@ -483,7 +484,7 @@ function ExerciseCard({
       setHint(await requestExerciseHint(exercise.key, phase.attempt.attemptId, level))
       await onResolved()
     } catch (requestError) {
-      failed(requestError, 'The hint could not be loaded. Try again.')
+      showRequestFailure(requestError, 'The hint could not be loaded. Try again.')
     } finally {
       setBusy(false)
     }
@@ -506,7 +507,7 @@ function ExerciseCard({
       })
       await onResolved()
     } catch (requestError) {
-      failed(requestError, 'The solution could not be shown. Try again.')
+      showRequestFailure(requestError, 'The solution could not be shown. Try again.')
     } finally {
       setBusy(false)
     }

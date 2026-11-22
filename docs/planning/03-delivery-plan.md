@@ -80,6 +80,17 @@ Deliver this stage as three independently reviewed parts:
 - Part 2 acceptance: the complete verified snapshot is stored without duplicate provider/external IDs; interruption resumes safely; insufficient disk space and conflicting immutable records fail safely; the compressed source is deleted only after verification; manual update checks do not trigger downloads; indexed selection avoids a full-corpus random sort; missing referenced or attempted Puzzles survive refresh.
 - Part 3 acceptance: attempts are scoped to the active account and reusable across methods; Random never returns a classified Puzzle; an incomplete Puzzle remains unclassified; every list transition matches the decision table; session order is freshly randomized without repeats until the list is exhausted; counters, strikes, and Mastered categories survive restart; guided-course completion remains independent from Puzzle performance state.
 
+### Stage 7B — Deeper Game Review
+
+**Branch:** `feature/<topic>` per part · **Needs:** Stage 4 · **Before:** Stage 8 (owner decision, 2026-11-22).
+
+Stockfish reports only evaluations and move lines; every word in a Game Review is built by the app from them. This stage adds more of that meaning before Own Puzzles exist, so every Own Puzzle is grouped by the richer labels. Tactic labels are computed from the stored engine lines each time a review opens, so both parts also improve games that were analysed earlier, without reanalysis.
+
+1. **More named tactics.** Add pins, skewers, discovered attacks and checks, deflection, removing the defender, in-between moves, and trapped pieces to the tactic labels, under the existing conservative rule: a label is given only when the stored line proves the gain. Each motif has its own tests, including a near miss that must not be labelled. The rules are written for this project, not copied from another tagger.
+2. **Measurable positional reasons.** When no tactic explains a loss, the coach card's "Why?" names the measurable features that changed between the position before the move and the engine's preferred position: material, the bishop pair, the king's pawn cover and open files near the king, isolated, doubled, backward, and passed pawns, piece mobility, and development in the opening. The wording states these as observations, not as the engine's reasons, because Stockfish's neural evaluation does not break its score into human reasons.
+
+- Acceptance: every new label and reason is proven by a test position and a near miss; reviews of stored analyses show the new labels without reanalysis; the coach card never names a reason that did not change.
+
 ### Stage 8 — Own Puzzles
 
 **Branch:** `feature/own-puzzles` · **Needs:** Stage 7 Part 3.
@@ -114,6 +125,8 @@ Deliver this stage as three independently reviewed parts (owner decision, 2026-1
 **Branch:** `feature/opening-explorer` · **Needs:** Stage 5 and Stage 7 Part 2.
 
 - Move statistics for any position from Lichess Masters, Lichess by rating band and speed, and My games computed from stored games of both sites.
+- Opening context in Game Review (owner decision, 2026-11-22): the named opening at each move from the free Lichess opening table (CC0), the move where the game left known theory, and the main-line moves at that point with their explorer statistics.
+- The purpose of an opening or line is authored text, not engine output. Decide before this stage whether the project ships starter notes for the openings the owner plays (the London System and the Caro-Kann Defense; see `04-training-goals.md`) or only the owner's own notes.
 - Acceptance: the Lichess token never reaches the browser; upstream failure and 429 leave My games usable; responses are cached.
 
 ### Stage 11 — Repertoire builder
@@ -439,13 +452,13 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 8 Own Puzzles and Stage 9 curated collections have not started.
+- Stage 7B Deeper Game Review, Stage 8 Own Puzzles, and Stage 9 curated collections have not started.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-22):**
 
-1. Implement Stage 8 Part 8a on its own `feature/<topic>` branch: Own Puzzle creation from newly completed My Moves analyses, following the owner decisions and the part split recorded in "Stage 8 — Own Puzzles" above.
+1. Implement Stage 7B Part 1, more named tactics, on its own `feature/<topic>` branch, as recorded in "Stage 7B — Deeper Game Review" above. Stage 8 Part 8a, Own Puzzle creation, follows Stage 7B.
 2. Owner checks still open:
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

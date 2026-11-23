@@ -412,6 +412,19 @@ Acceptance:
 - A failed restore leaves the original database usable.
 - Compaction demonstrably reclaims deleted space.
 
+## Maybe later — Thinking-habit trainer
+
+**Needs:** Stage 8 for Own Puzzles, and preferably Stage 8B. Source: `10-thinking-habit-trainer-ideas.md` (owner request, 2026-11-23; not yet decided).
+
+Consider:
+
+- Grandmaster Thinking Method content for three weaknesses: overlooking threats (partly covered by Module 1), misjudging positions (not covered), and finding plans (the Planned "Plans and Pawn Structures" module).
+- A new routine question, "What's wrong with my opponent's last move?", that looks for what the opponent's move weakened, beside the existing defensive "What did it attack or uncover?".
+- A habit drill that presents the routine's questions one at a time on a puzzle, asks for an answer to each, and only then accepts a move.
+- Running that drill over the owner's Own Puzzles from inside the Grandmaster Thinking Method.
+
+The open decisions, including how answers are checked without generated commentary, are listed in the source document.
+
 ## Maybe later — Game Review explanation extras
 
 **Needs:** Stage 8B. Source: `09-game-review-explanation-research.md` (owner decision, 2026-11-23: keep Stage 8B simple and consider these later).

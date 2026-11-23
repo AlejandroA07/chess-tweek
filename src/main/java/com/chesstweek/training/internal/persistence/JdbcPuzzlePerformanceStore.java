@@ -11,6 +11,7 @@ import java.util.random.RandomGenerator;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.chesstweek.training.PuzzleTraining;
 import com.chesstweek.training.internal.library.PuzzleImportBatch;
@@ -136,8 +137,9 @@ public class JdbcPuzzlePerformanceStore {
     /**
      * Replaces the account's previous session with a new one over every Puzzle currently in
      * {@code list} (only those in the category, when {@code categoryKind} is given), shuffled.
-     * Empty when no Puzzle qualifies.
+     * Empty when no Puzzle qualifies. The Puzzles are read in the session's transaction.
      */
+    @Transactional
     public Optional<JdbcPerformanceState.SessionRow> startSession(
             String accountId,
             PuzzleTraining.TrainingList list,

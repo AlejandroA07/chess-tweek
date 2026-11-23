@@ -38,6 +38,7 @@ Stage 8 Part 8b adds the whole backend for training Own Puzzles, so that Part 8c
 - **Repetition and Mastered practice:**
   - Sessions cover one active list.
   - Mastered practice covers one opening family, phase, or tactic label and never changes state.
+- **Lists:** a page of the Own Puzzles in any Training List, so the dashboard can show each list.
 - **Summaries:** counts by opening family, phase (in game order), and tactic theme over every kept Own Puzzle, and the same over Mastered Own Puzzles.
 - **Migration V15:**
   - `training_own_puzzle_discard`, `_performance`, `_attempt`, `_session`, and `_session_item`.
@@ -49,6 +50,7 @@ Stage 8 Part 8b adds the whole backend for training Own Puzzles, so that Part 8c
   - `POST /{id}/discard` and `POST /{id}/restore` return `204`.
   - `POST /new/attempts` and `POST /{id}/attempts`.
   - `POST /attempts/{id}/moves`, `/hint`, and `/reveal`.
+  - `GET /lists/{list}` pages the Own Puzzles in one Training List, including Mastered.
   - `GET /repetition` and `GET /repetition/mastered`.
   - `POST /repetition/{list}/sessions` and `POST /repetition/mastered/{opening|phase|tactic}/{key}/sessions`.
   - `POST /sessions/{id}/attempts`.

@@ -192,7 +192,25 @@ public final class OwnPuzzleTrainingController {
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession) {
         return read(sealedSession, account -> TrainingRequests.ok(
-                new RepetitionResponse(lists(training.overview(account).lists()))));
+                new RepetitionResponse(lists(training.listCounts(account)))));
+    }
+
+    /** One page of the Own Puzzles in a Training List, including Mastered; read-only. */
+    @GetMapping("/lists/{list}")
+    public ResponseEntity<?> inList(
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession,
+            @PathVariable("list") String list,
+            @RequestParam(name = "offset", defaultValue = "0") int offset,
+            @RequestParam(name = "limit", defaultValue = "20") int limit) {
+        PuzzleTraining.TrainingList trainingList = "mastered".equals(list)
+                ? PuzzleTraining.TrainingList.MASTERED
+                : activeList(list);
+        if (trainingList == null) {
+            return TrainingRequests.error(HttpStatus.BAD_REQUEST, TrainingErrorCodes.INVALID_REQUEST);
+        }
+        return page(sealedSession, offset, limit,
+                account -> training.inList(account, trainingList, offset, limit));
     }
 
     /** Mastered Own Puzzles by opening family, phase, and tactic; read-only. */

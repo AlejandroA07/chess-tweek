@@ -210,6 +210,13 @@ class OwnPuzzleTrainingServiceTest {
             }
             assertThat(training.nextInSession(OWNER, session.sessionId()).outcome())
                     .isEqualTo(SessionOutcome.COMPLETE);
+            OwnPuzzleTraining.Page retiring = training.inList(OWNER, TrainingList.RETIRING, 1, 50);
+            assertThat(retiring.total()).isEqualTo(3);
+            assertThat(retiring.puzzles()).hasSize(2);
+            assertThat(training.inList(OWNER, TrainingList.HARD_TO_SOLVE, 0, 50).total()).isZero();
+            assertThat(training.inList(OTHER, TrainingList.RETIRING, 0, 50).total()).isZero();
+            assertThat(training.listCounts(OWNER)).extracting(PuzzleTraining.ListCount::puzzles)
+                    .containsExactly(0, 0, 0, 3, 0);
             assertThat(training.startSession(OWNER, TrainingList.HARD_TO_SOLVE)).isEmpty();
             assertThat(training.startSession(OWNER, TrainingList.MASTERED)).isEmpty();
             assertThat(training.nextInSession(OTHER, session.sessionId()).outcome())

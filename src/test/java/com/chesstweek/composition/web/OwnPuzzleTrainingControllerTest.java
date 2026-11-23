@@ -165,6 +165,16 @@ class OwnPuzzleTrainingControllerTest {
         mockMvc.perform(get(BASE + "/repetition").cookie(SESSION))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lists[0].list").value("hard_to_solve"));
+        mockMvc.perform(get(BASE + "/lists/retiring").param("limit", "5").cookie(SESSION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.puzzles[0].id").value(41));
+        mockMvc.perform(get(BASE + "/lists/mastered").cookie(SESSION))
+                .andExpect(status().isOk());
+        assertThat(training.pages).containsExactly("list RETIRING 0 5", "list MASTERED 0 20");
+        mockMvc.perform(get(BASE + "/lists/lost").cookie(SESSION))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_training_request"));
         mockMvc.perform(get(BASE + "/repetition/mastered").cookie(SESSION))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(6))
@@ -279,6 +289,19 @@ class OwnPuzzleTrainingControllerTest {
             touch(accountId);
             pages.add("discarded " + offset + " " + limit);
             return new Page(1, List.of(PUZZLE));
+        }
+
+        @Override
+        public Page inList(String accountId, TrainingList list, int offset, int limit) {
+            touch(accountId);
+            pages.add("list " + list + " " + offset + " " + limit);
+            return new Page(2, List.of(PUZZLE));
+        }
+
+        @Override
+        public List<PuzzleTraining.ListCount> listCounts(String accountId) {
+            touch(accountId);
+            return lists();
         }
 
         @Override

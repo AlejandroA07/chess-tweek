@@ -72,13 +72,31 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
     @Override
     public Overview overview(String accountId) {
         requireAccount(accountId);
+        return new Overview(store.countNew(accountId), store.countDiscarded(accountId),
+                listCounts(accountId), groups(store.kept(accountId)));
+    }
+
+    @Override
+    public List<ListCount> listCounts(String accountId) {
+        requireAccount(accountId);
         Map<TrainingList, Integer> counts = state.listCounts(accountId);
         List<ListCount> lists = new ArrayList<>();
         for (TrainingList list : TrainingList.values()) {
             lists.add(new ListCount(list, counts.getOrDefault(list, 0)));
         }
-        return new Overview(store.countNew(accountId), store.countDiscarded(accountId),
-                List.copyOf(lists), groups(store.kept(accountId)));
+        return List.copyOf(lists);
+    }
+
+    @Override
+    public Page inList(String accountId, TrainingList list, int offset, int limit) {
+        requireAccount(accountId);
+        requirePage(offset, limit);
+        if (list == null) {
+            throw new IllegalArgumentException("Training List is required");
+        }
+        return new Page(store.countInList(accountId, list),
+                store.inListPage(accountId, list, offset, limit).stream()
+                        .map(OwnPuzzleTrainingService::summary).toList());
     }
 
     @Override
@@ -188,8 +206,9 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
         if (list == null || list == TrainingList.MASTERED) {
             return Optional.empty();
         }
-        return state.startSession(accountId, list, null, state.puzzlesInList(accountId, list),
-                        shuffle, now())
+        // The list is read in the session's transaction, as for normal Puzzles.
+        return store.inTransaction(() -> state.startSession(accountId, list, null,
+                        state.puzzlesInList(accountId, list), shuffle, now()))
                 .map(row -> new Session(row.id(), row.list(), row.total()));
     }
 
@@ -199,13 +218,17 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
         if (!validGroup(kind, key)) {
             return Optional.empty();
         }
-        List<Long> puzzles = store.inList(accountId, TrainingList.MASTERED).stream()
+        String group = JdbcPerformanceState.databaseValue(kind) + ":" + key;
+        return store.inTransaction(() -> state.startSession(accountId, TrainingList.MASTERED,
+                        group, masteredIn(accountId, kind, key), shuffle, now()))
+                .map(row -> new Session(row.id(), row.list(), row.total()));
+    }
+
+    private List<Long> masteredIn(String accountId, GroupKind kind, String key) {
+        return store.inList(accountId, TrainingList.MASTERED).stream()
                 .filter(row -> keys(kind, row).contains(key))
                 .map(PuzzleRow::id)
                 .toList();
-        String group = kind.name().toLowerCase(java.util.Locale.ROOT) + ":" + key;
-        return state.startSession(accountId, TrainingList.MASTERED, group, puzzles, shuffle, now())
-                .map(row -> new Session(row.id(), row.list(), row.total()));
     }
 
     @Override

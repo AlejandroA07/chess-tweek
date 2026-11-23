@@ -31,6 +31,12 @@ public interface OwnPuzzleTraining {
     /** Discarded Own Puzzles, newest source game first. */
     Page discarded(String accountId, int offset, int limit);
 
+    /** The Own Puzzles in one Training List, newest source game first. */
+    Page inList(String accountId, TrainingList list, int offset, int limit);
+
+    /** The number of the account's Own Puzzles in every Training List, in progression order. */
+    List<ListCount> listCounts(String accountId);
+
     ChangeOutcome discard(String accountId, long ownPuzzleId);
 
     ChangeOutcome restore(String accountId, long ownPuzzleId);

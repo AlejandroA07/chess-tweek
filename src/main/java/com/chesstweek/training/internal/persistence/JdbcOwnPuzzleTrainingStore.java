@@ -126,6 +126,20 @@ public class JdbcOwnPuzzleTrainingStore {
                 JdbcOwnPuzzleTrainingStore::row, accountId);
     }
 
+    public int countInList(String accountId, TrainingList list) {
+        return state.count(accountId, list);
+    }
+
+    /** One page of the account's Own Puzzles in one Training List, newest source game first. */
+    public List<PuzzleRow> inListPage(String accountId, TrainingList list, int offset, int limit) {
+        return jdbc.query(SELECT + """
+                 JOIN training_own_puzzle_performance s
+                   ON s.account_id = p.account_id AND s.puzzle_id = p.id AND s.list = ?
+                 WHERE p.account_id = ?
+                """ + NEWEST_FIRST + " LIMIT ? OFFSET ?", JdbcOwnPuzzleTrainingStore::row,
+                JdbcPerformanceState.databaseValue(list), accountId, limit, offset);
+    }
+
     /** The account's Own Puzzles currently in one Training List. */
     public List<PuzzleRow> inList(String accountId, TrainingList list) {
         return jdbc.query(SELECT + """

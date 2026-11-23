@@ -2,7 +2,7 @@
 
 This is the owner's refresher: why Chess Tweek exists, what the owner wants to train, what the then-current plan delivered, what free tools already did, and which parts of the plan were worth building. It was written on 2026-11-14 after Stage 4 Part 5a. It records historical findings and options; it does not change the product specification by itself. Decisions taken from it must be copied into `01-chess-tweek.md` and `03-delivery-plan.md`. The later guided-course decision is recorded in section 8.1.
 
-> **Owner update, 2026-11-19:** the calendar-based spaced-repetition proposal, limited 1200–1700 import, and New/Learning/Lapsed states in this investigation are superseded. The current decisions import the full official Lichess Puzzle corpus and use owner-chosen performance Training Lists with no due dates. See `06-puzzle-library-taxonomy-and-sizing.md`, `07-performance-training-lists.md`, and `08-lichess-puzzle-dataset-sizing.md`.
+> **Owner update, 2026-11-19:** the calendar-based spaced-repetition proposal, limited 1200–1700 import, and New/Learning/Lapsed states in this investigation are superseded. The current decisions import the full official Lichess Puzzle corpus and use owner-chosen performance Training Lists with no due dates. See `06-puzzle-library-taxonomy-and-sizing.md`, `07-performance-training-lists.md`, and ADR-010 in `02-architecture.md`.
 
 ## 1. The goal
 
@@ -260,7 +260,7 @@ The following calendar-based proposal is retained only to explain the investigat
 
 ## 10. Superseded pattern-library decisions (2026-11-14)
 
-These were the first bounded-import decisions. The 2026-11-19 full-corpus decision in `08-lichess-puzzle-dataset-sizing.md` replaces the limited import and rating cap while preserving the usefulness of small curated named collections.
+These were the first bounded-import decisions. The 2026-11-19 full-corpus decision (ADR-010 in `02-architecture.md`) replaces the limited import and rating cap while preserving the usefulness of small curated named collections.
 
 1. **Themes.** The first library is the 22 starter themes marked **(start)** in section 9, plus the Caro-Kann and London opening decks, at puzzle ratings about 1200 to 1700.
 2. **Import.** Download the CC0 Lichess puzzle file once and keep only the chosen themes and ratings. Decompression uses the Homebrew `zstd` tool, a system prerequisite like Stockfish (installed on the owner's Mac: zstd 1.5.7 at `/opt/homebrew/bin/zstd`). No Java decompression dependency is added.

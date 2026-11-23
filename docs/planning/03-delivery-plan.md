@@ -16,7 +16,7 @@ Every handoff lists changed files, commands run, manual checks, and known limita
 
 ## Re-scoped plan (owner decision, 2026-11-14)
 
-The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, wishes, and tool research; the later owner decisions in `06-puzzle-library-taxonomy-and-sizing.md`, `07-performance-training-lists.md`, and `08-lichess-puzzle-dataset-sizing.md` supersede its proposed Puzzle scheduling and import limits. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12, with the standalone guided course inserted as Stage 6 by owner decision on 2026-11-16. Guided thinking comes before the full Puzzle corpus, performance training, and openings. The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
+The owner's goal is to go from about 1300 to 2000 rapid on chess.com while also playing on Lichess. `04-training-goals.md` records the goal, wishes, and tool research; the later owner decisions in `06-puzzle-library-taxonomy-and-sizing.md`, `07-performance-training-lists.md`, and ADR-010 supersede its proposed Puzzle scheduling and import limits. Stages 0 to 4 are unchanged. From Stage 5 on, the plan below replaces the old stages 5 to 12, with the standalone guided course inserted as Stage 6 by owner decision on 2026-11-16. Guided thinking comes before the full Puzzle corpus, performance training, and openings. The old stage sections further down are kept as "Maybe later" reference and are not scheduled.
 
 Training follows its standalone prompt and `docs/app-material/DESIGN.md`; future Patterns and Openings views still need prompts. Every new view uses project tokens and CSS Modules in the existing shell; no second visual system is introduced.
 
@@ -73,7 +73,7 @@ No new dependency is expected; if `chessgame` cannot read the PGN, a proposal co
 Deliver this stage as three independently reviewed parts:
 
 1. **Puzzle Library and taxonomy — delivered in PR #42.** Branch: `feature/training-core`. Add the central `training`-owned Puzzle, classification, Puzzle Collection, and Exercise-reference schema from ADR-009. Extract the bounded Lichess parser/normalizer from the existing course selector into one explicit local importer. Preserve CC0 provenance and snapshot metadata, expose all current Lichess theme names, keep openings as a separate hierarchy, and migrate the 12 guided-method exercises to stable Puzzle references before adding the full catalog interface.
-2. **Full Puzzle corpus and controlled access — delivered in PR #49.** Branch: `feature/full-puzzle-corpus`. Storage and sampling are recorded in ADR-010; measurements are in `docs/dev/2026-11-19-full-puzzle-corpus.md`. Add the explicit Admin workflow to download, verify, import, resume, cancel, and later update the complete official Lichess Puzzle snapshot. Preflight disk space, expose progress, retain auditable snapshot metadata, delete the compressed source only after a verified import, and implement indexed purpose-specific queries for exact Puzzle references, Random, and category selection. Update checks and downloads are manual-only Admin actions. Apply the retention and immutable-position conflict rules in `08-lichess-puzzle-dataset-sizing.md`.
+2. **Full Puzzle corpus and controlled access — delivered in PR #49.** Branch: `feature/full-puzzle-corpus`. Storage and sampling are recorded in ADR-010; measurements are in `docs/dev/2026-11-19-full-puzzle-corpus.md`. Add the explicit Admin workflow to download, verify, import, resume, cancel, and later update the complete official Lichess Puzzle snapshot. Preflight disk space, expose progress, retain auditable snapshot metadata, delete the compressed source only after a verified import, and implement indexed purpose-specific queries for exact Puzzle references, Random, and category selection. Update checks and downloads are manual-only Admin actions. Apply the retention and immutable-position conflict rules in ADR-010.
 3. **Normal Puzzle performance training — delivered in PRs #52, #53, #54, #56, #58, and #59.** Branch: `feature/puzzle-performance-training`. Deliver it as four independently reviewed slices (owner decision, 2026-11-20): 3a the backend performance core (account attempts, server-checked solving with hint and Show solution, list rules, Random that excludes classified Puzzles, By Category that excludes Mastered Puzzles, and corpus retention); 3b the Puzzle dashboard with Random and By Category; 3c the Repetition dashboard, Practice Sessions, and Mastered view; 3d guided methods updating the same performance state. Add the main Puzzle dashboard, one-at-a-time Random, By Category, and the normal-Puzzle Repetition dashboard. Record account-scoped attempts and apply the exact classification, counters, strikes, advancement, demotion, session-randomization, and Mastered behavior from `07-performance-training-lists.md`. Guided methods update the referenced Puzzle's same performance state while preserving independent course progress.
 
 - Part 1 acceptance: import is explicit, bounded, deterministic, resumable, and reports its storage result; duplicate provider/external IDs do not create duplicate Puzzles; methods can invoke an exact Puzzle by internal ID without owning it; removing a method does not remove its Puzzle.
@@ -263,7 +263,7 @@ Acceptance:
 
 - One-side analysis targets about 1–2 minutes and both sides about 2–4 minutes on the measured profile.
 - Missing or crashed Stockfish yields a recoverable state.
-- Reanalysis creates a new version without mutating old evidence.
+- Stored analysis evidence is never mutated. Since Stage 8 a completed perspective is not analyzed again.
 - Owner and opponent findings are never combined.
 
 ## Maybe later — Persistent bulk analysis queue
@@ -308,7 +308,7 @@ Deliver:
 Acceptance:
 
 - Any selection other than 10 eligible games is rejected.
-- Reanalysis never changes an existing report.
+- A saved report never changes.
 - Reports reopen after restart.
 - Deleting a referenced game is blocked with every blocking report returned.
 - All report queries are account-scoped.

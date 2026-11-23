@@ -59,8 +59,8 @@ Stage 1 encodes Java package boundaries with ArchUnit and keeps the frontend in 
 ## ADR-005 — Immutable evidence and reports
 
 - **Status:** Accepted
-- **Context:** Stockfish versions and analysis profiles change. A saved report must not silently change because a game is reanalyzed later.
-- **Decision:** Reanalysis creates a new analysis version. Since Stage 8, a side with a stored analysis is not analyzed again; only the missing side can be (`07-performance-training-lists.md`), so each side normally has one version. A report references exactly 10 owner analysis versions with restrictive foreign keys and stores an aggregate snapshot. Report packages belong to the report and are deleted with it.
+- **Context:** Stockfish versions and analysis profiles change. Stored evidence and any saved report must never silently change.
+- **Decision:** Every analysis is stored as a new immutable version. A side with a stored analysis is never analyzed again; only the missing side can be (`07-performance-training-lists.md`), so each side has at most one version and Own Puzzles always point at the analysis they came from. A report references exactly 10 owner analysis versions with restrictive foreign keys and stores an aggregate snapshot. Report packages belong to the report and are deleted with it.
 - **Rejected:** Overwriting analysis in place destroys reproducibility. Dynamically recomputing saved reports makes historical results unstable. Copying all evidence into disconnected JSON makes deletion dependencies and drill-down unreliable.
 - **Reopen when:** A deliberate report-migration feature is designed with visible versioning and owner approval.
 

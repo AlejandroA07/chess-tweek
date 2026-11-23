@@ -1,6 +1,6 @@
 # Puzzle library taxonomy, opening scope, and storage sizing
 
-> **Owner update, 2026-11-19:** the complete official Lichess Puzzle snapshot will be imported into the central library. The 20–100 targets below remain useful for curated named collections, but they no longer cap the underlying library or Random and By Category access. See [`08-lichess-puzzle-dataset-sizing.md`](08-lichess-puzzle-dataset-sizing.md).
+> **Owner update, 2026-11-19:** the complete official Lichess Puzzle snapshot will be imported into the central library. The 20–100 targets below remain useful for curated named collections, but they no longer cap the underlying library or Random and By Category access. See ADR-010 in [`02-architecture.md`](02-architecture.md).
 
 **Decision date:** 2026-11-18
 **Primary data snapshot checked:** Lichess puzzle export updated 2026-11-11
@@ -79,7 +79,7 @@ The count is a quality decision, not a storage limit.
 | 50 | Default for a normal motif, endgame, opening family, or sufficiently common variation | Enough repetition to learn the pattern without making the first release expensive to curate. This is the recommended starting target. |
 | 100 | Fork, pin, discovered attack, deflection, interference, back-rank mate, other high-value/high-volume patterns, and the owner's core opening families | Expand only after solve data shows that the extra breadth is useful. |
 
-For the 2000-strength goal, use the same source bands already accepted for the guided course where appropriate: Foundation 1500–1700, Development 1750–1950, and Stretch 2000–2200. A general pattern deck can interleave those tiers rather than silently reverting to the older 1200–1700 proposal. Retain the quality gates from [the guided-course sourcing plan](05-guided-course-exercise-sourcing.md): prefer rating deviation at most 90, popularity at least 80, and at least 200 plays, then manually review authored-course picks.
+For the 2000-strength goal, use the same source bands already accepted for the guided course where appropriate: Foundation 1500–1700, Development 1750–1950, and Stretch 2000–2200. A general pattern deck can interleave those tiers rather than silently reverting to the older 1200–1700 proposal. Retain the quality gates used to source the guided course: prefer rating deviation at most 90, popularity at least 80, and at least 200 plays, then manually review authored-course picks.
 
 The current [`scripts/select-course-puzzles.mjs`](../../scripts/select-course-puzzles.mjs) already does the difficult safe-input work: it streams `.csv` or `.csv.zst`, validates the official columns and URLs, bounds decompression and record size, applies the opponent's setup move, and keeps deterministic candidates. A later implementation should extract its parser/normalizer into a shared importer and add catalog/deck selection modes. The current lesson-specific selection rules and prose should not become the global library schema.
 

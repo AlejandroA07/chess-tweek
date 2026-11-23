@@ -59,7 +59,7 @@ Official snapshot of 2026-11-01: 309,751,173 compressed bytes, SHA-256 `7b0d235f
 | Refresh with a new ETag over the stored corpus (6,193,530 unchanged) | 60 s; database grew to 2,823,151,616 bytes |
 | End-to-end against `database.lichess.org` into a fresh database: download and verify / apply / total | 17.5 s / 116 s / 134 s |
 
-Storage by object: `training_puzzle` 1.49 GiB, its provider and external-ID index 258 MiB, `training_puzzle_current` 425 MiB, category membership 330 MiB, and the import index 88 MiB. The real total is close to the 2.46 GiB estimate in `08-lichess-puzzle-dataset-sizing.md`.
+Storage by object: `training_puzzle` 1.49 GiB, its provider and external-ID index 258 MiB, `training_puzzle_current` 425 MiB, category membership 330 MiB, and the import index 88 MiB. The real total is close to the 2.46 GiB planning estimate.
 
 The first design gave every Puzzle a random sampling key. Inserts then landed at random positions in large indexes, and throughput fell from about 20,000 to about 5,000 records per second by two million rows. Sampling a uniform point in the Puzzle ID range turns those inserts into appends and keeps the import near 90,000 records per second.
 

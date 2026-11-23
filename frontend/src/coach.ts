@@ -14,6 +14,14 @@ export const TACTIC_TEXT: Record<Tactic['theme'], Record<Tactic['kind'], string>
   back_rank: { allowed: 'Back-rank mate', missed: 'Back-rank mate' },
   hanging_piece: { allowed: 'Hung a piece', missed: 'Missed a free piece' },
   fork: { allowed: 'Allowed a fork', missed: 'Missed a fork' },
+  discovered_check: { allowed: 'Allowed a discovered check', missed: 'Missed a discovered check' },
+  discovered_attack: { allowed: 'Allowed a discovered attack', missed: 'Missed a discovered attack' },
+  pin: { allowed: 'Allowed a pin', missed: 'Missed a pin' },
+  skewer: { allowed: 'Allowed a skewer', missed: 'Missed a skewer' },
+  removing_defender: { allowed: 'Lost a defender', missed: 'Missed removing a defender' },
+  trapped_piece: { allowed: 'Allowed a trapped piece', missed: 'Missed a trapped piece' },
+  deflection: { allowed: 'Allowed a deflection', missed: 'Missed a deflection' },
+  in_between_move: { allowed: 'Allowed an in-between move', missed: 'Missed an in-between move' },
   general_tactics: { allowed: 'Allowed a tactic', missed: 'Missed a tactic' },
 }
 
@@ -101,7 +109,71 @@ function explain(
       return tactic.kind === 'allowed'
         ? `${capitalize(words.opponentPossessive)} best reply wins material: ${variation(finding.ply + 1, (finding.after[0]?.pvSan ?? []).slice(0, 6))}.`
         : `The best line wins material: ${variation(finding.ply, (finding.before[0]?.pvSan ?? []).slice(0, 6))}.`
+    default:
+      return motif(tactic, finding, afterFen, words)
   }
+}
+
+/**
+ * The Stage 8B motifs. The evidence comes first: the move from the line after which the pattern
+ * stands, then the pieces it involves, read from the position right after that move.
+ */
+function motif(
+  tactic: Tactic,
+  finding: JudgedMove,
+  afterFen: string | null,
+  words: { possessive: string; opponentPossessive: string },
+) {
+  const allowed = tactic.kind === 'allowed'
+  const line = allowed ? finding.after[0] : finding.before[0]
+  const start = allowed ? afterFen : finding.fenBefore
+  const index = tactic.lineIndex ?? null
+  const san = index === null ? undefined : line?.pvSan[index]
+  const move = san === undefined || index === null ? 'the line' : label((allowed ? finding.ply + 1 : finding.ply) + index, san)
+  const fen = index === null ? null : positionAfter(start, line?.pv ?? [], index)
+  const gainer = allowed ? words.opponentPossessive : words.possessive
+  const victim = allowed ? words.possessive : words.opponentPossessive
+  const lead = allowed ? `It allows ${move}` : `The best line has ${move}`
+  const key = `${tactic.piece ?? 'piece'} on ${tactic.square ?? 'its square'}`
+  const [first, second] = tactic.targets.map((square) => named(fen, square))
+  switch (tactic.theme) {
+    case 'discovered_check':
+      return `${lead}, uncovering a check from ${gainer} ${key}, and the line wins material.`
+    case 'discovered_attack':
+      return `${lead}, uncovering an attack by ${gainer} ${key} on ${list(tactic.targets.map((square) => named(fen, square)))}, and the line wins material.`
+    case 'pin':
+      return `${lead}: ${gainer} ${key} pins ${first ?? 'a piece'} to ${second ?? 'the piece behind it'}, and the line wins the pinned piece.`
+    case 'skewer':
+      return `${lead}: ${gainer} ${key} attacks ${first ?? 'a piece'}; once it moves, ${second ?? 'the piece behind it'} is taken.`
+    case 'removing_defender':
+      return `${lead}, taking ${victim} ${key}, the only defender of ${first ?? 'a piece'}, which is taken next.`
+    case 'trapped_piece':
+      return `${lead}, after which ${victim} ${key} has no safe square, and the line wins it.`
+    case 'deflection':
+      return `${lead}, which forces ${victim} ${key} away from guarding ${first ?? 'a piece'}, and that piece is taken next.`
+    case 'in_between_move':
+      return `${lead} before recapturing on ${tactic.targets[0] ?? 'the square'}; the recapture still follows and the line ends further ahead than recapturing at once.`
+    default:
+      return ''
+  }
+}
+
+/** The position after line move `index`, or null when it cannot be replayed. */
+function positionAfter(start: string | null, pv: string[], index: number) {
+  let fen = start
+  for (const uci of pv.slice(0, index + 1)) {
+    fen = fen === null ? null : playUci(fen, uci)
+  }
+  return fen
+}
+
+function named(fen: string | null, square: string) {
+  const piece = fen === null ? null : pieceAt(fen, square)
+  return piece ? `the ${piece.piece} on ${square}` : square
+}
+
+function list(names: string[]) {
+  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
 /** Names the forked pieces, read from the position right after the forking move. */
@@ -149,6 +221,38 @@ function training(finding: JudgedMove): string[] {
       case 'back_rank':
         add('Back-rank mate puzzles (pattern theme: backRankMate).')
         add('When the back rank is weak, make an escape square for the king (h3/h6 or g3/g6).')
+        break
+      case 'discovered_check':
+      case 'discovered_attack':
+        add(tactic.theme === 'discovered_check'
+          ? 'Discovered check puzzles (pattern theme: discoveredCheck).'
+          : 'Discovered attack puzzles (pattern theme: discoveredAttack).')
+        add(tactic.kind === 'allowed'
+          ? 'Look for enemy pieces lined up behind one of their own pieces: moving the front one can unleash the one behind.'
+          : 'Look for your own pieces lined up behind another of your pieces: moving the front one with a threat can win material.')
+        break
+      case 'pin':
+        add('Pin puzzles (pattern theme: pin).')
+        if (tactic.kind === 'allowed') add('Before each move, check which of your pieces stand on one line with your king or queen.')
+        break
+      case 'skewer':
+        add('Skewer puzzles (pattern theme: skewer).')
+        if (tactic.kind === 'allowed') add('Keep your king and valuable pieces off the same open line.')
+        break
+      case 'removing_defender':
+      case 'deflection':
+        add(tactic.theme === 'removing_defender'
+          ? 'Capture-the-defender puzzles (pattern theme: capturingDefender).'
+          : 'Deflection puzzles (pattern theme: deflection).')
+        add('Count the defenders of each piece: a piece with one defender falls once that defender is taken or driven away.')
+        break
+      case 'trapped_piece':
+        add('Trapped piece puzzles (pattern theme: trappedPiece).')
+        if (tactic.kind === 'allowed') add('Before sending a piece deep into enemy territory, make sure it has a safe way back.')
+        break
+      case 'in_between_move':
+        add('In-between move puzzles (pattern theme: intermezzo).')
+        add('After a capture, look for checks and bigger captures before recapturing automatically.')
         break
       case 'general_tactics':
         add('Mixed tactics: work out the whole line before moving (checks, captures, threats).')

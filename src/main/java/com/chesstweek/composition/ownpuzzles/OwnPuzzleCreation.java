@@ -89,10 +89,16 @@ public class OwnPuzzleCreation implements AnalysisCompletionListener {
                     eco,
                     openingName,
                     game.playedAt(),
-                    move.tactics().stream()
-                            .map(tactic -> new OwnPuzzles.Tactic(tactic.theme(), tactic.kind()))
-                            .toList()));
+                    ownTactics(move)));
         }
         return puzzles;
+    }
+
+    /** A judged move's tactic labels as Own Puzzle labels, each theme and kind once. */
+    static List<OwnPuzzles.Tactic> ownTactics(GameReviews.JudgedMove move) {
+        return move.tactics().stream()
+                .map(tactic -> new OwnPuzzles.Tactic(tactic.theme(), tactic.kind()))
+                .distinct()
+                .toList();
     }
 }

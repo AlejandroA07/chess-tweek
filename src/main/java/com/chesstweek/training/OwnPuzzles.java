@@ -20,6 +20,29 @@ public interface OwnPuzzles {
      */
     int create(String accountId, List<NewOwnPuzzle> puzzles);
 
+    /** Every stored Own Puzzle's source and current tactic labels, for refreshing those labels. */
+    List<StoredLabels> labels();
+
+    /**
+     * Replaces the tactic labels of the Own Puzzle at {@code source} when they differ from the
+     * stored ones, and returns whether anything changed. Nothing else about the puzzle, its
+     * attempts, or its Training List changes.
+     *
+     * @throws IllegalArgumentException when the source or a label is invalid
+     */
+    boolean replaceTactics(PuzzleSource source, List<Tactic> tactics);
+
+    /** Identifies one stored Own Puzzle by its account and source game position. */
+    record PuzzleSource(String accountId, String gameSource, String gameId, int sourcePly) {}
+
+    /** One stored Own Puzzle's source, the analysis version it came from, and its tactic labels. */
+    record StoredLabels(PuzzleSource source, long analysisVersionId, List<Tactic> tactics) {
+
+        public StoredLabels {
+            tactics = List.copyOf(tactics);
+        }
+    }
+
     /**
      * One labelled owner move. The puzzle starts at {@code positionFen}, the position the move was
      * played from. {@code engineLine} is the engine's top line from that position, best move

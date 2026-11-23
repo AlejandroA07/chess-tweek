@@ -14,7 +14,7 @@ Stage 4 Part 6 adds conservative tactic labels to every judged inaccuracy, mista
 | `fork` | A gaining-side move in the first ten plies lands a piece that attacks two or more enemy pieces worth at least a knight (or the king), each the king, worth more than the attacker, or undefended; and the gaining side captures on one of those squares within the next eight plies. |
 | `general_tactics` | A mistake or blunder with none of the above whose line still changes material by at least two points within six plies, measured after the losing side's reply. |
 
-Pins, skewers, discoveries, deflections, and other motifs are not labeled. Attacks are counted geometrically (pins ignored), which can only make a piece look defended, never hanging. Inaccuracies get only the narrow labels, never `general_tactics`. An unreadable stored position yields no label.
+Pins, skewers, discoveries, deflections, and other motifs were not labeled at first; Stage 8B Part 1 adds them (`2026-11-23-more-named-tactics.md`). Attacks are counted geometrically (pins ignored), which can only make a piece look defended, never hanging. Inaccuracies get only the narrow labels, never `general_tactics`. An unreadable stored position yields no label.
 
 The fork window was widened after checking the owner's real game `ye7Uy9js`: 8...Nd7 allowed 9.dxe6 fxe6 10.Ng5 Nf6 11.Bg6+ hxg6 12.Qxd8+ Kxd8 13.Nf7+, forking the king and the rook on h8, which falls only at 16.Nxh8 in the stored line.
 

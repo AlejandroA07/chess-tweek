@@ -483,16 +483,18 @@ Acceptance:
 - Stage 8 Part 8b is complete in PR #64, merged on 2026-11-23: Own Puzzle attempts, Training Lists, New, Discard, and Restore, repetition and Mastered practice, the summaries, and the `/api/training/own-puzzles` endpoints (migration V15, `docs/dev/2026-11-23-own-puzzle-training.md`).
 - Stage 8 Part 8c is complete in PR #66, merged on 2026-11-23, so Stage 8 is complete. It adds the Own Puzzles dashboard, New Own Puzzles with a site filter and a newest or random solving order (owner decision, 2026-11-23), Discard and Restore, the Training List pages, Own Repetition, and Mastered practice by group. The player is shared with normal Puzzles, and the source-game link opens the Game Review at the puzzle's move (`docs/dev/2026-11-23-own-puzzles-interface.md`). The owner's live check of the merged app on 2026-11-23 found it working: the Own Puzzles from the 8a check appeared as New, a site-filtered Random solve, Discard and Restore, and the source-game link to the move all worked. This also closes the 8b check.
 - The thinking-habit trainer ideas were recorded for later in PR #65, merged on 2026-11-23 (`10-thinking-habit-trainer-ideas.md`).
+- Stage 8B Part 1 is delivered on `feature/more-named-tactics`. It adds discovered checks and attacks, pins, skewers, removing the defender, trapped pieces, deflection, and in-between moves, each proven by a material gain in the stored line, with a near-miss test for each. Coach cards and training suggestions cover the new labels. By owner decision on 2026-11-23, existing Own Puzzles get their tactic labels recomputed from their stored analysis at every application start (`docs/dev/2026-11-23-more-named-tactics.md`). A read-only run over the owner's 11 stored findings added no label and changed none.
 
 ### Not yet delivered
 
-- Stage 8B Deeper Game Review and Stage 9 curated collections have not started.
+- Stage 8B Part 2 (measurable positional reasons) and Stage 9 curated collections have not started.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-23):**
 
-1. Start Stage 8B, Deeper Game Review, on its own `feature/<topic>` branch, beginning with Part 1 (more named tactics). The thinking-habit trainer ("Maybe later") is best considered after Stage 8B.
+1. After Part 1 merges, implement Stage 8B Part 2, measurable positional reasons, on its own `feature/<topic>` branch. The thinking-habit trainer ("Maybe later") is best considered after Stage 8B.
 2. Owner checks still open:
+   - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

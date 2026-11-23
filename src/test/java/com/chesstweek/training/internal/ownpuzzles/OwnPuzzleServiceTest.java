@@ -203,6 +203,65 @@ class OwnPuzzleServiceTest {
         }
     }
 
+    @Test
+    void listsAndReplacesTacticLabelsOfOnePuzzleOnly() {
+        try (var application = start()) {
+            OwnPuzzles puzzles = application.getBean(OwnPuzzles.class);
+            var line = List.of(puzzle(5, List.of("f1b5", "a7a6", "b5a4")));
+            puzzles.create(OWNER, line);
+            puzzles.create(OTHER, line);
+            var source = new OwnPuzzles.PuzzleSource(OWNER, "lichess", "abcd1234", 5);
+
+            // In source order, so by account first.
+            assertThat(puzzles.labels()).containsExactly(
+                    new OwnPuzzles.StoredLabels(new OwnPuzzles.PuzzleSource(OTHER, "lichess", "abcd1234", 5), 3,
+                            List.of(new OwnPuzzles.Tactic("fork", "missed"))),
+                    new OwnPuzzles.StoredLabels(source, 3, List.of(new OwnPuzzles.Tactic("fork", "missed"))));
+
+            var replaced = List.of(new OwnPuzzles.Tactic("pin", "missed"), new OwnPuzzles.Tactic("skewer", "allowed"));
+            assertThat(puzzles.replaceTactics(source, replaced)).isTrue();
+            assertThat(puzzles.replaceTactics(source, replaced)).isFalse();
+
+            assertThat(jdbc(application).queryForList("""
+                    SELECT p.account_id || '/' || t.theme || '/' || t.kind
+                    FROM training_own_puzzle_tactic t JOIN training_own_puzzle p ON p.id = t.own_puzzle_id
+                    ORDER BY 1
+                    """, String.class))
+                    .containsExactly("other-id/fork/missed", "owner-id/pin/missed", "owner-id/skewer/allowed");
+            assertThat(puzzles.replaceTactics(
+                    new OwnPuzzles.PuzzleSource(OWNER, "lichess", "abcd1234", 7), replaced)).isFalse();
+        }
+    }
+
+    @Test
+    void refusesToReplaceLabelsWithAnInvalidSourceOrLabel() {
+        try (var application = start()) {
+            OwnPuzzles puzzles = application.getBean(OwnPuzzles.class);
+            var source = new OwnPuzzles.PuzzleSource(OWNER, "lichess", "abcd1234", 5);
+            var fork = List.of(new OwnPuzzles.Tactic("fork", "missed"));
+
+            assertThatThrownBy(() -> puzzles.replaceTactics(null, fork))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> puzzles.replaceTactics(
+                    new OwnPuzzles.PuzzleSource("bad id!", "lichess", "abcd1234", 5), fork))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> puzzles.replaceTactics(
+                    new OwnPuzzles.PuzzleSource(OWNER, "elsewhere", "abcd1234", 5), fork))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> puzzles.replaceTactics(
+                    new OwnPuzzles.PuzzleSource(OWNER, "lichess", "abcd1234", 0), fork))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> puzzles.replaceTactics(source, null))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> puzzles.replaceTactics(
+                    source, List.of(new OwnPuzzles.Tactic("Pin'; --", "missed"))))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> puzzles.replaceTactics(
+                    source, List.of(new OwnPuzzles.Tactic("pin", "maybe"))))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
     /** White's move at {@code ply}, from the position after 1.e4 e5 2.Nf3 Nc6. */
     private static NewOwnPuzzle puzzle(int ply, List<String> line) {
         return new NewOwnPuzzle("lichess", "abcd1234", ply, 3, AFTER_NC6, BEFORE_NC6, "b8c6", line,

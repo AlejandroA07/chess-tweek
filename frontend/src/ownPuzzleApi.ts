@@ -130,6 +130,14 @@ const TACTIC_GROUP_TEXT: Record<string, string> = {
   back_rank: 'Back-rank mate',
   hanging_piece: 'Hanging piece',
   fork: 'Fork',
+  discovered_check: 'Discovered check',
+  discovered_attack: 'Discovered attack',
+  pin: 'Pin',
+  skewer: 'Skewer',
+  removing_defender: 'Removing the defender',
+  trapped_piece: 'Trapped piece',
+  deflection: 'Deflection',
+  in_between_move: 'In-between move',
   general_tactics: 'Other tactics',
 }
 

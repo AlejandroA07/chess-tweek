@@ -73,6 +73,45 @@ class OwnPuzzleService implements OwnPuzzles {
         return rows.isEmpty() ? 0 : store.insertNew(rows, clock.millis());
     }
 
+    @Override
+    public List<StoredLabels> labels() {
+        return store.labels().stream()
+                .map(row -> new StoredLabels(
+                        new PuzzleSource(row.accountId(), row.gameSource(), row.gameId(), row.sourcePly()),
+                        row.analysisVersionId(),
+                        row.tactics().stream().map(tactic -> new Tactic(tactic.theme(), tactic.kind())).toList()))
+                .toList();
+    }
+
+    @Override
+    public boolean replaceTactics(PuzzleSource source, List<Tactic> tactics) {
+        if (source == null || source.accountId() == null || !ACCOUNT_ID.matcher(source.accountId()).matches()
+                || !validGame(source.gameSource(), source.gameId())
+                || source.sourcePly() < 1 || source.sourcePly() > MAX_PLY) {
+            throw new IllegalArgumentException("Own Puzzle source is invalid");
+        }
+        if (tactics == null || !tactics.stream().allMatch(OwnPuzzleService::validTactic)) {
+            throw new IllegalArgumentException("Tactic labels are invalid");
+        }
+        Set<Tactic> wanted = new java.util.HashSet<>(tactics);
+        Set<Tactic> stored = store.tactics(source.accountId(), source.gameSource(), source.gameId(),
+                        source.sourcePly()).stream()
+                .map(tactic -> new Tactic(tactic.theme(), tactic.kind()))
+                .collect(java.util.stream.Collectors.toSet());
+        if (wanted.equals(stored)) {
+            return false;
+        }
+        return store.replaceTactics(source.accountId(), source.gameSource(), source.gameId(), source.sourcePly(),
+                wanted.stream()
+                        .map(tactic -> new JdbcOwnPuzzleStore.TacticRow(tactic.theme(), tactic.kind()))
+                        .toList());
+    }
+
+    private static boolean validTactic(Tactic tactic) {
+        return tactic != null && tactic.theme() != null && THEME.matcher(tactic.theme()).matches()
+                && TACTIC_KINDS.contains(tactic.kind());
+    }
+
     private static boolean valid(NewOwnPuzzle puzzle) {
         return puzzle != null
                 && validGame(puzzle.gameSource(), puzzle.gameId())
@@ -83,9 +122,7 @@ class OwnPuzzleService implements OwnPuzzles {
                 && LABELS.contains(puzzle.label())
                 && PHASES.contains(puzzle.phase())
                 && puzzle.gamePlayedAt() != null && puzzle.gamePlayedAt().toEpochMilli() >= 0
-                && puzzle.tactics().stream().allMatch(tactic -> tactic != null
-                        && tactic.theme() != null && THEME.matcher(tactic.theme()).matches()
-                        && TACTIC_KINDS.contains(tactic.kind()));
+                && puzzle.tactics().stream().allMatch(OwnPuzzleService::validTactic);
     }
 
     private static String eco(String eco) {

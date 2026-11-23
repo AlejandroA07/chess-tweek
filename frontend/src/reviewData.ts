@@ -47,7 +47,20 @@ export type TacticTheme =
   | 'back_rank'
   | 'hanging_piece'
   | 'fork'
+  | 'discovered_check'
+  | 'discovered_attack'
+  | 'pin'
+  | 'skewer'
+  | 'removing_defender'
+  | 'trapped_piece'
+  | 'deflection'
+  | 'in_between_move'
   | 'general_tactics'
+
+export const TACTIC_THEMES: TacticTheme[] = [
+  'allowed_mate', 'missed_mate', 'back_rank', 'hanging_piece', 'fork', 'discovered_check', 'discovered_attack',
+  'pin', 'skewer', 'removing_defender', 'trapped_piece', 'deflection', 'in_between_move', 'general_tactics',
+]
 
 export type PieceName = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king'
 
@@ -58,6 +71,8 @@ export type Tactic = {
   piece: PieceName | null
   square: string | null
   targets: string[]
+  /** Index in the proving line of the move after which the pattern stands; absent or null when none. */
+  lineIndex?: number | null
 }
 
 export type JudgedMove = {
@@ -315,13 +330,15 @@ const SQUARE = /^[a-h][1-8]$/
 function parseTactic(value: unknown): Tactic {
   if (
     !isRecord(value) ||
-    !isOneOf(value.theme, ['allowed_mate', 'missed_mate', 'back_rank', 'hanging_piece', 'fork', 'general_tactics']) ||
+    !isOneOf(value.theme, TACTIC_THEMES) ||
     !isOneOf(value.kind, ['allowed', 'missed']) ||
     !(value.piece === null || isOneOf(value.piece, ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'])) ||
     !(value.square === null || (typeof value.square === 'string' && SQUARE.test(value.square))) ||
     !Array.isArray(value.targets) ||
     value.targets.length > 8 ||
-    !value.targets.every((target) => typeof target === 'string' && SQUARE.test(target))
+    !value.targets.every((target) => typeof target === 'string' && SQUARE.test(target)) ||
+    !(value.lineIndex === undefined || value.lineIndex === null
+      || (Number.isInteger(value.lineIndex) && (value.lineIndex as number) >= 0 && (value.lineIndex as number) < 40))
   ) {
     throw new Error('Invalid tactic')
   }

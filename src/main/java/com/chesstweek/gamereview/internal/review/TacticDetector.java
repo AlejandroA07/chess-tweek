@@ -1,6 +1,7 @@
 package com.chesstweek.gamereview.internal.review;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -296,7 +297,7 @@ final class TacticDetector {
     /** Placement, side to move, castling, and en passant; the move counters are ignored. */
     private static String placement(String fen) {
         String[] fields = fen.split(" ");
-        return String.join(" ", java.util.Arrays.copyOf(fields, Math.min(fields.length, 4)));
+        return String.join(" ", Arrays.copyOf(fields, Math.min(fields.length, 4)));
     }
 
     private static Optional<ChessGame> play(ChessGame start, String uci) {

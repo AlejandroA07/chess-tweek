@@ -96,21 +96,21 @@ public class JdbcOwnPuzzleStore {
 
     /** Every Own Puzzle with its tactic labels, in source order. */
     public List<LabelRow> labels() {
-        record Flat(long id, LabelRow puzzle, TacticRow tactic) {}
-        List<Flat> flat = jdbc.query("""
+        record PuzzleTacticRow(long id, LabelRow puzzle, TacticRow tactic) {}
+        List<PuzzleTacticRow> flat = jdbc.query("""
                 SELECT p.id, p.account_id, p.game_source, p.game_id, p.source_ply, p.analysis_version_id,
                        t.theme, t.kind
                 FROM training_own_puzzle p
                 LEFT JOIN training_own_puzzle_tactic t ON t.own_puzzle_id = p.id
                 ORDER BY p.account_id, p.game_source, p.game_id, p.source_ply, t.theme, t.kind
-                """, (row, index) -> new Flat(
+                """, (row, index) -> new PuzzleTacticRow(
                         row.getLong(1),
                         new LabelRow(row.getString(2), row.getString(3), row.getString(4), row.getInt(5),
                                 row.getLong(6), List.of()),
                         row.getString(7) == null ? null : new TacticRow(row.getString(7), row.getString(8))));
         Map<Long, LabelRow> puzzles = new LinkedHashMap<>();
         Map<Long, List<TacticRow>> tactics = new HashMap<>();
-        for (Flat row : flat) {
+        for (PuzzleTacticRow row : flat) {
             puzzles.putIfAbsent(row.id(), row.puzzle());
             List<TacticRow> labels = tactics.computeIfAbsent(row.id(), ignored -> new ArrayList<>());
             if (row.tactic() != null) {

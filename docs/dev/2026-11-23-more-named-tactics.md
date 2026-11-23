@@ -23,10 +23,18 @@ Every motif needs two things:
 | `skewer` | A gainer slider moves to attack the enemy king, or a piece worth more than the piece behind it, which is worth at least a knight. | The front piece steps off, and the slider takes the piece behind at once. |
 | `removing_defender` | The gainer captures the only defender of an enemy piece worth at least a knight. | The gainer's next move takes that piece. |
 | `trapped_piece` | After a gainer move, with the opponent not in check, an enemy knight, bishop, rook, or queen is attacked and either undefended or attacked by something cheaper. It is not pinned to its king, and every legal move of it ends the same way unless it takes something at least as valuable. | The piece is captured later, wherever it went. |
-| `deflection` | A gainer check, or a capture that is recaptured, makes the replying piece abandon the only defence of an enemy piece worth at least a knight. | The gainer takes that piece at once. |
+| `deflection` | A gainer check, or a capture of something worth at least the defender that the defender recaptures, makes the replying piece abandon the only defence of an enemy piece worth at least a knight. | The gainer takes that piece at once. |
 | `in_between_move` | Right after the opponent captures, the gainer could recapture but first gives check or takes a piece worth at least a knight. | The gainer recaptures later and ends at least 2 points better than the direct recapture could have at best. |
 
 The in-between move needs the opponent's capture into the line. For `allowed`, that is the played move. For `missed`, `GameReviewService` passes the game's previous move; it is used only when it really leads to the judged position.
+
+These rules are narrower than the research table in three places, on purpose, so that a label is never given on a weaker proof:
+
+- A pin counts only when the pinned piece itself is won. It does not count when the gain is a capture that the pinned piece could otherwise have answered.
+- Removing the defender and deflection need the capture on the very next gainer move, and do not count a mate on that square. Mates already have their own labels.
+- Pins that were already on the board count when the pinned piece is then won.
+
+A discovered check is proven by any capture with the same move or the next gainer move, because the check gives the opponent no time to answer elsewhere. A discovered attack is proven by a capture on an uncovered target, or by the piece that moved.
 
 Each motif reports its earliest occurrence. Several labels can apply to one move; `general_tactics` still appears only when no narrower label does. Overloading, interference, clearance, attraction, and x-rays are not labelled.
 
@@ -51,19 +59,38 @@ The detector was run read-only over all 11 labelled moves stored on 2026-11-23. 
 
 ## Tests
 
-- `TacticDetectorTest` (23): every motif has a proving position and a near miss:
+- `TacticDetectorTest` (25): every motif has a proving position and a near miss:
   - a discovered check that wins nothing
   - an uncovered queen that is never taken
   - a pinned knight taken by the rook and recaptured
   - a king that steps beside its rook
-  - a second defender, for both removing the defender and deflection
+  - a second defender, for both removing the defender and deflection, with the line stopped before it recaptures, so that only the defender rule keeps the label away
+  - a recaptured pawn capture, which never deflects a rook
   - a bishop with an escape square
   - an in-between move that only trades back to the same material
   - The missed in-between move is checked with the previous move, without it, and with one that does not lead to the position.
   - A piece pinned to its king is never trapped.
+  - An allowed skewer from the reply line.
+  - An allowed pin whose apparent gain is only the recapture of the played capture, which the baseline rules out.
   - The owner's two forks now carry their line index.
 - `GameReviewServiceTest`: the previous move passed for each ply.
 - `GameReviewControllerTest`: `lineIndex` in the JSON.
 - `OwnPuzzleServiceTest`: listing labels, replacing one puzzle's labels without touching another account, no change when equal, and refused invalid sources and labels.
 - `OwnPuzzleCreationTest`: the refresh replaces outdated labels, can remove all of them, keeps the puzzle rows, leaves current labels alone, keeps labels when the analysis version differs or is missing, skips a game whose review fails, never stops the application starting, and runs as a startup bean.
 - `coach.test.ts`: the pin and in-between wording word for word, and a label, an explanation, and a training item for every theme and kind.
+
+## Review
+
+The branch had a standards review, a spec review, and a security review. The security review found nothing. The fixes from the other two are in this branch:
+
+- The deflection value rule.
+- Near misses that isolate the defender rules. Each one was checked by switching its rule off and watching the test fail.
+- Allowed-path tests.
+- A check that the defended piece is still the one taken.
+- Imports in place of inline qualified names.
+- Exhaustive Own Puzzle group names.
+
+Kept as they are:
+
+- The refresh skips a puzzle whose analysis version differs. This cannot happen, because a completed side is never analyzed again (`2026-11-23-own-puzzle-creation.md`).
+- The refresh runs before the application serves requests. It reads only the games that have Own Puzzles.

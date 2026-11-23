@@ -1,4 +1,5 @@
 import { TACTIC_TEXT } from './coach'
+import type { TacticTheme } from './reviewData'
 import { isGameRef, type GameRef, type GameSource } from './gameRef'
 import {
   ACTIVE_LISTS,
@@ -120,11 +121,11 @@ export function ownTacticText(tactic: OwnTactic) {
 export function groupText(kind: GroupKind, key: string) {
   if (kind === 'phase') return PHASE_TEXT[key as GamePhase] ?? key
   // Groups count a theme for both kinds, so they name the theme rather than one kind of it.
-  if (kind === 'tactic') return TACTIC_GROUP_TEXT[key] ?? capitalize(key.replaceAll('_', ' '))
+  if (kind === 'tactic') return (TACTIC_GROUP_TEXT as Record<string, string>)[key] ?? capitalize(key.replaceAll('_', ' '))
   return key
 }
 
-const TACTIC_GROUP_TEXT: Record<string, string> = {
+const TACTIC_GROUP_TEXT: Record<TacticTheme, string> = {
   allowed_mate: 'Allowed mate',
   missed_mate: 'Missed mate',
   back_rank: 'Back-rank mate',

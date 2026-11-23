@@ -3,9 +3,11 @@ package com.chesstweek.training.internal.ownpuzzles;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -93,11 +95,11 @@ class OwnPuzzleService implements OwnPuzzles {
         if (tactics == null || !tactics.stream().allMatch(OwnPuzzleService::validTactic)) {
             throw new IllegalArgumentException("Tactic labels are invalid");
         }
-        Set<Tactic> wanted = new java.util.HashSet<>(tactics);
+        Set<Tactic> wanted = new HashSet<>(tactics);
         Set<Tactic> stored = store.tactics(source.accountId(), source.gameSource(), source.gameId(),
                         source.sourcePly()).stream()
                 .map(tactic -> new Tactic(tactic.theme(), tactic.kind()))
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
         if (wanted.equals(stored)) {
             return false;
         }

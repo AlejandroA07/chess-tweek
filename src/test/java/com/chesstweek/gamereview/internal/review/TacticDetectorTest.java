@@ -188,13 +188,30 @@ class TacticDetectorTest {
     }
 
     @Test
+    void labelsAnAllowedSkewerFromTheReplyLine() {
+        // 1...h6 walks into 2.Ra8+ Ke7 3.Rxh8.
+        assertThat(TacticDetector.detect("4k2r/7p/8/8/8/8/8/R5K1 b - - 0 1", "h7h6", "blunder", "none",
+                List.of("e8g8"), List.of("a1a8", "e8e7", "a8h8")))
+                .containsExactly(new Tactic("skewer", "allowed", "rook", "a8", List.of("e8", "h8"), 0));
+    }
+
+    @Test
+    void anAllowedPatternDoesNotCountTheRecaptureOfThePlayedCaptureAsAGain() {
+        // After 1...Rxe1+ 2.Rxe1 the knight is pinned, and 3.Rxe7+ Kxe7 takes it. Counted from
+        // after 1...Rxe1+ that looks like a gain, but from before it White has lost material.
+        assertThat(TacticDetector.detect("4k3/4n2p/8/8/8/8/4r3/R3R1K1 b - - 0 1", "e2e1", "blunder", "none",
+                List.of("e8d7"), List.of("a1e1", "h7h6", "e1e7", "e8e7")))
+                .noneMatch(tactic -> tactic.theme().equals("pin"));
+    }
+
+    @Test
     void labelsAMissedRemovalOfTheOnlyDefender() {
         // 1.Bxc6 removes the only defender of the bishop on d4, which 2.Rxd4 then wins.
         assertThat(missed("6k1/1p6/2n5/1B6/3b4/8/8/3R3K w - - 0 1", "b5c6", "b7c6", "d1d4"))
                 .containsExactly(new Tactic("removing_defender", "missed", "knight", "c6", List.of("d4"), 0));
-        // Near miss: the pawn on e5 still defends d4.
-        assertThat(missed("6k1/1p6/2n5/1B2p3/3b4/8/8/3R3K w - - 0 1", "b5c6", "b7c6", "d1d4", "e5d4"))
-                .isEmpty();
+        // Near miss: the pawn on e5 still defends d4. The line stops before exd4, so only the
+        // only-defender rule keeps the label away.
+        assertThat(missed("6k1/1p6/2n5/1B2p3/3b4/8/8/3R3K w - - 0 1", "b5c6", "b7c6", "d1d4")).isEmpty();
     }
 
     @Test
@@ -211,9 +228,15 @@ class TacticDetectorTest {
         // 1.Rd7+ drives the king from g7, the knight's only defender, and 2.Bxf6 wins it.
         assertThat(missed("8/6k1/5n2/8/8/8/1B6/3R2K1 w - - 0 1", "d1d7", "g7g8", "b2f6"))
                 .containsExactly(new Tactic("deflection", "missed", "king", "g7", List.of("f6"), 0));
-        // Near miss: the knight on h5 still defends f6.
-        assertThat(missed("8/6k1/5n2/7n/8/8/1B6/3R2K1 w - - 0 1", "d1d7", "g7g8", "b2f6", "h5f6"))
-                .isEmpty();
+        // Near miss: the knight on h5 still defends f6. The line stops before Nxf6, so only the
+        // left-undefended rule keeps the label away.
+        assertThat(missed("8/6k1/5n2/7n/8/8/1B6/3R2K1 w - - 0 1", "d1d7", "g7g8", "b2f6")).isEmpty();
+        // Near miss: a capture recaptured by the defender deflects only when it took at least as
+        // much as the defender is worth. Bxc6 takes a pawn; Rxc6 leaves the queen on a4, and Rxa4
+        // wins it, but a pawn never forced the rook away.
+        assertThat(LineMotifs.deflection(ReplayedLine.of(
+                new io.github.wolfraam.chessgame.ChessGame("7k/8/r1p5/8/q7/8/6B1/R5K1 w - - 0 1"),
+                List.of("g2c6", "a6c6", "a1a4"), LineMotifs.MAX_PLIES, null), "missed")).isEmpty();
     }
 
     @Test

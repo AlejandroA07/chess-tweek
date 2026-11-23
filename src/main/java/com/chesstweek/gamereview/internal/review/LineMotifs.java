@@ -40,7 +40,8 @@ import com.chesstweek.gamereview.internal.review.TacticDetector.Attacks;
  *   <li><b>Trapped piece</b>: after a gainer move, an enemy knight, bishop, rook, or queen that is
  *       not pinned to its king stands attacked and losing material, and every legal move of it
  *       does too unless it takes something at least as valuable; it is later captured.
- *   <li><b>Deflection</b>: a gainer check, or a capture that is recaptured, makes the replying
+ *   <li><b>Deflection</b>: a gainer check, or a capture of something worth at least the defender
+ *       that the defender recaptures, makes the replying
  *       piece leave the only defence of an enemy piece worth at least a knight, which the gainer
  *       takes at once.
  *   <li><b>In-between move</b>: right after the opponent captures, the gainer could recapture but
@@ -205,7 +206,8 @@ final class LineMotifs {
             }
             boolean onlyDefender = Attacks.attackedBy(before, defenderSquare).contains(next.to)
                     && Attacks.attackers(before, next.to, guarded.side).size() == 1;
-            if (onlyDefender && line.isCapture(j + 2) && line.wins(j, j + 2, MATERIAL)) {
+            boolean stillThere = guarded.equals(line.before(j + 2).getPiece(next.to));
+            if (onlyDefender && stillThere && line.wins(j, j + 2, MATERIAL)) {
                 return Optional.of(tactic("removing_defender", kind, defender, defenderSquare,
                         List.of(next.to.name), j));
             }
@@ -255,10 +257,12 @@ final class LineMotifs {
                 continue;
             }
             Move reply = line.move(j + 1);
-            if (!check && !reply.to.equals(forcing.to)) {
+            Piece defender = after.getPiece(reply.from);
+            // Without check, the forcing capture must take something worth at least the defender,
+            // and the defender must recapture it.
+            if (!check && (!reply.to.equals(forcing.to) || value(line.captured(j)) < value(defender))) {
                 continue;
             }
-            Piece defender = after.getPiece(reply.from);
             Move take = line.move(j + 2);
             Piece target = after.getPiece(take.to);
             if (target == null || target.side == gainer || target.pieceType == PieceType.KING

@@ -22,11 +22,19 @@ import com.chesstweek.training.PuzzleTraining.TrainingList;
  */
 public interface OwnPuzzleTraining {
 
-    /** New and Discarded counts, Training List counts, and groups over every kept Own Puzzle. */
+    /**
+     * New counts (in total and by site), the Discarded count, Training List counts, and groups
+     * over every kept Own Puzzle.
+     */
     Overview overview(String accountId);
 
-    /** New Own Puzzles, newest source game first. */
-    Page newPuzzles(String accountId, int offset, int limit);
+    /** New Own Puzzles from every site, newest source game first. */
+    default Page newPuzzles(String accountId, int offset, int limit) {
+        return newPuzzles(accountId, Site.ALL, offset, limit);
+    }
+
+    /** New Own Puzzles from one site (or all), newest source game first. */
+    Page newPuzzles(String accountId, Site site, int offset, int limit);
 
     /** Discarded Own Puzzles, newest source game first. */
     Page discarded(String accountId, int offset, int limit);
@@ -42,7 +50,15 @@ public interface OwnPuzzleTraining {
     ChangeOutcome restore(String accountId, long ownPuzzleId);
 
     /** Starts an attempt on the newest New Own Puzzle, or empty when none is New. */
-    Optional<Attempt> startNext(String accountId);
+    default Optional<Attempt> startNext(String accountId) {
+        return startNext(accountId, Site.ALL, NewOrder.NEWEST);
+    }
+
+    /**
+     * Starts an attempt on the newest, or a uniformly random, New Own Puzzle from one site (or
+     * all), or empty when none matches.
+     */
+    Optional<Attempt> startNext(String accountId, Site site, NewOrder order);
 
     /** Starts an attempt on one New Own Puzzle, or empty when it is not New for the account. */
     Optional<Attempt> start(String accountId, long ownPuzzleId);
@@ -69,6 +85,19 @@ public interface OwnPuzzleTraining {
     Optional<Session> startMasteredSession(String accountId, GroupKind kind, String key);
 
     SessionAttempt nextInSession(String accountId, long sessionId);
+
+    /** The site an Own Puzzle's source game came from, or every site. */
+    enum Site {
+        ALL,
+        LICHESS,
+        CHESSCOM
+    }
+
+    /** Which New Own Puzzle {@link #startNext} picks. */
+    enum NewOrder {
+        NEWEST,
+        RANDOM
+    }
 
     enum GroupKind {
         OPENING,
@@ -114,7 +143,14 @@ public interface OwnPuzzleTraining {
             List<GroupCount> phases,
             List<GroupCount> tactics) {}
 
-    record Overview(int newPuzzles, int discarded, List<ListCount> lists, Groups groups) {}
+    /** {@code newLichess} and {@code newChessCom} split {@code newPuzzles} by source site. */
+    record Overview(
+            int newPuzzles,
+            int newLichess,
+            int newChessCom,
+            int discarded,
+            List<ListCount> lists,
+            Groups groups) {}
 
     /**
      * An active attempt. {@code positionFen} has the owner to move; {@code previousMove} is the

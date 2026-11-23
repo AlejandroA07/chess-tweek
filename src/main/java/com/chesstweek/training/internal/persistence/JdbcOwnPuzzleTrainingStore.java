@@ -46,6 +46,8 @@ public class JdbcOwnPuzzleTrainingStore {
             EXISTS (SELECT 1 FROM training_own_puzzle_discard d
                     WHERE d.account_id = p.account_id AND d.puzzle_id = p.id)
             """;
+    /** Binds the site twice: a null site matches every source game. */
+    private static final String SITE = " AND (? IS NULL OR p.game_source = ?)";
     private static final String NEWEST_FIRST = " ORDER BY p.game_played_at_ms DESC, p.id DESC";
 
     /** One stored Own Puzzle; {@code tactics} are {@code theme/kind} values. */
@@ -93,25 +95,40 @@ public class JdbcOwnPuzzleTrainingStore {
                 + " AND NOT " + DISCARDED, accountId, id) == 1;
     }
 
-    public Optional<Long> newestNew(String accountId) {
+    /** The newest New Own Puzzle from {@code site} (or every site when null). */
+    public Optional<Long> newestNew(String accountId, String site) {
+        return newAt(accountId, site, 0);
+    }
+
+    /**
+     * The New Own Puzzle at {@code index} (newest first) from {@code site} (or every site when
+     * null); empty when there are not that many.
+     */
+    public Optional<Long> newAt(String accountId, String site, int index) {
         return jdbc.queryForList("SELECT p.id FROM training_own_puzzle p WHERE p.account_id = ? AND "
-                + UNCLASSIFIED + " AND NOT " + DISCARDED + NEWEST_FIRST + " LIMIT 1",
-                Long.class, accountId).stream().findFirst();
+                + UNCLASSIFIED + " AND NOT " + DISCARDED + SITE + NEWEST_FIRST + " LIMIT 1 OFFSET ?",
+                Long.class, accountId, site, site, index).stream().findFirst();
     }
 
     public int countNew(String accountId) {
-        return count(" WHERE p.account_id = ? AND " + UNCLASSIFIED + " AND NOT " + DISCARDED,
-                accountId);
+        return countNew(accountId, null);
+    }
+
+    /** New Own Puzzles from {@code site}, or from every site when null. */
+    public int countNew(String accountId, String site) {
+        return count(" WHERE p.account_id = ? AND " + UNCLASSIFIED + " AND NOT " + DISCARDED + SITE,
+                accountId, site, site);
     }
 
     public int countDiscarded(String accountId) {
         return count(" WHERE p.account_id = ? AND " + DISCARDED, accountId);
     }
 
-    public List<PuzzleRow> newPage(String accountId, int offset, int limit) {
+    /** One page of New Own Puzzles from {@code site} (or every site when null), newest first. */
+    public List<PuzzleRow> newPage(String accountId, String site, int offset, int limit) {
         return jdbc.query(SELECT + " WHERE p.account_id = ? AND " + UNCLASSIFIED + " AND NOT "
-                        + DISCARDED + NEWEST_FIRST + " LIMIT ? OFFSET ?",
-                JdbcOwnPuzzleTrainingStore::row, accountId, limit, offset);
+                        + DISCARDED + SITE + NEWEST_FIRST + " LIMIT ? OFFSET ?",
+                JdbcOwnPuzzleTrainingStore::row, accountId, site, site, limit, offset);
     }
 
     public List<PuzzleRow> discardedPage(String accountId, int offset, int limit) {

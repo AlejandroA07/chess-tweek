@@ -72,7 +72,8 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
     @Override
     public Overview overview(String accountId) {
         requireAccount(accountId);
-        return new Overview(store.countNew(accountId), store.countDiscarded(accountId),
+        return new Overview(store.countNew(accountId), store.countNew(accountId, "lichess"),
+                store.countNew(accountId, "chesscom"), store.countDiscarded(accountId),
                 listCounts(accountId), groups(store.kept(accountId)));
     }
 
@@ -100,11 +101,13 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
     }
 
     @Override
-    public Page newPuzzles(String accountId, int offset, int limit) {
+    public Page newPuzzles(String accountId, Site site, int offset, int limit) {
         requireAccount(accountId);
         requirePage(offset, limit);
-        return new Page(store.countNew(accountId),
-                store.newPage(accountId, offset, limit).stream().map(OwnPuzzleTrainingService::summary).toList());
+        String source = source(site);
+        return new Page(store.countNew(accountId, source),
+                store.newPage(accountId, source, offset, limit).stream()
+                        .map(OwnPuzzleTrainingService::summary).toList());
     }
 
     @Override
@@ -128,9 +131,23 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
     }
 
     @Override
-    public Optional<Attempt> startNext(String accountId) {
+    public Optional<Attempt> startNext(String accountId, Site site, NewOrder order) {
         requireAccount(accountId);
-        return store.newestNew(accountId).flatMap(id -> start(accountId, id));
+        if (order == null) {
+            throw new IllegalArgumentException("Order is required");
+        }
+        String source = source(site);
+        // A puzzle discarded or classified between the pick and the start is refused by start,
+        // which rechecks New in the attempt's transaction; the next request picks again.
+        Optional<Long> picked = switch (order) {
+            case NEWEST -> store.newestNew(accountId, source);
+            case RANDOM -> {
+                int count = store.countNew(accountId, source);
+                yield count == 0 ? Optional.empty()
+                        : store.newAt(accountId, source, shuffle.nextInt(count));
+            }
+        };
+        return picked.flatMap(id -> start(accountId, id));
     }
 
     @Override
@@ -362,6 +379,18 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
             case OPENING -> !key.isBlank() && key.length() <= MAX_OPENING_FAMILY
                     && key.equals(key.strip())
                     && key.chars().noneMatch(Character::isISOControl);
+        };
+    }
+
+    /** The stored {@code game_source} of a site, or null for every site. */
+    private static String source(Site site) {
+        if (site == null) {
+            throw new IllegalArgumentException("Site is required");
+        }
+        return switch (site) {
+            case ALL -> null;
+            case LICHESS -> "lichess";
+            case CHESSCOM -> "chesscom";
         };
     }
 

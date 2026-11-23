@@ -44,6 +44,8 @@ class OwnPuzzleTrainingControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.newPuzzles").value(4))
+                .andExpect(jsonPath("$.newBySource.lichess").value(3))
+                .andExpect(jsonPath("$.newBySource.chesscom").value(1))
                 .andExpect(jsonPath("$.discarded").value(1))
                 .andExpect(jsonPath("$.lists[3].list").value("retiring"))
                 .andExpect(jsonPath("$.lists[3].puzzles").value(2))
@@ -64,10 +66,18 @@ class OwnPuzzleTrainingControllerTest {
                 .andExpect(jsonPath("$.puzzles[0].sourceGame.ply").value(47))
                 .andExpect(jsonPath("$.puzzles[0].gamePlayedAt").value("2026-11-20T18:00:00Z"))
                 .andExpect(content().string(not(containsString("f1b5"))));
-        assertThat(training.pages).containsExactly("new 10 20");
+        assertThat(training.pages).containsExactly("new ALL 10 20");
+        mockMvc.perform(get(BASE + "/new").param("source", "chesscom").cookie(SESSION))
+                .andExpect(status().isOk());
         mockMvc.perform(get(BASE + "/discarded").cookie(SESSION))
                 .andExpect(status().isOk());
-        assertThat(training.pages).containsExactly("new 10 20", "discarded 0 20");
+        assertThat(training.pages).containsExactly("new ALL 10 20", "new CHESSCOM 0 20", "discarded 0 20");
+
+        for (String source : new String[] {"ALL", "chess.com", "lichess "}) {
+            mockMvc.perform(get(BASE + "/new").param("source", source).cookie(SESSION))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("invalid_training_request"));
+        }
 
         for (String[] invalid : new String[][] {{"-1", "20"}, {"0", "0"}, {"0", "51"}}) {
             mockMvc.perform(get(BASE + "/new").param("offset", invalid[0])
@@ -75,7 +85,7 @@ class OwnPuzzleTrainingControllerTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error").value("invalid_training_request"));
         }
-        assertThat(training.pages).hasSize(2);
+        assertThat(training.pages).hasSize(3);
     }
 
     @Test
@@ -120,6 +130,17 @@ class OwnPuzzleTrainingControllerTest {
                 .andExpect(content().string(not(containsString("f1b5"))));
         mockMvc.perform(post(BASE + "/41/attempts").cookie(SESSION).header("Origin", ORIGIN))
                 .andExpect(status().isCreated());
+        mockMvc.perform(post(BASE + "/new/attempts").param("source", "lichess").param("order", "random")
+                        .cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isCreated());
+        assertThat(training.starts).containsExactly("ALL NEWEST", "LICHESS RANDOM");
+        for (String[] invalid : new String[][] {{"site", "newest"}, {"lichess", "oldest"}, {"all", "RANDOM"}}) {
+            mockMvc.perform(post(BASE + "/new/attempts").param("source", invalid[0])
+                            .param("order", invalid[1]).cookie(SESSION).header("Origin", ORIGIN))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("invalid_training_request"));
+        }
+        assertThat(training.starts).hasSize(2);
 
         mockMvc.perform(post(BASE + "/attempts/9/moves").cookie(SESSION).header("Origin", ORIGIN)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"move\":\"b5a4\"}"))
@@ -261,6 +282,7 @@ class OwnPuzzleTrainingControllerTest {
         final List<String> pages = new ArrayList<>();
         final List<String> changes = new ArrayList<>();
         final List<String> sessions = new ArrayList<>();
+        final List<String> starts = new ArrayList<>();
         int calls;
         boolean empty;
         boolean failure;
@@ -274,13 +296,13 @@ class OwnPuzzleTrainingControllerTest {
             if (failure) {
                 throw new IllegalStateException("storage");
             }
-            return new Overview(4, 1, lists(), GROUPS);
+            return new Overview(4, 3, 1, 1, lists(), GROUPS);
         }
 
         @Override
-        public Page newPuzzles(String accountId, int offset, int limit) {
+        public Page newPuzzles(String accountId, Site site, int offset, int limit) {
             touch(accountId);
-            pages.add("new " + offset + " " + limit);
+            pages.add("new " + site + " " + offset + " " + limit);
             return new Page(4, List.of(PUZZLE));
         }
 
@@ -319,8 +341,9 @@ class OwnPuzzleTrainingControllerTest {
         }
 
         @Override
-        public Optional<Attempt> startNext(String accountId) {
+        public Optional<Attempt> startNext(String accountId, Site site, NewOrder order) {
             touch(accountId);
+            starts.add(site + " " + order);
             return empty ? Optional.empty() : Optional.of(attempt());
         }
 

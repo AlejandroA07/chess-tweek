@@ -47,6 +47,7 @@ describe('PuzzleTraining', () => {
     expect(screen.getByRole('link', { name: 'Browse openings' })).toHaveAttribute('href', '#/puzzles/openings')
     expect(screen.getByRole('link', { name: 'Open Repetition' })).toHaveAttribute('href', '#/puzzles/repetition')
     expect(screen.getByRole('link', { name: 'Open Own Puzzles' })).toHaveAttribute('href', '#/puzzles/own')
+    expect(screen.getByRole('link', { name: 'New Own Puzzles' })).toHaveAttribute('href', '#/puzzles/own/new')
     expect(screen.queryByText('Planned')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Fork/ })).not.toBeInTheDocument()
   })

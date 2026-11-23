@@ -72,9 +72,11 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
     @Override
     public Overview overview(String accountId) {
         requireAccount(accountId);
-        return new Overview(store.countNew(accountId), store.countNew(accountId, "lichess"),
-                store.countNew(accountId, "chesscom"), store.countDiscarded(accountId),
-                listCounts(accountId), groups(store.kept(accountId)));
+        // One read transaction, so the total and the split by site come from the same snapshot.
+        return store.inTransaction(() -> new Overview(store.countNew(accountId),
+                store.countNew(accountId, source(Site.LICHESS)),
+                store.countNew(accountId, source(Site.CHESSCOM)), store.countDiscarded(accountId),
+                listCounts(accountId), groups(store.kept(accountId))));
     }
 
     @Override
@@ -137,17 +139,19 @@ class OwnPuzzleTrainingService implements OwnPuzzleTraining {
             throw new IllegalArgumentException("Order is required");
         }
         String source = source(site);
-        // A puzzle discarded or classified between the pick and the start is refused by start,
-        // which rechecks New in the attempt's transaction; the next request picks again.
-        Optional<Long> picked = switch (order) {
-            case NEWEST -> store.newestNew(accountId, source);
-            case RANDOM -> {
-                int count = store.countNew(accountId, source);
-                yield count == 0 ? Optional.empty()
-                        : store.newAt(accountId, source, shuffle.nextInt(count));
-            }
-        };
-        return picked.flatMap(id -> start(accountId, id));
+        // The count, the pick, and the start share one transaction, so a discard or solve in
+        // another tab cannot move the random offset past the end or start a stale pick.
+        return store.inTransaction(() -> {
+            Optional<Long> picked = switch (order) {
+                case NEWEST -> store.newestNew(accountId, source);
+                case RANDOM -> {
+                    int count = store.countNew(accountId, source);
+                    yield count == 0 ? Optional.empty()
+                            : store.newAt(accountId, source, shuffle.nextInt(count));
+                }
+            };
+            return picked.flatMap(id -> start(accountId, id));
+        });
     }
 
     @Override

@@ -141,8 +141,8 @@ describe('Own Puzzles', () => {
     })
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'own-new', site: 'all', order: 'newest' }} onSessionFailure={vi.fn()} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Discard Blunder at move 12 \(black\)/ }))
-    const confirm = screen.getByRole('group', { name: /Discard Blunder at move 12 \(black\)/ })
+    fireEvent.click(await screen.findByRole('button', { name: /^Discard Blunder at move 12 \(Black\)/ }))
+    const confirm = screen.getByRole('group', { name: /Discard Blunder at move 12 \(Black\)/ })
     expect(confirm).toHaveTextContent('You can restore it from Discarded.')
     await waitFor(() => expect(within(confirm).getByRole('button', { name: 'Keep it' })).toHaveFocus())
     fireEvent.click(within(confirm).getByRole('button', { name: 'Keep it' }))
@@ -210,7 +210,7 @@ describe('Own Puzzles', () => {
     expect(await screen.findByText(/Your opponent replied/)).toBeInTheDocument()
     play('b5', 'a4')
     expect(await screen.findByText('Placed in Worth Repeating.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open the source game at move 12 (black)' }))
+    expect(screen.getByRole('link', { name: 'Open the source game at move 12 (Black)' }))
       .toHaveAttribute('href', '#/games/chesscom/145200000001/ply/24')
     // A solution is never sent before Show solution.
     expect(calls.filter((call) => call.url.endsWith('/reveal'))).toHaveLength(0)
@@ -238,12 +238,13 @@ describe('Own Puzzles', () => {
     )
 
     fireEvent.click(await screen.findByRole('button', { name: 'Discard' }))
-    expect(screen.getByRole('group', { name: /Discard this puzzle\?/ })).toHaveTextContent('the next New puzzle opens')
+    expect(screen.getByRole('group', { name: /Discard Blunder at move 12 \(Black\), Nov 20, 2026\?/ }))
+      .toHaveTextContent('the next New puzzle opens')
     await waitFor(() => expect(screen.getByRole('button', { name: 'Keep solving' })).toHaveFocus())
     fireEvent.click(screen.getByRole('button', { name: 'Discard puzzle' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No New Own Puzzles from Lichess right now.')
-    expect(screen.getByRole('status')).toHaveTextContent('Puzzle discarded.')
+    expect(screen.getByRole('status')).toHaveTextContent('Blunder at move 12 (Black), Nov 20, 2026 discarded.')
     expect(calls).toContainEqual({ method: 'POST', url: '/api/training/own-puzzles/41/discard' })
   })
 
@@ -328,6 +329,16 @@ describe('Own Puzzles', () => {
     expect(calls).toContainEqual({
       method: 'POST', url: '/api/training/own-puzzles/repetition/mastered/opening/Indian%20Game/sessions',
     })
+  })
+
+  it('says Own Repetition has nothing to open while every Training List is empty', async () => {
+    stubFetch((call) => call.url === '/api/training/own-puzzles'
+      ? { body: overview({ lists: lists().map((entry) => ({ ...entry, puzzles: 0 })) }) }
+      : {})
+    render(<PuzzleTraining connectionState="connected" route={{ kind: 'own-dashboard' }} onSessionFailure={vi.fn()} />)
+    const card = (await screen.findByRole('heading', { name: 'Practice your Own Puzzles' })).closest('section') as HTMLElement
+    expect(within(card).queryByRole('link')).not.toBeInTheDocument()
+    expect(card).toHaveTextContent('No Own Puzzles in a Training List yet.')
   })
 
   it('reports a revoked session and rejects an unexpected response shape', async () => {

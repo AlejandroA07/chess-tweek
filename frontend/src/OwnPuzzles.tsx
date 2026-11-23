@@ -115,7 +115,7 @@ export function OwnPuzzles({
     case 'own-dashboard':
       return <OwnDashboard onSessionFailure={onSessionFailure} />
     case 'own-new':
-      return <NewOwnPuzzles key="new" site={route.site} order={route.order} onSessionFailure={onSessionFailure} />
+      return <NewOwnPuzzles key={`new/${route.site}`} site={route.site} order={route.order} onSessionFailure={onSessionFailure} />
     case 'own-discarded':
       return <DiscardedOwnPuzzles onSessionFailure={onSessionFailure} />
     case 'own-list':
@@ -175,7 +175,9 @@ function OwnDashboard({ onSessionFailure }: { onSessionFailure: (failure: Sessio
               <p className={shared.eyebrow}>Repetition</p>
               <h3 id="own-repetition-title">Practice your Own Puzzles</h3>
               <p>Practice Sessions over each Training List, kept apart from normal puzzles.</p>
-              <a className={shared.primaryLink} href="#/puzzles/own/repetition">Open Own Repetition</a>
+              {overview.lists.every((entry) => entry.puzzles === 0)
+                ? <p className={shared.muted}>No Own Puzzles in a Training List yet. Solve a New one to place it.</p>
+                : <a className={shared.primaryLink} href="#/puzzles/own/repetition">Open Own Repetition</a>}
             </section>
             <section className={shared.module} aria-labelledby="own-discarded-title">
               <p className={shared.eyebrow}>Discarded</p>
@@ -368,17 +370,8 @@ function NewOwnPuzzles({
   const load = useCallback((offset: number, signal: AbortSignal) => loadNew(site, offset, signal), [site])
   const { page, state, offset, setOffset, reload } = usePaged(load, onSessionFailure)
   const [status, setStatus] = useState<string | null>(null)
+  // A new site filter remounts this view (see its key), so it starts at the first page.
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const firstLoad = useRef(true)
-
-  // A new filter starts at the first page.
-  useEffect(() => {
-    if (firstLoad.current) {
-      firstLoad.current = false
-      return
-    }
-    setOffset(0)
-  }, [site, setOffset])
 
   const choose = (nextSite: SiteFilter, nextOrder: NewOrder) => {
     setStatus(null)
@@ -858,7 +851,7 @@ function OwnPlayer({
           The board stays open: keep moving pieces to explore. These moves are not checked or saved.
         </p>
         <a className={shared.externalLink} href={gameReviewHref(completion.sourceGame, completion.sourceGame.ply)}>
-          Open the source game at {moveText(completion.sourceGame.ply).toLowerCase()}
+          Open the source game at {lowerFirst(moveText(completion.sourceGame.ply))}
         </a>
       </>
     ),
@@ -877,6 +870,7 @@ function ownAttempt(attempt: OwnAttempt): PlayerAttempt {
     fastSolveLimitMillis: attempt.fastSolveLimitMillis,
     currentList: attempt.currentList,
     name: `Own Puzzle, ${LABEL_TEXT[puzzle.label]} in the ${PHASE_TEXT[puzzle.phase].toLowerCase()}`,
+    title: describe(puzzle),
     detail: `${LABEL_TEXT[puzzle.label]} · ${PHASE_TEXT[puzzle.phase]} · ${puzzle.openingFamily}`,
     discardable: attempt.currentList === null,
   }
@@ -888,14 +882,18 @@ function ownPlayerKey(route: PlayerRoute) {
   return `own-mastered/${route.group}/${route.key}`
 }
 
-/** Names one puzzle in actions and messages, for example "Blunder at move 12 (black), Nov 20, 2026". */
+/** Names one puzzle in actions and messages, for example "Blunder at move 12 (Black), Nov 20, 2026". */
 function describe(puzzle: OwnPuzzle) {
-  return `${LABEL_TEXT[puzzle.label]} at ${moveText(puzzle.sourceGame.ply).toLowerCase()}, ${formatDate(puzzle.gamePlayedAt)}`
+  return `${LABEL_TEXT[puzzle.label]} at ${lowerFirst(moveText(puzzle.sourceGame.ply))}, ${formatDate(puzzle.gamePlayedAt)}`
 }
 
 /** The move of a ply in the game, for example "Move 12 (Black)". */
 export function moveText(ply: SourceGame['ply']) {
   return `Move ${Math.ceil(ply / 2)} (${ply % 2 === 1 ? 'White' : 'Black'})`
+}
+
+function lowerFirst(value: string) {
+  return value.length === 0 ? value : value[0].toLowerCase() + value.slice(1)
 }
 
 function formatDate(value: string) {

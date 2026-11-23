@@ -206,11 +206,11 @@ export async function loadOwnMastered(signal?: AbortSignal): Promise<OwnGroups> 
 }
 
 export async function discardOwnPuzzle(id: number): Promise<void> {
-  await send(`${base}/${puzzleId(id)}/discard`)
+  await send(`${base}/${recordId(id)}/discard`)
 }
 
 export async function restoreOwnPuzzle(id: number): Promise<void> {
-  await send(`${base}/${puzzleId(id)}/restore`)
+  await send(`${base}/${recordId(id)}/restore`)
 }
 
 export async function startNextNew(site: SiteFilter, order: NewOrder): Promise<OwnAttempt> {
@@ -219,21 +219,21 @@ export async function startNextNew(site: SiteFilter, order: NewOrder): Promise<O
 }
 
 export async function startOwnPuzzle(id: number): Promise<OwnAttempt> {
-  return parseOwnAttempt(await (await send(`${base}/${puzzleId(id)}/attempts`)).json())
+  return parseOwnAttempt(await (await send(`${base}/${recordId(id)}/attempts`)).json())
 }
 
 export async function submitOwnMove(attemptId: number, move: string): Promise<MoveResult<OwnCompletion>> {
-  const response = await send(`${base}/attempts/${attemptPath(attemptId)}/moves`, { move })
+  const response = await send(`${base}/attempts/${recordId(attemptId)}/moves`, { move })
   return parseMoveResult(await response.json(), parseOwnCompletion)
 }
 
 export async function requestOwnHint(attemptId: number): Promise<string> {
-  return parseHint(await (await send(`${base}/attempts/${attemptPath(attemptId)}/hint`)).json())
+  return parseHint(await (await send(`${base}/attempts/${recordId(attemptId)}/hint`)).json())
 }
 
 export async function revealOwnPuzzle(attemptId: number): Promise<RevealResult<OwnCompletion>> {
   return parseReveal(
-    await (await send(`${base}/attempts/${attemptPath(attemptId)}/reveal`)).json(),
+    await (await send(`${base}/attempts/${recordId(attemptId)}/reveal`)).json(),
     parseOwnCompletion,
   )
 }
@@ -264,12 +264,8 @@ function pageQuery(offset: number) {
   return `offset=${offset}&limit=${PAGE_SIZE}`
 }
 
-function puzzleId(id: number) {
-  if (!isInteger(id, 1, Number.MAX_SAFE_INTEGER)) throw new PuzzleRequestError('unavailable')
-  return id
-}
-
-function attemptPath(id: number) {
+/** A positive record ID (Own Puzzle or attempt) for a request path. */
+function recordId(id: number) {
   if (!isInteger(id, 1, Number.MAX_SAFE_INTEGER)) throw new PuzzleRequestError('unavailable')
   return id
 }

@@ -12,7 +12,7 @@ Stage 8 Part 8c adds the Own Puzzles screens over the Part 8b endpoints (`docs/d
 - `OwnPuzzleTraining.Site` (`ALL`, `LICHESS`, `CHESSCOM`) and `NewOrder` (`NEWEST`, `RANDOM`) are new.
   - `newPuzzles(account, site, offset, limit)` and `startNext(account, site, order)` take them.
   - The earlier two-argument forms remain as defaults for all sites, newest first.
-- A random start picks one New puzzle uniformly with `SecureRandom` over the filtered count. `start` then rechecks New in the attempt's transaction, as before, so a puzzle discarded in between is never started.
+- A random start picks one New puzzle uniformly with `SecureRandom` over the filtered count. The count, the pick, and the start share one transaction, so a discard or solve in another tab can neither push the offset past the end nor start a stale pick. The overview reads its counts in one transaction too, so the total always equals the split by site.
 - `Overview` gains `newLichess` and `newChessCom`.
 - Endpoints:
   - `GET /api/training/own-puzzles/new` takes `source=all|lichess|chesscom`, with `all` as the default.

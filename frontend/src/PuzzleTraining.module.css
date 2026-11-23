@@ -86,6 +86,7 @@
 }
 
 .module > a,
+.module > .actions,
 .module > strong {
   margin-top: auto;
 }

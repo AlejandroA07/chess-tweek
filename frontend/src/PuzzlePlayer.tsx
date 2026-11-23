@@ -29,6 +29,8 @@ export type PlayerAttempt = {
   detail: string
   /** A New Own Puzzle can be discarded instead of solved. */
   discardable: boolean
+  /** Names a discardable puzzle in its confirmation, for example "Blunder at move 12 (Black), Nov 20, 2026". */
+  title?: string
 }
 
 /** The completion fields every kind of Puzzle shares. */
@@ -265,7 +267,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
       return
     }
     setBusy(false)
-    await start('Puzzle discarded. Restore it from Discarded at any time.')
+    await start(`${phase.attempt.title ?? 'Puzzle'} discarded. Restore it from Discarded at any time.`)
   }
 
   // Opening a player route starts its first puzzle directly. The ref keeps React's development
@@ -411,7 +413,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
             {confirmingDiscard && phase.kind === 'playing' ? (
               <div className={styles.confirm} role="group" aria-labelledby="discard-confirm-title">
                 <p id="discard-confirm-title">
-                  <strong>Discard this puzzle?</strong> {source.discardText}
+                  <strong>Discard {attempt.title ?? 'this puzzle'}?</strong> {source.discardText}
                 </p>
                 <div className={styles.actions}>
                   <button

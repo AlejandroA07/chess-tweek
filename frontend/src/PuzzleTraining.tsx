@@ -222,6 +222,7 @@ function PuzzleDashboard() {
           text="Your own inaccuracies, mistakes, and blunders from My Moves analysis, kept apart from the Lichess library."
           href="#/puzzles/own"
           action="Open Own Puzzles"
+          secondary={{ href: '#/puzzles/own/new', label: 'New Own Puzzles' }}
         />
       </div>
     </div>
@@ -235,6 +236,7 @@ function DashboardCard({
   text,
   href,
   action,
+  secondary,
 }: {
   id: string
   eyebrow: string
@@ -242,6 +244,8 @@ function DashboardCard({
   text: string
   href?: string
   action?: string
+  /** A shortcut beside the main action, such as New Own Puzzles. */
+  secondary?: { href: string; label: string }
 }) {
   const planned = href === undefined
   return (
@@ -249,7 +253,12 @@ function DashboardCard({
       <p className={styles.eyebrow}>{eyebrow}</p>
       <h3 id={`${id}-title`}>{title}</h3>
       <p>{text}</p>
-      {planned ? <strong>Planned</strong> : <a className={styles.primaryLink} href={href}>{action}</a>}
+      {planned ? <strong>Planned</strong> : (
+        <div className={styles.actions}>
+          <a className={styles.primaryLink} href={href}>{action}</a>
+          {secondary && <a className={styles.secondaryButton} href={secondary.href}>{secondary.label}</a>}
+        </div>
+      )}
     </section>
   )
 }

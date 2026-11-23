@@ -60,6 +60,15 @@
   font-weight: 700;
 }
 
+/* Links keep the 44px minimum target. */
+.listCounts a,
+a.groupName {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
 .groups {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -131,12 +140,14 @@ span.groupName {
   text-transform: uppercase;
 }
 
-.label[data-label='blunder'] {
-  color: var(--color-error);
+/* The same severity colors as the Game Review. */
+.label[data-label='inaccuracy'] {
+  color: var(--color-warning);
 }
 
-.label[data-label='mistake'] {
-  color: var(--color-warning);
+.label[data-label='mistake'],
+.label[data-label='blunder'] {
+  color: var(--color-error);
 }
 
 .opening {

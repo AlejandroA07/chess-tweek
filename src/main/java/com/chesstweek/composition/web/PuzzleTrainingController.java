@@ -8,9 +8,7 @@ import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.springframework.dao.DataAccessException;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -21,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 import com.chesstweek.identity.LichessSessionService;
 import com.chesstweek.training.PuzzleLibrary;
@@ -59,18 +56,9 @@ public final class PuzzleTrainingController {
     public ResponseEntity<?> categories(
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession) {
-        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
-        ResponseEntity<TrainingError> denied = deny(authorization);
-        if (denied != null) {
-            return denied;
-        }
-        try {
-            return ok(new CategoriesResponse(library.categories().stream()
-                    .map(PuzzleTrainingController::category)
-                    .toList()));
-        } catch (DataAccessException | IllegalStateException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.TRAINING_UNAVAILABLE);
-        }
+        return read(sealedSession, account -> ok(new CategoriesResponse(library.categories().stream()
+                .map(PuzzleTrainingController::category)
+                .toList())));
     }
 
     /** The account's Training List sizes for the Repetition dashboard; read-only. */
@@ -222,43 +210,17 @@ public final class PuzzleTrainingController {
         });
     }
 
-    /** Authorization, then a read-only action; reads need no same-origin check. */
     private ResponseEntity<?> read(
             String sealedSession, Function<String, ResponseEntity<?>> action) {
-        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
-        ResponseEntity<TrainingError> denied = deny(authorization);
-        if (denied != null) {
-            return denied;
-        }
-        try {
-            return action.apply(authorization.accountId());
-        } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.TRAINING_UNAVAILABLE);
-        }
+        return TrainingRequests.read(sessionAuthorizer, sealedSession, action);
     }
 
-    /** Same-origin check, then input validation, then authorization, then the action. */
     private ResponseEntity<?> authorized(
             HttpServletRequest request,
             String sealedSession,
             boolean valid,
             Function<String, ResponseEntity<?>> action) {
-        if (!LoopbackRequestPolicy.isSameOrigin(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        if (!valid) {
-            return error(HttpStatus.BAD_REQUEST, TrainingErrorCodes.INVALID_REQUEST);
-        }
-        LichessSessionAuthorization authorization = sessionAuthorizer.authorize(sealedSession);
-        ResponseEntity<TrainingError> denied = deny(authorization);
-        if (denied != null) {
-            return denied;
-        }
-        try {
-            return action.apply(authorization.accountId());
-        } catch (DataAccessException | IllegalArgumentException | IllegalStateException exception) {
-            return error(HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.TRAINING_UNAVAILABLE);
-        }
+        return TrainingRequests.write(request, sessionAuthorizer, sealedSession, valid, action);
     }
 
     private static ResponseEntity<?> started(Optional<PuzzleTraining.Attempt> attempt) {
@@ -319,31 +281,12 @@ public final class PuzzleTrainingController {
         return value.name().toLowerCase(Locale.ROOT);
     }
 
-    private static ResponseEntity<TrainingError> deny(LichessSessionAuthorization authorization) {
-        return switch (authorization.type()) {
-            case CONNECTED -> null;
-            case DISCONNECTED -> {
-                var response = ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .cacheControl(CacheControl.noStore());
-                if (authorization.clearCookie()) {
-                    response.header(
-                            HttpHeaders.SET_COOKIE, LichessSessionCookies.cleared().toString());
-                }
-                yield response.body(new TrainingError(TrainingErrorCodes.NOT_CONNECTED));
-            }
-            case RATE_LIMITED, UPSTREAM_UNAVAILABLE -> error(
-                    HttpStatus.SERVICE_UNAVAILABLE, TrainingErrorCodes.SESSION_UNAVAILABLE);
-        };
-    }
-
     private static <T> ResponseEntity<T> ok(T body) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
+        return TrainingRequests.ok(body);
     }
 
-    private static ResponseEntity<TrainingError> error(HttpStatus status, String code) {
-        return ResponseEntity.status(status)
-                .cacheControl(CacheControl.noStore())
-                .body(new TrainingError(code));
+    private static ResponseEntity<TrainingRequests.TrainingError> error(HttpStatus status, String code) {
+        return TrainingRequests.error(status, code);
     }
 
     public record CategoryResponse(
@@ -376,5 +319,4 @@ public final class PuzzleTrainingController {
     public record RevealResponse(
             List<String> remainingMoves, PuzzleAttemptResponses.CompletionResponse completion) {}
 
-    public record TrainingError(String error) {}
 }

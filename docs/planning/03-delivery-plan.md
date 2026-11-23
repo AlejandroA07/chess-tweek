@@ -98,7 +98,7 @@ Owner decisions (2026-11-22):
 Deliver this stage as three independently reviewed parts (owner decision, 2026-11-22):
 
 1. **8a — Own Puzzle creation (backend).** On completion of a My Moves analysis, create one Own Puzzle per owner inaccuracy, mistake, and blunder from the stored analysis: position, two-move solution, label, opening, game phase, tactic label, and a link to the exact Game Review position. Creation is idempotent, never uses Opponent Moves findings, and is stored separately from the Lichess Puzzle Library. Prevent reanalysis of a perspective that already completed while still allowing the missing one.
-2. **8b — Own Puzzle training state (backend).** Account-scoped attempts and Training Lists for Own Puzzles under the same rules as normal Puzzles, with separate selection pools, history, and state. New, Discard, and Restore: an incomplete attempt keeps a puzzle New, Discard prevents classification, and Restore returns it New.
+2. **8b — Own Puzzle training state (backend).** Account-scoped attempts and Training Lists for Own Puzzles under the same rules as normal Puzzles, with separate selection pools, history, and state. New, Discard, and Restore: an incomplete attempt keeps a puzzle New, Discard prevents classification, and Restore returns it New. By owner decision on 2026-11-23, 8b delivers all of the Own Puzzles backend, including repetition sessions, Mastered practice, the opening, phase, and tactic summaries, and their endpoints, so 8c is only the screens. Openings are grouped by family: the stored name before its first `:` or `...` (owner decision, 2026-11-23).
 3. **8c — Own Puzzles interface.** New Own Puzzles, Discarded with Restore, summaries by opening, game phase, and tactic label, and a separate Own Puzzles Repetition dashboard, all built from `docs/app-material/DESIGN.md`.
 
 ### Stage 8B — Deeper Game Review
@@ -466,15 +466,19 @@ Acceptance:
 - Stage 7 Part 3c is complete in PR #56, merged on 2026-11-21. It adds the normal-Puzzle Repetition dashboard, shuffled Practice Sessions that start the next round automatically when one ends (owner request, 2026-11-21), the Mastered view with practice that never changes Mastered status, and migration V13 (`docs/dev/2026-11-21-puzzle-repetition.md`). Before merging, the owner played Practice Sessions in the running app. That play came before the automatic next round was added, and the Mastered view has not been checked live because no puzzle is Mastered yet.
 - Stage 7 Part 3d is complete in PR #58, merged on 2026-11-22, so Stage 7 is complete. Each guided-method exercise is now its Lichess puzzle's full line, played as a `method` attempt through the shared engine: Wrong Moves, the written hints, Show solution, and Solve Time update the same Training List state, while lesson and exercise progress stay separate (owner decision, 2026-11-22; `docs/dev/2026-11-22-method-puzzle-performance.md`). The cleanup in PR #59, merged on 2026-11-22, shares the attempt response shapes and error codes between the Puzzle and guided-course controllers, with a test that keeps the interface's error codes aligned with the server. The owner decided that the server need not enforce the order of the two written hints, because either one places the puzzle in Hard to Solve.
 
+- Stage 8 Part 8a is complete in PR #63, merged on 2026-11-23. Each owner inaccuracy, mistake, and blunder of a newly completed My Moves analysis becomes an Own Puzzle (migration V14), and a side with a stored analysis is never analyzed again (`docs/dev/2026-11-23-own-puzzle-creation.md`). The owner's live check on 2026-11-23 found 6 Own Puzzles created from one analyzed game: 2 inaccuracies, 1 mistake, and 3 blunders. The same PR aligned the planning documents with no reanalysis and removed the finished guided-course sourcing and dataset sizing research.
+- Stage 8 Part 8b is delivered on `feature/own-puzzle-training`: Own Puzzle attempts, Training Lists, New, Discard, and Restore, repetition and Mastered practice, the summaries, and the `/api/training/own-puzzles` endpoints (migration V15, `docs/dev/2026-11-23-own-puzzle-training.md`).
+
 ### Not yet delivered
 
-- Stage 8 Own Puzzles, Stage 8B Deeper Game Review, and Stage 9 curated collections have not started.
+- Stage 8 Part 8c (the Own Puzzles screens), Stage 8B Deeper Game Review, and Stage 9 curated collections have not started.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
-**Next immediate action (2026-11-22):**
+**Next immediate action (2026-11-23):**
 
-1. Implement Stage 8 Part 8a on its own `feature/<topic>` branch: Own Puzzle creation from newly completed My Moves analyses, following the owner decisions and the part split recorded in "Stage 8 — Own Puzzles" above. Stage 8B, Deeper Game Review, follows Stage 8.
+1. After Part 8b merges, implement Stage 8 Part 8c on its own `feature/<topic>` branch: the Own Puzzles screens over the 8b endpoints, built from `docs/app-material/DESIGN.md`. Stage 8B, Deeper Game Review, follows Stage 8.
 2. Owner checks still open:
+   - Part 8b: while connected, open `/api/training/own-puzzles` in the browser and confirm the Own Puzzles from the 8a check appear as New; then discard and restore one and solve one through the endpoints.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

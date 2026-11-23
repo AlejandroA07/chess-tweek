@@ -1,7 +1,7 @@
 package com.chesstweek.composition.web;
 
 /**
- * The error codes the Puzzle and guided-course endpoints return in {@code {"error": ...}}. The
+ * The error codes the Puzzle, Own Puzzle, and guided-course endpoints return in {@code {"error": ...}}. The
  * interface reads them from {@code frontend/src/trainingErrorCodes.ts};
  * {@code TrainingErrorCodesTest} keeps both lists aligned.
  */
@@ -21,6 +21,10 @@ final class TrainingErrorCodes {
     static final String LESSON_INCOMPLETE = "lesson_incomplete";
     static final String EXERCISE_NOT_FOUND = "exercise_not_found";
     static final String EXERCISE_NOT_RESOLVED = "exercise_not_resolved";
+    static final String OWN_PUZZLE_NOT_FOUND = "own_puzzle_not_found";
+    static final String OWN_PUZZLE_CLASSIFIED = "own_puzzle_classified";
+    static final String OWN_PUZZLE_NOT_DISCARDED = "own_puzzle_not_discarded";
+    static final String NO_NEW_OWN_PUZZLES = "no_new_own_puzzles";
 
     private TrainingErrorCodes() {}
 }

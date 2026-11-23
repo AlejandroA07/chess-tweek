@@ -145,6 +145,7 @@ class GameAnalysisControllerTest {
         expectRefusal(mockMvc, GameAnalysis.StartResult.Outcome.NOT_ELIGIBLE, 409, "analysis_not_supported");
         expectRefusal(mockMvc, GameAnalysis.StartResult.Outcome.BUSY, 409, "analysis_busy");
         expectRefusal(mockMvc, GameAnalysis.StartResult.Outcome.NO_PROFILE, 409, "engine_profile_missing");
+        expectRefusal(mockMvc, GameAnalysis.StartResult.Outcome.ALREADY_ANALYZED, 409, "already_analyzed");
     }
 
     @Test

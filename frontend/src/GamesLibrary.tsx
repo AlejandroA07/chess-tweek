@@ -741,13 +741,17 @@ function AnalysisBadge({
       {side} · Analyzed
       <span className={styles.analysisCounts}>{severityCounts(version)}</span>
       {!version.currentProfile && (
-        <span className={styles.analysisProfile}>Earlier engine profile · reanalyze to update</span>
+        <span className={styles.analysisProfile}>Earlier engine profile</span>
       )}
       {failed}
     </p>
   )
 }
 
+/**
+ * Offers only the sides without a stored analysis: a completed side is never analyzed again. The
+ * More control appears only while both sides are missing, for Opponent Moves and Both Sides.
+ */
 function AnalysisActions({
   game,
   locked,
@@ -760,12 +764,19 @@ function AnalysisActions({
   const [moreOpen, setMoreOpen] = useState(false)
   const moreButton = useRef<HTMLButtonElement | null>(null)
   const optionsId = `analysis-options-${game.source}-${game.id}`
-  const verb = (version: AnalysisVersionSummary | null) => version === null ? 'Analyze' : 'Reanalyze'
+  const myMovesMissing = game.analysis.myMoves === null
+  const opponentMovesMissing = game.analysis.opponentMoves === null
+
+  if (!myMovesMissing && !opponentMovesMissing) {
+    return null
+  }
 
   const choose = (perspective: AnalysisPerspective) => {
     setMoreOpen(false)
     onAnalyze(perspective)
   }
+  const primary: AnalysisPerspective = myMovesMissing ? 'my_moves' : 'opponent_moves'
+  const hasMore = myMovesMissing && opponentMovesMissing
 
   return (
     <div className={styles.analysisActions}>
@@ -774,25 +785,27 @@ function AnalysisActions({
           type="button"
           className={styles.analyzeButton}
           disabled={locked}
-          onClick={() => choose('my_moves')}
-          aria-label={`${verb(game.analysis.myMoves)} my moves against ${game.opponent.name}`}
+          onClick={() => choose(primary)}
+          aria-label={`Analyze ${primary === 'my_moves' ? 'my' : 'opponent'} moves against ${game.opponent.name}`}
         >
-          {verb(game.analysis.myMoves)} My Moves
+          {primary === 'my_moves' ? 'Analyze My Moves' : 'Analyze Opponent Moves'}
         </button>
-        <button
-          ref={moreButton}
-          type="button"
-          className={styles.moreButton}
-          disabled={locked}
-          aria-expanded={moreOpen}
-          aria-controls={moreOpen ? optionsId : undefined}
-          aria-label={`More analysis options for the game against ${game.opponent.name}`}
-          onClick={() => setMoreOpen((open) => !open)}
-        >
-          More
-        </button>
+        {hasMore && (
+          <button
+            ref={moreButton}
+            type="button"
+            className={styles.moreButton}
+            disabled={locked}
+            aria-expanded={moreOpen}
+            aria-controls={moreOpen ? optionsId : undefined}
+            aria-label={`More analysis options for the game against ${game.opponent.name}`}
+            onClick={() => setMoreOpen((open) => !open)}
+          >
+            More
+          </button>
+        )}
       </div>
-      {moreOpen && !locked && (
+      {hasMore && moreOpen && !locked && (
         <div
           id={optionsId}
           className={styles.moreOptions}
@@ -804,12 +817,10 @@ function AnalysisActions({
           }}
         >
           <button type="button" onClick={() => choose('opponent_moves')}>
-            {verb(game.analysis.opponentMoves)} Opponent Moves
+            Analyze Opponent Moves
           </button>
           <button type="button" onClick={() => choose('both')}>
-            {game.analysis.myMoves !== null && game.analysis.opponentMoves !== null
-              ? 'Reanalyze Both Sides'
-              : 'Analyze Both Sides'}
+            Analyze Both Sides
           </button>
         </div>
       )}

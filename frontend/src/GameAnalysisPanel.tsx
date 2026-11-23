@@ -39,6 +39,7 @@ const jobFailures: Record<AnalysisJobFailure, Explanation> = {
 
 const startFailures: Record<AnalysisRequestFailure, Explanation> = {
   analysis_busy: { text: 'Another analysis is already running. Wait for it to finish or cancel it.', admin: false },
+  already_analyzed: { text: 'This side is already analyzed. Refresh the library to see it.', admin: false },
   engine_profile_missing: { text: 'Analysis needs an engine benchmark first. Open Admin and run the benchmark.', admin: true },
   analysis_not_supported: { text: 'This game cannot be analyzed. Only standard chess games are supported.', admin: false },
   game_not_found: { text: 'This game is no longer stored. Refresh the library and try again.', admin: false },

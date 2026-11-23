@@ -73,6 +73,7 @@ public final class GameAnalysisController {
             case NOT_ELIGIBLE -> error(HttpStatus.CONFLICT, "analysis_not_supported");
             case BUSY -> error(HttpStatus.CONFLICT, "analysis_busy");
             case NO_PROFILE -> error(HttpStatus.CONFLICT, "engine_profile_missing");
+            case ALREADY_ANALYZED -> error(HttpStatus.CONFLICT, "already_analyzed");
         };
     }
 

@@ -126,7 +126,14 @@ describe('Game analysis on Games', () => {
       .toBeInTheDocument()
     const refreshed = await screen.findByText('2 Blunders · 1 Mistake · 3 Inaccuracies')
     expect(refreshed.closest('p')).toHaveTextContent('My moves · Analyzed')
-    expect(screen.getByRole('button', { name: 'Reanalyze my moves against Rival' })).toBeEnabled()
+    // A completed side is never analyzed again; only the missing side is offered.
+    expect(within(gameCard).queryByRole('button', { name: /my moves against Rival/ }))
+      .not.toBeInTheDocument()
+    expect(within(gameCard).queryByRole('button', { name: /Reanalyze/ })).not.toBeInTheDocument()
+    expect(within(gameCard).queryByRole('button', { name: /More analysis options/ }))
+      .not.toBeInTheDocument()
+    expect(within(gameCard).getByRole('button', { name: 'Analyze opponent moves against Rival' }))
+      .toBeEnabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(screen.queryByRole('region', { name: 'Game analysis' })).not.toBeInTheDocument()
@@ -175,6 +182,59 @@ describe('Game analysis on Games', () => {
     )).toHaveLength(2))
     expect(await screen.findByRole('heading', { name: 'Analyzing your moves against Rival' }))
       .toBeInTheDocument()
+  })
+
+  it('offers only my moves when the opponent side is already analyzed', async () => {
+    catalog = () => ({
+      total: 1,
+      offset: 0,
+      limit: 50,
+      games: [{
+        ...card(GAME_ID, 'Rival', false),
+        analysis: {
+          eligible: true,
+          status: 'analyzed',
+          myMoves: null,
+          opponentMoves: card(GAME_ID, 'Rival', true).analysis.myMoves,
+        },
+      }],
+    })
+    await openGames()
+    const gameCard = screen.getByRole('article', { name: 'Win against Rival' })
+
+    expect(within(gameCard).getByRole('button', { name: 'Analyze my moves against Rival' }))
+      .toBeEnabled()
+    expect(within(gameCard).queryByRole('button', { name: /opponent moves|More analysis options/ }))
+      .not.toBeInTheDocument()
+  })
+
+  it('offers no analysis once both sides are analyzed', async () => {
+    const analysis = card(GAME_ID, 'Rival', true).analysis
+    catalog = () => ({
+      total: 1,
+      offset: 0,
+      limit: 50,
+      games: [{
+        ...card(GAME_ID, 'Rival', true),
+        analysis: { ...analysis, opponentMoves: analysis.myMoves },
+      }],
+    })
+    await openGames()
+    const gameCard = screen.getByRole('article', { name: 'Win against Rival' })
+
+    expect(within(gameCard).getByText('Opponent moves · Analyzed')).toBeInTheDocument()
+    expect(within(gameCard).queryByRole('button', { name: /Analyze|Reanalyze|More analysis/ }))
+      .not.toBeInTheDocument()
+  })
+
+  it('explains that an already analyzed side is not analyzed again', async () => {
+    await openGames()
+    startResponse = { status: 409, body: { error: 'already_analyzed' } }
+    fireEvent.click(screen.getByRole('button', { name: 'Analyze my moves against Rival' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Analysis did not start')
+    expect(alert).toHaveTextContent('This side is already analyzed. Refresh the library to see it.')
   })
 
   it('explains a refused start with the next step', async () => {
@@ -291,7 +351,8 @@ describe('Game analysis on Games', () => {
     })
     await openGames()
 
-    expect(screen.getByText('Earlier engine profile · reanalyze to update')).toBeInTheDocument()
+    expect(screen.getByText('Earlier engine profile')).toBeInTheDocument()
+    expect(screen.queryByText(/reanalyze/i)).not.toBeInTheDocument()
   })
 
   it('keeps following the analysis when one progress check is temporarily unavailable', async () => {

@@ -57,6 +57,7 @@ public final class OwnPuzzleTrainingController {
             OwnPuzzleTraining.Overview overview = training.overview(account);
             return TrainingRequests.ok(new OverviewResponse(
                     overview.newPuzzles(),
+                    new NewBySourceResponse(overview.newLichess(), overview.newChessCom()),
                     overview.discarded(),
                     lists(overview.lists()),
                     groups(overview.groups())));
@@ -67,9 +68,15 @@ public final class OwnPuzzleTrainingController {
     public ResponseEntity<?> newPuzzles(
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
                     String sealedSession,
+            @RequestParam(name = "source", defaultValue = "all") String source,
             @RequestParam(name = "offset", defaultValue = "0") int offset,
             @RequestParam(name = "limit", defaultValue = "20") int limit) {
-        return page(sealedSession, offset, limit, account -> training.newPuzzles(account, offset, limit));
+        OwnPuzzleTraining.Site site = site(source);
+        if (site == null) {
+            return TrainingRequests.error(HttpStatus.BAD_REQUEST, TrainingErrorCodes.INVALID_REQUEST);
+        }
+        return page(sealedSession, offset, limit,
+                account -> training.newPuzzles(account, site, offset, limit));
     }
 
     @GetMapping("/discarded")
@@ -101,14 +108,18 @@ public final class OwnPuzzleTrainingController {
                 account -> changed(training.restore(account, ownPuzzleId)));
     }
 
-    /** Starts the newest New Own Puzzle. */
+    /** Starts the newest, or a random, New Own Puzzle from one site or all. */
     @PostMapping("/new/attempts")
     public ResponseEntity<?> startNext(
             HttpServletRequest request,
             @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
-                    String sealedSession) {
-        return write(request, sealedSession, true, account -> started(
-                training.startNext(account), TrainingErrorCodes.NO_NEW_OWN_PUZZLES));
+                    String sealedSession,
+            @RequestParam(name = "source", defaultValue = "all") String source,
+            @RequestParam(name = "order", defaultValue = "newest") String order) {
+        OwnPuzzleTraining.Site site = site(source);
+        OwnPuzzleTraining.NewOrder newOrder = order(order);
+        return write(request, sealedSession, site != null && newOrder != null, account -> started(
+                training.startNext(account, site, newOrder), TrainingErrorCodes.NO_NEW_OWN_PUZZLES));
     }
 
     /** Starts one New Own Puzzle. */
@@ -390,6 +401,23 @@ public final class OwnPuzzleTrainingController {
         };
     }
 
+    private static OwnPuzzleTraining.Site site(String source) {
+        return switch (source) {
+            case "all" -> OwnPuzzleTraining.Site.ALL;
+            case "lichess" -> OwnPuzzleTraining.Site.LICHESS;
+            case "chesscom" -> OwnPuzzleTraining.Site.CHESSCOM;
+            default -> null;
+        };
+    }
+
+    private static OwnPuzzleTraining.NewOrder order(String order) {
+        return switch (order) {
+            case "newest" -> OwnPuzzleTraining.NewOrder.NEWEST;
+            case "random" -> OwnPuzzleTraining.NewOrder.RANDOM;
+            default -> null;
+        };
+    }
+
     private static OwnPuzzleTraining.GroupKind groupKind(String kind) {
         return switch (kind) {
             case "opening" -> OwnPuzzleTraining.GroupKind.OPENING;
@@ -428,8 +456,14 @@ public final class OwnPuzzleTrainingController {
             List<GroupCountResponse> phases,
             List<GroupCountResponse> tactics) {}
 
+    public record NewBySourceResponse(int lichess, int chesscom) {}
+
     public record OverviewResponse(
-            int newPuzzles, int discarded, List<ListCountResponse> lists, GroupsResponse groups) {}
+            int newPuzzles,
+            NewBySourceResponse newBySource,
+            int discarded,
+            List<ListCountResponse> lists,
+            GroupsResponse groups) {}
 
     public record RepetitionResponse(List<ListCountResponse> lists) {}
 

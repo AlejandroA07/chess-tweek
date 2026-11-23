@@ -57,15 +57,17 @@ export type PuzzleCompletion = {
   themes: string[]
 }
 
-export type PuzzleMoveResult =
+/** The result of one move; {@code C} is the completion shape of the kind of Puzzle. */
+export type MoveResult<C> =
   | { outcome: 'correct'; opponentReply: string; wrongMoves: number }
-  | { outcome: 'solved'; completion: PuzzleCompletion; wrongMoves: number }
+  | { outcome: 'solved'; completion: C; wrongMoves: number }
   | { outcome: 'wrong'; wrongMoves: number }
 
-export type PuzzleRevealResult = {
-  remainingMoves: string[]
-  completion: PuzzleCompletion
-}
+export type RevealResult<C> = { remainingMoves: string[]; completion: C }
+
+export type PuzzleMoveResult = MoveResult<PuzzleCompletion>
+
+export type PuzzleRevealResult = RevealResult<PuzzleCompletion>
 
 export type PuzzleFailure =
   | 'not_connected'
@@ -75,6 +77,9 @@ export type PuzzleFailure =
   | 'illegal_move'
   | 'session_complete'
   | 'session_not_found'
+  | 'own_puzzle_not_found'
+  | 'own_puzzle_classified'
+  | 'own_puzzle_not_discarded'
   | 'unavailable'
 
 export class PuzzleRequestError extends Error {
@@ -169,7 +174,11 @@ export async function startCategoryPuzzle(kind: CategoryKind, key: string): Prom
 
 export async function submitPuzzleMove(attemptId: number, move: string): Promise<PuzzleMoveResult> {
   const response = await send(`${base}/attempts/${attemptId}/moves`, { move })
-  const value: unknown = await response.json()
+  return parseMoveResult(await response.json(), parseCompletion)
+}
+
+/** Shared with the Own Puzzles client, whose completion has its own shape. */
+export function parseMoveResult<C>(value: unknown, completion: (value: unknown) => C): MoveResult<C> {
   if (
     !isRecord(value) ||
     (value.outcome !== 'correct' && value.outcome !== 'solved' && value.outcome !== 'wrong') ||
@@ -184,29 +193,38 @@ export async function submitPuzzleMove(attemptId: number, move: string): Promise
   if (typeof value.opponentReply === 'string') throw new PuzzleRequestError('unavailable')
   if (value.outcome === 'solved') {
     if (!hasCompletion) throw new PuzzleRequestError('unavailable')
-    return { outcome: 'solved', completion: parseCompletion(value.completion), wrongMoves: value.wrongMoves }
+    return { outcome: 'solved', completion: completion(value.completion), wrongMoves: value.wrongMoves }
   }
   if (hasCompletion) throw new PuzzleRequestError('unavailable')
   return { outcome: 'wrong', wrongMoves: value.wrongMoves }
 }
 
 export async function requestPuzzleHint(attemptId: number): Promise<string> {
-  const value: unknown = await (await send(`${base}/attempts/${attemptId}/hint`)).json()
+  return parseHint(await (await send(`${base}/attempts/${attemptId}/hint`)).json())
+}
+
+/** Shared with the Own Puzzles client. */
+export function parseHint(value: unknown): string {
   if (!isRecord(value) || !isSquare(value.fromSquare)) throw new PuzzleRequestError('unavailable')
   return value.fromSquare
 }
 
 export async function revealPuzzle(attemptId: number): Promise<PuzzleRevealResult> {
-  const value: unknown = await (await send(`${base}/attempts/${attemptId}/reveal`)).json()
+  return parseReveal(await (await send(`${base}/attempts/${attemptId}/reveal`)).json(), parseCompletion)
+}
+
+/** Shared with the Own Puzzles client, whose completion has its own shape. */
+export function parseReveal<C>(value: unknown, completion: (value: unknown) => C): RevealResult<C> {
   if (
     !isRecord(value) || !Array.isArray(value.remainingMoves) ||
     value.remainingMoves.length < 1 || value.remainingMoves.length > 200 ||
     !value.remainingMoves.every(isUci)
   ) throw new PuzzleRequestError('unavailable')
-  return { remainingMoves: value.remainingMoves, completion: parseCompletion(value.completion) }
+  return { remainingMoves: value.remainingMoves, completion: completion(value.completion) }
 }
 
-async function read(url: string, signal?: AbortSignal): Promise<unknown> {
+/** A same-origin JSON read; shared with the Own Puzzles client. */
+export async function read(url: string, signal?: AbortSignal): Promise<unknown> {
   const response = await fetch(url, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
@@ -216,7 +234,8 @@ async function read(url: string, signal?: AbortSignal): Promise<unknown> {
   return response.json()
 }
 
-async function send(url: string, body?: unknown) {
+/** A same-origin JSON {@code POST}; shared with the Own Puzzles client. */
+export async function send(url: string, body?: unknown) {
   const response = await fetch(url, {
     method: 'POST',
     credentials: 'same-origin',
@@ -235,13 +254,16 @@ async function requireResponse(response: Response) {
   if (response.status === 401) throw new PuzzleRequestError('not_connected')
   const code = await errorCode(response)
   if (code === SERVER_ERROR.sessionUnavailable) throw new PuzzleRequestError('session_unavailable')
-  if (code === SERVER_ERROR.noPuzzleAvailable) throw new PuzzleRequestError('no_puzzle_available')
+  if (code === SERVER_ERROR.noPuzzleAvailable || code === SERVER_ERROR.noNewOwnPuzzles) throw new PuzzleRequestError('no_puzzle_available')
   if (code === SERVER_ERROR.attemptFinished || code === SERVER_ERROR.attemptNotFound) {
     throw new PuzzleRequestError('attempt_finished')
   }
   if (code === SERVER_ERROR.illegalMove) throw new PuzzleRequestError('illegal_move')
   if (code === SERVER_ERROR.sessionComplete) throw new PuzzleRequestError('session_complete')
   if (code === SERVER_ERROR.sessionNotFound) throw new PuzzleRequestError('session_not_found')
+  if (code === SERVER_ERROR.ownPuzzleNotFound) throw new PuzzleRequestError('own_puzzle_not_found')
+  if (code === SERVER_ERROR.ownPuzzleClassified) throw new PuzzleRequestError('own_puzzle_classified')
+  if (code === SERVER_ERROR.ownPuzzleNotDiscarded) throw new PuzzleRequestError('own_puzzle_not_discarded')
   throw new PuzzleRequestError('unavailable')
 }
 
@@ -271,7 +293,8 @@ function parseCategory(value: unknown): PuzzleCategory {
   }
 }
 
-function parseSession(value: unknown): PracticeSession {
+/** Shared with the Own Puzzles client. */
+export function parseSession(value: unknown): PracticeSession {
   if (
     !isRecord(value) || !isInteger(value.sessionId, 1, Number.MAX_SAFE_INTEGER) ||
     !isList(value.list) || !isInteger(value.total, 1, 100_000_000)
@@ -330,11 +353,11 @@ export function parseCompletion(value: unknown): PuzzleCompletion {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function isText(value: unknown, maximum: number): value is string {
+export function isText(value: unknown, maximum: number): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= maximum
 }
 
@@ -342,18 +365,18 @@ function isCategoryKey(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(value)
 }
 
-function isList(value: unknown): value is TrainingList {
+export function isList(value: unknown): value is TrainingList {
   return typeof value === 'string' && LISTS.includes(value as TrainingList)
 }
 
-function isUci(value: unknown): value is string {
+export function isUci(value: unknown): value is string {
   return typeof value === 'string' && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(value)
 }
 
-function isSquare(value: unknown): value is string {
+export function isSquare(value: unknown): value is string {
   return typeof value === 'string' && /^[a-h][1-8]$/.test(value)
 }
 
-function isInteger(value: unknown, minimum: number, maximum: number): value is number {
+export function isInteger(value: unknown, minimum: number, maximum: number): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum
 }

@@ -86,6 +86,7 @@
 }
 
 .module > a,
+.module > .actions,
 .module > strong {
   margin-top: auto;
 }
@@ -428,7 +429,8 @@
 .primaryLink,
 .primaryButton,
 .secondaryButton,
-.textButton {
+.textButton,
+.dangerButton {
   min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
@@ -465,6 +467,26 @@
   background: transparent;
 }
 
+.dangerButton {
+  border-color: var(--color-error);
+  color: var(--color-surface);
+  background: var(--color-error);
+}
+
+.confirm {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-control);
+}
+
+.confirm p {
+  margin: 0;
+  line-height: 1.6;
+}
+
 .textButton:hover:not(:disabled),
 .textButton:focus-visible {
   background: var(--color-surface-subtle);
@@ -477,7 +499,8 @@
 
 .primaryButton:disabled,
 .secondaryButton:disabled,
-.textButton:disabled {
+.textButton:disabled,
+.dangerButton:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }

@@ -45,10 +45,10 @@ Stage 8 Part 8b adds the whole backend for training Own Puzzles, so that Part 8c
   - Every state row references the Own Puzzle through `(account_id, puzzle_id)`, so no account can hold state on another's puzzle.
   - Two triggers keep a discarded puzzle from being classified and a classified puzzle from being discarded.
 - **Endpoints under `/api/training/own-puzzles`:**
-  - `GET /` returns the overview.
-  - `GET /new` and `GET /discarded` take `offset` and `limit`, with a limit of 1 to 50.
+  - `GET /` returns the overview. Part 8c adds `newBySource`.
+  - `GET /new` and `GET /discarded` take `offset` and `limit`, with a limit of 1 to 50. Part 8c adds `source` to `GET /new` (`docs/dev/2026-11-23-own-puzzles-interface.md`).
   - `POST /{id}/discard` and `POST /{id}/restore` return `204`.
-  - `POST /new/attempts` and `POST /{id}/attempts`.
+  - `POST /new/attempts` and `POST /{id}/attempts`. Part 8c adds `source` and `order` to `POST /new/attempts`.
   - `POST /attempts/{id}/moves`, `/hint`, and `/reveal`.
   - `GET /lists/{list}` pages the Own Puzzles in one Training List, including Mastered.
   - `GET /repetition` and `GET /repetition/mastered`.

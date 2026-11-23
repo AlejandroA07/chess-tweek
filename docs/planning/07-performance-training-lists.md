@@ -75,6 +75,7 @@ The first completed attempt classifies the Puzzle; it does not count as one of t
 
 - The main Puzzle dashboard has Random, By Category, Own Puzzles, and Repetition modules. It does not have a general New Puzzles module.
 - The Own Puzzles module contains every game-derived Puzzle and a New Own Puzzles shortcut. New Own Puzzles presents only Own Puzzles that have never been attempted, orders them by newest source game first, and does not repeat them.
+- New Own Puzzles from Lichess and chess.com games are shown together. The owner can filter them by site and choose to solve them newest first or in random order; the list itself stays newest first (owner decision, 2026-11-23).
 - Completing My Moves analysis automatically creates an Own Puzzle for every owner inaccuracy, mistake, and blunder; no manual Add action is required.
 - New Own Puzzles offers a Discard action before classification. Discarding excludes that Own Puzzle from first-attempt training and prevents it from entering any repetition list.
 - Discarded Own Puzzles remain in a recoverable Discarded section. Restore returns a Puzzle to New Own Puzzles with no category or repetition progress.

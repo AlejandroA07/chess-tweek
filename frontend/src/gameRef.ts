@@ -33,3 +33,9 @@ export function parseGameKey(key: string): GameRef | null {
 export function gameApiPath(game: GameRef): string {
   return `/api/games/${game.source}/${encodeURIComponent(game.id)}`
 }
+
+/** The Game Review link of one game, optionally opened at one move (ply 1 to 1200). */
+export function gameReviewHref(game: GameRef, ply?: number): string {
+  const path = `#/games/${game.source}/${encodeURIComponent(game.id)}`
+  return ply === undefined ? path : `${path}/ply/${ply}`
+}

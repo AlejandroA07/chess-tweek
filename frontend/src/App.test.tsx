@@ -795,7 +795,7 @@ describe('App', () => {
     }
   })
 
-  it('expands Puzzles in the side bar with its sections and planned entries', async () => {
+  it('expands Puzzles in the side bar with its sections, including Own Puzzles', async () => {
     render(<App />)
     expect(screen.queryByRole('list', { name: 'Puzzles' })).not.toBeInTheDocument()
 
@@ -805,10 +805,12 @@ describe('App', () => {
     expect(within(sections).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
     expect(within(sections).getByRole('link', { name: 'Themes' })).toHaveAttribute('href', '#/puzzles/themes')
     expect(within(sections).getByRole('link', { name: 'Openings' })).toHaveAttribute('href', '#/puzzles/openings')
-    expect(within(sections).getAllByText('Planned')).toHaveLength(1)
+    expect(within(sections).queryByText('Planned')).not.toBeInTheDocument()
+    expect(within(sections).getByRole('link', { name: 'Own Puzzles' })).toHaveAttribute('href', '#/puzzles/own')
     expect(within(sections).getByRole('link', { name: 'Repetition: normal puzzles' }))
       .toHaveAttribute('href', '#/puzzles/repetition')
-    expect(within(sections).queryByRole('link', { name: /own puzzles/ })).not.toBeInTheDocument()
+    expect(within(sections).getByRole('link', { name: 'Repetition: own puzzles' }))
+      .toHaveAttribute('href', '#/puzzles/own/repetition')
 
     fireEvent.click(within(sections).getByRole('link', { name: 'Themes' }))
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Puzzles' }))

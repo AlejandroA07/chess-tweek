@@ -346,8 +346,9 @@ export function App() {
             )}
             {reviewGame !== null && session.kind === 'connected' ? (
               <GameReview
-                key={`${session.account.id}:${gameKey(reviewGame)}`}
+                key={`${session.account.id}:${gameKey(reviewGame)}:${reviewGame.ply ?? ''}`}
                 game={reviewGame}
+                initialPly={reviewGame.ply}
                 onSessionFailure={handleCatalogSessionFailure}
               />
             ) : route.href === '#/training' ? (
@@ -561,10 +562,17 @@ function currentRoute() {
   return navigation.find((item) => item.href === hash) ?? navigation[0]
 }
 
-/** The game of a `#/games/{source}/{id}` review link, or null for any other route. */
+/**
+ * The game of a `#/games/{source}/{id}` review link, optionally at `/ply/{n}`, or null for any
+ * other route.
+ */
 function currentReviewGame() {
-  const match = /^#\/games\/([^/]+\/[^/]+)$/.exec(window.location.hash)
-  return match === null ? null : parseGameKey(match[1])
+  const match = /^#\/games\/([^/]+\/[^/]+?)(?:\/ply\/([1-9][0-9]{0,3}))?$/.exec(window.location.hash)
+  if (match === null) return null
+  const game = parseGameKey(match[1])
+  const ply = match[2] === undefined ? null : Number(match[2])
+  if (game === null || (ply !== null && ply > 1200)) return null
+  return { ...game, ply }
 }
 
 /** The Puzzles dashboard or player route, or null for any other route. */

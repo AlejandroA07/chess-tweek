@@ -55,16 +55,24 @@ const SIDE_TEXT: Record<ReviewSide, string> = {
   opponent_moves: 'Opponent Moves',
 }
 
-/** One stored game: board, moves, evaluation progression, and one analyzed side's findings. */
+/**
+ * One stored game: board, moves, evaluation progression, and one analyzed side's findings.
+ * {@code initialPly}, from an Own Puzzle's source link, opens My Moves at that move with its
+ * finding in view.
+ */
 export function GameReview({
   game,
+  initialPly = null,
   onSessionFailure,
 }: {
   game: GameRef
+  initialPly?: number | null
   onSessionFailure: (failure: 'not_connected' | 'session_unavailable') => void
 }) {
   const { source, id } = game
-  const [side, setSide] = useState<ReviewSide | null>(null)
+  const [side, setSide] = useState<ReviewSide | null>(initialPly === null ? null : 'my_moves')
+  // Applied once, when the first review arrives; later reloads keep the owner's position.
+  const pendingPly = useRef<number | null>(initialPly)
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [reloadTick, setReloadTick] = useState(0)
   const [index, setIndex] = useState(0)
@@ -82,7 +90,16 @@ export function GameReview({
     requestReview({ source, id }, side, controller.signal)
       .then((review) => {
         setState({ kind: 'ready', review })
-        setIndex((current) => Math.min(current, review.plies.length))
+        const ply = pendingPly.current
+        pendingPly.current = null
+        if (ply !== null && ply <= review.plies.length) {
+          // As when a finding is chosen: the position after the move, with the move marked.
+          const finding = review.selected?.moves.some((move) => move.ply === ply && move.label !== 'none')
+          setIndex(ply)
+          setFocusedPly(finding ? ply : null)
+        } else {
+          setIndex((current) => Math.min(current, review.plies.length))
+        }
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return

@@ -23,6 +23,8 @@ import com.chesstweek.training.OwnPuzzleTraining;
 import com.chesstweek.training.OwnPuzzleTraining.ChangeOutcome;
 import com.chesstweek.training.OwnPuzzleTraining.GroupCount;
 import com.chesstweek.training.OwnPuzzleTraining.GroupKind;
+import com.chesstweek.training.OwnPuzzleTraining.NewOrder;
+import com.chesstweek.training.OwnPuzzleTraining.Site;
 import com.chesstweek.training.OwnPuzzles;
 import com.chesstweek.training.OwnPuzzles.NewOwnPuzzle;
 import com.chesstweek.training.PuzzleTraining;
@@ -74,6 +76,58 @@ class OwnPuzzleTrainingServiceTest {
             assertThat(training.move(OWNER, first.attemptId(), "a1a8").outcome())
                     .isEqualTo(MoveOutcome.FINISHED);
             assertThat(training.overview(OWNER).newPuzzles()).isEqualTo(2);
+        }
+    }
+
+    @Test
+    void newOwnPuzzlesFilterBySiteAndStartNewestOrRandomWithinTheFilter() {
+        try (var application = start()) {
+            create(application, OWNER, italian("abcd1234", 5, OLDER), backRank("efgh5678", 41, NEWER),
+                    chessCom(italian("123456789", 7, OLDER.plusSeconds(60))));
+            OwnPuzzleTraining training = training(application);
+
+            OwnPuzzleTraining.Overview overview = training.overview(OWNER);
+            assertThat(overview.newPuzzles()).isEqualTo(3);
+            assertThat(overview.newLichess()).isEqualTo(2);
+            assertThat(overview.newChessCom()).isEqualTo(1);
+            assertThat(training.newPuzzles(OWNER, Site.LICHESS, 0, 50).puzzles())
+                    .extracting(puzzle -> puzzle.sourceGame().gameId())
+                    .containsExactly("efgh5678", "abcd1234");
+            OwnPuzzleTraining.Page chessCom = training.newPuzzles(OWNER, Site.CHESSCOM, 0, 50);
+            assertThat(chessCom.total()).isEqualTo(1);
+            assertThat(chessCom.puzzles()).extracting(puzzle -> puzzle.sourceGame().source())
+                    .containsExactly("chesscom");
+            assertThat(training.newPuzzles(OWNER, Site.ALL, 1, 1).puzzles())
+                    .extracting(puzzle -> puzzle.sourceGame().gameId())
+                    .containsExactly("123456789");
+
+            assertThat(training.startNext(OWNER, Site.LICHESS, NewOrder.NEWEST).orElseThrow()
+                    .puzzle().sourceGame().gameId()).isEqualTo("efgh5678");
+            assertThat(training.startNext(OWNER, Site.CHESSCOM, NewOrder.NEWEST).orElseThrow()
+                    .puzzle().sourceGame().gameId()).isEqualTo("123456789");
+
+            // Random stays within the filter and, over many starts, reaches every New puzzle.
+            Set<String> lichess = new HashSet<>();
+            Set<String> every = new HashSet<>();
+            for (int index = 0; index < 60; index++) {
+                lichess.add(training.startNext(OWNER, Site.LICHESS, NewOrder.RANDOM).orElseThrow()
+                        .puzzle().sourceGame().gameId());
+                every.add(training.startNext(OWNER, Site.ALL, NewOrder.RANDOM).orElseThrow()
+                        .puzzle().sourceGame().gameId());
+            }
+            assertThat(lichess).containsExactlyInAnyOrder("efgh5678", "abcd1234");
+            assertThat(every).containsExactlyInAnyOrder("efgh5678", "abcd1234", "123456789");
+
+            // Random never offers a discarded or classified puzzle; an empty filter starts nothing.
+            assertThat(training.discard(OWNER, idOf(training, "123456789"))).isEqualTo(ChangeOutcome.DONE);
+            assertThat(training.startNext(OWNER, Site.CHESSCOM, NewOrder.RANDOM)).isEmpty();
+            assertThat(training.startNext(OWNER, Site.CHESSCOM, NewOrder.NEWEST)).isEmpty();
+            solveFast(training, training.startNext(OWNER, Site.ALL, NewOrder.NEWEST).orElseThrow(), "a1a8");
+            for (int index = 0; index < 20; index++) {
+                assertThat(training.startNext(OWNER, Site.ALL, NewOrder.RANDOM).orElseThrow()
+                        .puzzle().sourceGame().gameId()).isEqualTo("abcd1234");
+            }
+            assertThat(training.newPuzzles(OWNER, Site.CHESSCOM, 0, 50).total()).isZero();
         }
     }
 
@@ -346,6 +400,13 @@ class OwnPuzzleTrainingServiceTest {
                 List.of("f1b5", "a7a6", "b5a4", "g8f6"), "mistake", "opening", "C50",
                 "Italian Game: Two Knights Defense", played,
                 List.of(new OwnPuzzles.Tactic("fork", "missed")));
+    }
+
+    private static NewOwnPuzzle chessCom(NewOwnPuzzle puzzle) {
+        return new NewOwnPuzzle("chesscom", puzzle.gameId(), puzzle.sourcePly(), puzzle.analysisVersionId(),
+                puzzle.positionFen(), puzzle.previousPositionFen(), puzzle.previousMoveUci(),
+                puzzle.engineLine(), puzzle.label(), puzzle.phase(), puzzle.openingEco(),
+                puzzle.openingName(), puzzle.gamePlayedAt(), puzzle.tactics());
     }
 
     private static NewOwnPuzzle backRank(String gameId, int ply, Instant played) {

@@ -133,7 +133,7 @@ class OwnPuzzleServiceTest {
     }
 
     @Test
-    void refusesInvalidAccountsAndFieldsAndStoresNothing() {
+    void refusesAnInvalidAccountAndSkipsOnlyTheInvalidPuzzles() {
         try (var application = start()) {
             OwnPuzzles puzzles = application.getBean(OwnPuzzles.class);
             NewOwnPuzzle valid = puzzle(5, List.of("f1c4"));
@@ -144,22 +144,44 @@ class OwnPuzzleServiceTest {
             }
             assertThatThrownBy(() -> puzzles.create(OWNER, null))
                     .isInstanceOf(IllegalArgumentException.class);
-            for (NewOwnPuzzle invalid : List.of(
-                    copy(valid, "elsewhere", "abcd1234", 5, "mistake", "opening", "C44", "fork"),
-                    copy(valid, "lichess", "abc", 5, "mistake", "opening", "C44", "fork"),
-                    copy(valid, "chesscom", "abcd1234", 5, "mistake", "opening", "C44", "fork"),
-                    copy(valid, "lichess", "abcd1234", 0, "mistake", "opening", "C44", "fork"),
-                    copy(valid, "lichess", "abcd1234", 1201, "mistake", "opening", "C44", "fork"),
-                    copy(valid, "lichess", "abcd1234", 5, "none", "opening", "C44", "fork"),
-                    copy(valid, "lichess", "abcd1234", 5, "mistake", "late", "C44", "fork"),
-                    copy(valid, "lichess", "abcd1234", 5, "mistake", "opening", "Z9", "fork"),
-                    copy(valid, "lichess", "abcd1234", 5, "mistake", "opening", "C44", "Fork!"))) {
-                // One invalid puzzle refuses the whole call, including the valid one before it.
-                assertThatThrownBy(() -> puzzles.create(OWNER, List.of(valid, invalid)))
-                        .isInstanceOf(IllegalArgumentException.class);
-            }
-
             assertThat(count(application, OWNER)).isZero();
+
+            List<NewOwnPuzzle> invalid = List.of(
+                    copy(valid, "elsewhere", "abcd1234", 7, "mistake", "opening", "fork"),
+                    copy(valid, "lichess", "abc", 7, "mistake", "opening", "fork"),
+                    copy(valid, "chesscom", "abcd1234", 7, "mistake", "opening", "fork"),
+                    copy(valid, "lichess", "abcd1234", 0, "mistake", "opening", "fork"),
+                    copy(valid, "lichess", "abcd1234", 1201, "mistake", "opening", "fork"),
+                    copy(valid, "lichess", "abcd1234", 7, "none", "opening", "fork"),
+                    copy(valid, "lichess", "abcd1234", 7, "mistake", "late", "fork"),
+                    copy(valid, "lichess", "abcd1234", 7, "mistake", "opening", "Fork!"));
+            var batch = new java.util.ArrayList<NewOwnPuzzle>(invalid);
+            batch.add(null);
+            batch.add(valid);
+
+            // One bad puzzle never costs the game its other puzzles.
+            assertThat(puzzles.create(OWNER, batch)).isEqualTo(1);
+            assertThat(jdbc(application).queryForList(
+                    "SELECT source_ply FROM training_own_puzzle", Integer.class)).containsExactly(5);
+        }
+    }
+
+    @Test
+    void anUnusableOpeningIsStoredAsUnknown() {
+        try (var application = start()) {
+            NewOwnPuzzle valid = puzzle(5, List.of("f1c4"));
+            var odd = new NewOwnPuzzle(valid.gameSource(), valid.gameId(), 5,
+                    valid.analysisVersionId(), valid.positionFen(), valid.previousPositionFen(),
+                    valid.previousMoveUci(), valid.engineLine(), valid.label(), valid.phase(),
+                    "Z9", " ", valid.gamePlayedAt(), valid.tactics());
+
+            assertThat(application.getBean(OwnPuzzles.class).create(OWNER, List.of(odd)))
+                    .isEqualTo(1);
+
+            Map<String, Object> row = jdbc(application).queryForMap(
+                    "SELECT opening_eco, opening_name FROM training_own_puzzle");
+            assertThat(row.get("opening_eco")).isNull();
+            assertThat(row.get("opening_name")).isNull();
         }
     }
 
@@ -197,11 +219,11 @@ class OwnPuzzleServiceTest {
 
     private static NewOwnPuzzle copy(
             NewOwnPuzzle puzzle, String source, String gameId, int ply, String label, String phase,
-            String eco, String theme) {
+            String theme) {
         return new NewOwnPuzzle(source, gameId, ply, puzzle.analysisVersionId(),
                 puzzle.positionFen(), puzzle.previousPositionFen(), puzzle.previousMoveUci(),
-                puzzle.engineLine(), label, phase, eco, puzzle.openingName(), puzzle.gamePlayedAt(),
-                List.of(new OwnPuzzles.Tactic(theme, "missed")));
+                puzzle.engineLine(), label, phase, puzzle.openingEco(), puzzle.openingName(),
+                puzzle.gamePlayedAt(), List.of(new OwnPuzzles.Tactic(theme, "missed")));
     }
 
     private static int count(ConfigurableApplicationContext application, String account) {

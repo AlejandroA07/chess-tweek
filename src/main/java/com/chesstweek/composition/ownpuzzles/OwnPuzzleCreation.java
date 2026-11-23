@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
@@ -22,9 +21,6 @@ import com.chesstweek.training.OwnPuzzles;
  */
 @Component
 public class OwnPuzzleCreation implements AnalysisCompletionListener {
-
-    private static final Pattern ECO = Pattern.compile("[A-E][0-9]{2}");
-    private static final int MAX_OPENING_NAME = 160;
 
     private final GameReviews reviews;
     private final OwnPuzzles ownPuzzles;
@@ -57,15 +53,8 @@ public class OwnPuzzleCreation implements AnalysisCompletionListener {
         for (GameReviews.Ply ply : review.plies()) {
             plies.put(ply.ply(), ply);
         }
-        String eco = null;
-        String openingName = null;
-        if (game.opening() != null) {
-            eco = game.opening().eco() != null && ECO.matcher(game.opening().eco()).matches()
-                    ? game.opening().eco() : null;
-            String name = game.opening().name();
-            openingName = name != null && !name.isBlank() && name.length() <= MAX_OPENING_NAME
-                    ? name : null;
-        }
+        String eco = game.opening() == null ? null : game.opening().eco();
+        String openingName = game.opening() == null ? null : game.opening().name();
         List<OwnPuzzles.NewOwnPuzzle> puzzles = new ArrayList<>();
         for (GameReviews.JudgedMove move : review.selected().moves()) {
             if ("none".equals(move.label())) {

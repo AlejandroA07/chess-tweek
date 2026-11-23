@@ -12,11 +12,11 @@ public interface OwnPuzzles {
 
     /**
      * Stores every puzzle whose source position is not stored for the account yet and returns
-     * how many were new, so repeating a call never creates a duplicate. A puzzle whose engine
-     * line or previous move cannot be replayed is skipped.
+     * how many were new, so repeating a call never creates a duplicate. A puzzle with an invalid
+     * field, or whose engine line or previous move cannot be replayed, is skipped on its own. An
+     * unusable opening ECO or name is stored as unknown.
      *
-     * @throws IllegalArgumentException when the account or any puzzle's fields are invalid;
-     *     nothing is stored then
+     * @throws IllegalArgumentException when the account or the list is invalid
      */
     int create(String accountId, List<NewOwnPuzzle> puzzles);
 

@@ -178,7 +178,7 @@ function ReviewFailureNotice({
     },
     review_unavailable: {
       title: 'This review could not be loaded',
-      text: 'The stored analysis could not be read. Try again; if it repeats, restart the local app.',
+      text: 'The stored analysis could not be read. Try again.',
       retry: true,
     },
   }

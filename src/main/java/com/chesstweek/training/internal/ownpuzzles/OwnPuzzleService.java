@@ -18,8 +18,9 @@ import io.github.wolfraam.chessgame.move.Move;
 import io.github.wolfraam.chessgame.notation.NotationType;
 
 /**
- * Turns labelled owner moves into stored Own Puzzles. Every field is validated before anything is
- * stored; the solution and the previous move are replayed so only playable puzzles are kept.
+ * Turns labelled owner moves into stored Own Puzzles. A puzzle with an invalid field, an unplayable
+ * solution, or a previous move that does not lead to its position is skipped on its own, so one
+ * bad move never costs the game its other puzzles. An unusable opening is stored as unknown.
  */
 @Service
 class OwnPuzzleService implements OwnPuzzles {
@@ -33,6 +34,7 @@ class OwnPuzzleService implements OwnPuzzles {
     private static final Set<String> LABELS = Set.of("inaccuracy", "mistake", "blunder");
     private static final Set<String> PHASES = Set.of("opening", "middlegame", "endgame");
     private static final Set<String> TACTIC_KINDS = Set.of("allowed", "missed");
+    private static final int MAX_OPENING_NAME = 160;
     static final int MAX_PLY = 1_200;
     static final int MAX_PUZZLES = 1_200;
     private static final int FULL_SOLUTION = 3;
@@ -58,9 +60,11 @@ class OwnPuzzleService implements OwnPuzzles {
         if (puzzles == null || puzzles.size() > MAX_PUZZLES) {
             throw new IllegalArgumentException("Own Puzzles are invalid");
         }
-        puzzles.forEach(OwnPuzzleService::validate);
         List<JdbcOwnPuzzleStore.Row> rows = new ArrayList<>();
         for (NewOwnPuzzle puzzle : puzzles) {
+            if (!valid(puzzle)) {
+                continue;
+            }
             String solution = solution(puzzle);
             if (solution != null && previousMoveLeadsToPosition(puzzle)) {
                 rows.add(row(accountId, puzzle, solution));
@@ -69,8 +73,8 @@ class OwnPuzzleService implements OwnPuzzles {
         return rows.isEmpty() ? 0 : store.insertNew(rows, clock.millis());
     }
 
-    private static void validate(NewOwnPuzzle puzzle) {
-        boolean valid = puzzle != null
+    private static boolean valid(NewOwnPuzzle puzzle) {
+        return puzzle != null
                 && validGame(puzzle.gameSource(), puzzle.gameId())
                 && puzzle.sourcePly() >= 1 && puzzle.sourcePly() <= MAX_PLY
                 && puzzle.analysisVersionId() >= 1
@@ -78,16 +82,18 @@ class OwnPuzzleService implements OwnPuzzles {
                 && (puzzle.previousPositionFen() == null || validFen(puzzle.previousPositionFen()))
                 && LABELS.contains(puzzle.label())
                 && PHASES.contains(puzzle.phase())
-                && (puzzle.openingEco() == null || ECO.matcher(puzzle.openingEco()).matches())
-                && (puzzle.openingName() == null
-                        || (!puzzle.openingName().isBlank() && puzzle.openingName().length() <= 160))
                 && puzzle.gamePlayedAt() != null && puzzle.gamePlayedAt().toEpochMilli() >= 0
                 && puzzle.tactics().stream().allMatch(tactic -> tactic != null
                         && tactic.theme() != null && THEME.matcher(tactic.theme()).matches()
                         && TACTIC_KINDS.contains(tactic.kind()));
-        if (!valid) {
-            throw new IllegalArgumentException("Own Puzzle is invalid");
-        }
+    }
+
+    private static String eco(String eco) {
+        return eco != null && ECO.matcher(eco).matches() ? eco : null;
+    }
+
+    private static String openingName(String name) {
+        return name != null && !name.isBlank() && name.length() <= MAX_OPENING_NAME ? name : null;
     }
 
     private static boolean validGame(String source, String gameId) {
@@ -181,8 +187,8 @@ class OwnPuzzleService implements OwnPuzzles {
                 solution,
                 puzzle.label(),
                 puzzle.phase(),
-                puzzle.openingEco(),
-                puzzle.openingName(),
+                eco(puzzle.openingEco()),
+                openingName(puzzle.openingName()),
                 puzzle.gamePlayedAt().toEpochMilli(),
                 puzzle.tactics().stream()
                         .distinct()

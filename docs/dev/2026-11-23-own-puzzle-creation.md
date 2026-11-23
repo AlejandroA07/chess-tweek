@@ -18,7 +18,9 @@ Stage 8 Part 8a turns each owner inaccuracy, mistake, and blunder from a complet
   - The training and game-review modules stay independent, and `ArchitectureTest` is unchanged.
   - The package is not named `composition.training`, because the `..training..` rule would match it.
 - `training.OwnPuzzles.create(accountId, puzzles)` returns how many puzzles were new.
-  - Bad account or field values (game source and ID, ply 1 to 1200, label, phase, ECO, opening name, tactic theme and kind) refuse the whole call, and nothing is stored.
+  - An invalid account refuses the whole call.
+  - A puzzle with an invalid field (game source and ID, ply 1 to 1200, label, phase, tactic theme and kind) is skipped on its own, so one bad move never costs the game its other puzzles. Reanalysis is blocked, so a whole-game refusal could never be recovered.
+  - An unusable opening ECO or name is stored as unknown.
   - It replays every solution move and the opponent's previous move with the chess library. A line that cannot be played, or a previous move that does not lead to the puzzle's position, skips only that puzzle.
 - `JdbcOwnPuzzleStore` inserts with `ON CONFLICT DO NOTHING` on `(account_id, game_source, game_id, source_ply)` in one transaction. Creating the same puzzles again stores nothing.
 - Migration V14:
@@ -49,7 +51,9 @@ Stage 8 Part 8a turns each owner inaccuracy, mistake, and blunder from a complet
   - The game's first move, which has no previous move.
   - Idempotent creation.
   - Skipping unplayable lines and previous moves.
-  - Refusal of invalid input, with nothing stored.
+  - Refusal of an invalid account.
+  - Skipping only the invalid puzzles.
+  - An unusable opening stored as unknown.
   - Account scoping, and no rows in the Lichess Puzzle Library.
 - `OwnPuzzleCreationTest` uses a real context with a hand-built review. It covers:
   - One puzzle per labelled owner move with the right position, previous move, solution, label, phase, opening, and tactics.

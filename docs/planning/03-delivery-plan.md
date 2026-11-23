@@ -481,7 +481,8 @@ Acceptance:
 
 - Stage 8 Part 8a is complete in PR #63, merged on 2026-11-23. Each owner inaccuracy, mistake, and blunder of a newly completed My Moves analysis becomes an Own Puzzle (migration V14), and a side with a stored analysis is never analyzed again (`docs/dev/2026-11-23-own-puzzle-creation.md`). The owner's live check on 2026-11-23 found 6 Own Puzzles created from one analyzed game: 2 inaccuracies, 1 mistake, and 3 blunders. The same PR aligned the planning documents with no reanalysis and removed the finished guided-course sourcing and dataset sizing research.
 - Stage 8 Part 8b is complete in PR #64, merged on 2026-11-23: Own Puzzle attempts, Training Lists, New, Discard, and Restore, repetition and Mastered practice, the summaries, and the `/api/training/own-puzzles` endpoints (migration V15, `docs/dev/2026-11-23-own-puzzle-training.md`).
-- Stage 8 Part 8c is delivered on `feature/own-puzzles-interface`. It adds the Own Puzzles dashboard, New Own Puzzles with a site filter and a newest or random solving order (owner decision, 2026-11-23), Discard and Restore, the Training List pages, Own Repetition, and Mastered practice by group. The player is shared with normal Puzzles, and the source-game link opens the Game Review at the puzzle's move (`docs/dev/2026-11-23-own-puzzles-interface.md`).
+- Stage 8 Part 8c is complete in PR #66, merged on 2026-11-23, so Stage 8 is complete. It adds the Own Puzzles dashboard, New Own Puzzles with a site filter and a newest or random solving order (owner decision, 2026-11-23), Discard and Restore, the Training List pages, Own Repetition, and Mastered practice by group. The player is shared with normal Puzzles, and the source-game link opens the Game Review at the puzzle's move (`docs/dev/2026-11-23-own-puzzles-interface.md`). The owner's live check of the merged app on 2026-11-23 found it working: the Own Puzzles from the 8a check appeared as New, a site-filtered Random solve, Discard and Restore, and the source-game link to the move all worked. This also closes the 8b check.
+- The thinking-habit trainer ideas were recorded for later in PR #65, merged on 2026-11-23 (`10-thinking-habit-trainer-ideas.md`).
 
 ### Not yet delivered
 
@@ -491,8 +492,7 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-23):**
 
-1. After Part 8c merges, Stage 8 is complete. Start Stage 8B, Deeper Game Review, on its own `feature/<topic>` branch.
+1. Start Stage 8B, Deeper Game Review, on its own `feature/<topic>` branch, beginning with Part 1 (more named tactics). The thinking-habit trainer ("Maybe later") is best considered after Stage 8B.
 2. Owner checks still open:
-   - Part 8c (this also covers the 8b check): in the running app, open Puzzles, then Own Puzzles. Confirm that the Own Puzzles from the 8a check appear as New. Filter by site and solve one in Random order. Discard one and restore it from Discarded. Open a source game and confirm that the Game Review shows that move.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

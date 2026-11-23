@@ -259,6 +259,33 @@ describe('Game review', () => {
     expect(screen.getByRole('button', { name: '3… Nf6, Blunder' })).toBeInTheDocument()
   })
 
+  it('opens an Own Puzzle source link at its move in My Moves with the finding in view', async () => {
+    reviews['?side=my_moves'] = { status: 200, body: review() }
+    window.history.replaceState(null, '', `/#/games/lichess/${GAME_ID}/ply/6`)
+    render(<App />)
+
+    expect(await screen.findByRole('img', {
+      name: /Position after your blunder 3… Nf6\. Best was 3… Qe7\./,
+    })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View mistake 3… Nf6' })).toHaveAttribute('aria-pressed', 'true')
+    expect(requests.some((request) => request.url === `/api/games/lichess/${GAME_ID}/review?side=my_moves`))
+      .toBe(true)
+    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('opens a ply link without a finding at that position, and refuses a ply past the limit', async () => {
+    reviews['?side=my_moves'] = { status: 200, body: review() }
+    window.history.replaceState(null, '', `/#/games/lichess/${GAME_ID}/ply/3`)
+    const { unmount } = render(<App />)
+    expect(await screen.findByRole('img', { name: /Position after 2\. Bc4\./ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View mistake 3… Nf6' })).toHaveAttribute('aria-pressed', 'false')
+    unmount()
+
+    window.history.replaceState(null, '', `/#/games/lichess/${GAME_ID}/ply/1201`)
+    render(<App />)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument()
+  })
+
   it('shows the mistake first, then the best move and the reply as playable engine lines', async () => {
     const { container } = render(<App />)
     const view = await screen.findByRole('button', { name: 'View mistake 3… Nf6' })

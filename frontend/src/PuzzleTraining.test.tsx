@@ -38,7 +38,7 @@ describe('PuzzleTraining', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('shows cards that lead to Random, Themes, Openings, and Repetition, with Own Puzzles planned', () => {
+  it('shows cards that lead to Random, Themes, Openings, Repetition, and Own Puzzles', () => {
     vi.stubGlobal('fetch', vi.fn(async () => response({ categories: categories() })))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'dashboard' }} onSessionFailure={vi.fn()} />)
 
@@ -46,7 +46,8 @@ describe('PuzzleTraining', () => {
     expect(screen.getByRole('link', { name: 'Browse themes' })).toHaveAttribute('href', '#/puzzles/themes')
     expect(screen.getByRole('link', { name: 'Browse openings' })).toHaveAttribute('href', '#/puzzles/openings')
     expect(screen.getByRole('link', { name: 'Open Repetition' })).toHaveAttribute('href', '#/puzzles/repetition')
-    expect(screen.getAllByText('Planned')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'Open Own Puzzles' })).toHaveAttribute('href', '#/puzzles/own')
+    expect(screen.queryByText('Planned')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Fork/ })).not.toBeInTheDocument()
   })
 

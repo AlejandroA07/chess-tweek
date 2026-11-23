@@ -105,10 +105,10 @@ Deliver this stage as three independently reviewed parts (owner decision, 2026-1
 
 **Branch:** `feature/<topic>` per part · **Needs:** Stage 8 (owner decision, 2026-11-22: after Own Puzzles, not before).
 
-Stockfish reports only evaluations and move lines; every word in a Game Review is built by the app from them. This stage adds more of that meaning. Tactic labels are computed from the stored engine lines each time a review opens, so both parts also improve games analysed earlier, and the grouping of existing Own Puzzles, without reanalysis. The method is to be chosen from the research in `09-game-review-explanation-research.md` before implementation.
+Stockfish reports only evaluations and move lines; every word in a Game Review is built by the app from them. This stage adds more of that meaning and is kept deliberately simple (owner decision, 2026-11-23); the further ideas from `09-game-review-explanation-research.md` are listed under "Maybe later — Game Review explanation extras". Tactic labels are computed from the stored engine lines each time a review opens, so both parts also improve games analysed earlier, and the grouping of existing Own Puzzles, without reanalysis.
 
-1. **More named tactics.** Add pins, skewers, discovered attacks and checks, deflection, removing the defender, in-between moves, and trapped pieces to the tactic labels, under the existing conservative rule: a label is given only when the stored line proves the gain. Each motif has its own tests, including a near miss that must not be labelled. The rules are written for this project, not copied from another tagger.
-2. **Measurable positional reasons.** When no tactic explains a loss, the coach card's "Why?" names the measurable features that changed between the position before the move and the engine's preferred position: material, the bishop pair, the king's pawn cover and open files near the king, isolated, doubled, backward, and passed pawns, piece mobility, and development in the opening. The wording states these as observations, not as the engine's reasons, because Stockfish's neural evaluation does not break its score into human reasons.
+1. **More named tactics.** Add, in this order, discovered attacks and checks, pins, skewers, removing the defender, trapped pieces, deflection, and in-between moves to the tactic labels, under the existing conservative rule: a label is given only when the stored line proves the gain. Each motif has its own tests, including a near miss that must not be labelled. The rules are written for this project, not copied from another tagger.
+2. **Measurable positional reasons.** When no tactic explains a loss, the coach card's "Why?" names the measurable features that clearly changed between the end of the engine's preferred line and the end of the line after the played move, a few plies deep: material, the bishop pair, the king's pawn cover and open files near the king, isolated, doubled, and passed pawns, castling, development in the opening, and piece mobility only when the change is large. The wording states these as observations, not as the engine's reasons, because Stockfish's neural evaluation does not break its score into human reasons.
 
 - Acceptance: every new label and reason is proven by a test position and a near miss; reviews of stored analyses show the new labels without reanalysis; the coach card never names a reason that did not change.
 
@@ -125,7 +125,7 @@ Stockfish reports only evaluations and move lines; every word in a Game Review i
 **Branch:** `feature/opening-explorer` · **Needs:** Stage 5 and Stage 7 Part 2.
 
 - Move statistics for any position from Lichess Masters, Lichess by rating band and speed, and My games computed from stored games of both sites.
-- Opening context in Game Review (owner decision, 2026-11-22): the named opening at each move from the free Lichess opening table (CC0), the move where the game left known theory, and the main-line moves at that point with their explorer statistics.
+- Opening context in Game Review (owner decision, 2026-11-22), kept simple: the named opening at each move from the free Lichess opening table (CC0, bundled as data), and the first own move that left known theory, using the Lichess rule of at most one Lichess Masters game, with the main moves at that point.
 - The purpose of an opening or line is authored text, not engine output. Decide before this stage whether the project ships starter notes for the openings the owner plays (the London System and the Caro-Kann Defense; see `04-training-goals.md`) or only the owner's own notes.
 - Acceptance: the Lichess token never reaches the browser; upstream failure and 429 leave My games usable; responses are cached.
 
@@ -411,6 +411,22 @@ Acceptance:
 - Restore always creates a safety backup first.
 - A failed restore leaves the original database usable.
 - Compaction demonstrably reclaims deleted space.
+
+## Maybe later — Game Review explanation extras
+
+**Needs:** Stage 8B. Source: `09-game-review-explanation-research.md` (owner decision, 2026-11-23: keep Stage 8B simple and consider these later).
+
+Consider:
+
+- An "only move" signal from the gap between the engine's first and second lines.
+- Marking each coach-card statement as proven, observed, or unknown with its evidence, and offering Aagaard's three questions when nothing explains a loss.
+- An optional one-tap cause per mistake (threat not seen, move not considered, calculation, judgement, time pressure, opening knowledge) and an optional "find the better move first" step. This would partly reverse the 2026-11-15 decision to drop the thinking note.
+- Time-pressure detection from stored clocks, after confirming clocks are stored for chess.com games.
+- Further motifs: overloading, interference, clearance, attraction, and x-ray.
+- Positional observations for inaccuracies as well as mistakes and blunders.
+- A "left theory" check against games at the owner's rating, and automatic explorer calls from Game Review rather than on request.
+
+No LLM or generated commentary is planned; any later proposal would be a new dependency decision.
 
 ## Hardening checklist (used by Stage 13)
 

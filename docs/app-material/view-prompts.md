@@ -119,7 +119,7 @@ Below, show the 10 source games in a collapsible table with opponent, result, co
 
 Give the two report-owned training packages equal but distinct cards. “Mistake/Blunder Puzzles” shows one custom exercise per owner mistake and blunder, progress, Start/Continue, and attempt summary. “Related Lichess Puzzles” shows up to 20 puzzles, selected themes and allocation, progress, Start/Continue, and Retry Retrieval if unavailable. Also show concise evidence-based “Training priorities” derived deterministically from the report, with links to the relevant errors or package—do not present free-form chatbot text.
 
-Visible controls: Back to Reports, View Source Games, View Dependencies, filter controls, View Position, Open Full Game Review, Start/Continue each package, Retry Retrieval, and Return to Top. Include loading, no-errors, partial-theme-classification, related-package-fetching, related-package-failed, and source-game-unavailable integrity-warning states. Existing report figures must never appear to change after a game is reanalyzed.
+Visible controls: Back to Reports, View Source Games, View Dependencies, filter controls, View Position, Open Full Game Review, Start/Continue each package, Retry Retrieval, and Return to Top. Include loading, no-errors, partial-theme-classification, related-package-fetching, related-package-failed, and source-game-unavailable integrity-warning states. Existing report figures must never appear to change.
 ```
 
 ## 9. Mistake/Blunder Puzzles

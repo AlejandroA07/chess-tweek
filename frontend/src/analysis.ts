@@ -33,6 +33,7 @@ export type AnalysisRequestFailure =
   | 'game_not_found'
   | 'no_running_analysis'
   | 'analysis_unavailable'
+  | 'already_analyzed'
 
 export class AnalysisRequestError extends Error {
   constructor(readonly failure: AnalysisRequestFailure) {
@@ -42,6 +43,7 @@ export class AnalysisRequestError extends Error {
 
 const KNOWN_FAILURES: readonly AnalysisRequestFailure[] = [
   'analysis_busy',
+  'already_analyzed',
   'engine_profile_missing',
   'analysis_not_supported',
   'game_not_found',

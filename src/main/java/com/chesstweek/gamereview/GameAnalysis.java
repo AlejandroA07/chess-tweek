@@ -7,7 +7,8 @@ import java.util.Optional;
 /**
  * Owner-requested Stockfish analysis of one stored game at a time. Analysis runs in the
  * background; callers poll {@link #current} for progress. Every completed analysis stores new
- * immutable versions, one per analyzed side, and never changes an older one.
+ * immutable versions, one per analyzed side, and never changes an older one. A side with a stored
+ * analysis is never analyzed again.
  */
 public interface GameAnalysis {
 
@@ -32,7 +33,9 @@ public interface GameAnalysis {
             GAME_NOT_FOUND,
             NOT_ELIGIBLE,
             BUSY,
-            NO_PROFILE
+            NO_PROFILE,
+            /** A requested side already has a stored analysis; only a missing side can start. */
+            ALREADY_ANALYZED
         }
     }
 

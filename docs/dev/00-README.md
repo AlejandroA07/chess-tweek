@@ -46,3 +46,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-20-puzzle-dashboard.md` | Records the Puzzles dashboard, the Random and By Category player, the category endpoint, and board line support. | dated report |
 | `2026-11-21-puzzle-repetition.md` | Records the normal-Puzzle Repetition dashboard, Practice Sessions, the Mastered view and practice, and migration V13. | dated report |
 | `2026-11-22-method-puzzle-performance.md` | Records guided-method Exercises as full Puzzle attempts that update the shared Training List state, and the new course exercise endpoints. | dated report |
+| `2026-11-23-own-puzzle-creation.md` | Records Own Puzzle creation from completed My Moves analyses, migration V14, and the rule that a completed side is never analyzed again. | dated report |

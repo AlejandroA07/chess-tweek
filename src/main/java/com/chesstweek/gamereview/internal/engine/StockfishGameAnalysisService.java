@@ -10,10 +10,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.chesstweek.gamereview.AnalysisCompletionListener;
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.EngineProfile;
 import com.chesstweek.gamereview.EngineStatus;
@@ -24,6 +29,7 @@ import com.chesstweek.gamereview.internal.analysis.GamePhases;
 import com.chesstweek.gamereview.internal.analysis.MoveRules;
 import com.chesstweek.gamereview.internal.analysis.ReplayedGame;
 import com.chesstweek.gamereview.internal.analysis.TwoPassAnalysis;
+import com.chesstweek.gamereview.internal.persistence.AnalysisVersionReader;
 import com.chesstweek.gamereview.internal.persistence.AnalysisVersionStore;
 import com.chesstweek.gamereview.internal.persistence.EngineProfileStore;
 import com.chesstweek.gamereview.internal.persistence.GameLookup;
@@ -32,18 +38,23 @@ import com.chesstweek.gamereview.internal.persistence.GameLookup;
  * Runs one owner-requested analysis at a time in the background. The engine runs with the
  * stored profile's settings and node budgets, and only when it is the engine that was
  * benchmarked. Findings are stored only after every search succeeded, in one transaction, as
- * one new version per analyzed side; a failed or canceled analysis stores nothing.
+ * one new version per analyzed side; a failed or canceled analysis stores nothing. A side that
+ * already has a stored version is never analyzed again. Completion listeners hear about each
+ * stored analysis after its job is reported as completed.
  */
 @Service
 class StockfishGameAnalysisService implements GameAnalysis {
 
     static final Duration SETTINGS_TIMEOUT = Duration.ofSeconds(15);
     static final Duration SEARCH_TIMEOUT = Duration.ofSeconds(60);
+    private static final Logger LOG = LoggerFactory.getLogger(StockfishGameAnalysisService.class);
 
     private final StockfishEngineAccess engine;
     private final GameLookup catalog;
     private final EngineProfileStore profiles;
     private final AnalysisVersionStore versions;
+    private final AnalysisVersionReader stored;
+    private final Supplier<List<AnalysisCompletionListener>> listeners;
     private final Executor executor;
     private final Clock clock;
     private final Object jobLock = new Object();
@@ -54,8 +65,11 @@ class StockfishGameAnalysisService implements GameAnalysis {
             StockfishEngineAccess engine,
             GameLookup catalog,
             EngineProfileStore profiles,
-            AnalysisVersionStore versions) {
-        this(engine, catalog, profiles, versions,
+            AnalysisVersionStore versions,
+            AnalysisVersionReader stored,
+            ObjectProvider<AnalysisCompletionListener> listeners) {
+        this(engine, catalog, profiles, versions, stored,
+                () -> listeners.orderedStream().toList(),
                 task -> Thread.ofVirtual().name("game-analysis").start(task),
                 Clock.systemUTC());
     }
@@ -65,12 +79,29 @@ class StockfishGameAnalysisService implements GameAnalysis {
             GameLookup catalog,
             EngineProfileStore profiles,
             AnalysisVersionStore versions,
+            AnalysisVersionReader stored,
+            List<AnalysisCompletionListener> listeners,
+            Executor executor,
+            Clock clock) {
+        this(engine, catalog, profiles, versions, stored, () -> List.copyOf(listeners), executor,
+                clock);
+    }
+
+    private StockfishGameAnalysisService(
+            StockfishEngineAccess engine,
+            GameLookup catalog,
+            EngineProfileStore profiles,
+            AnalysisVersionStore versions,
+            AnalysisVersionReader stored,
+            Supplier<List<AnalysisCompletionListener>> listeners,
             Executor executor,
             Clock clock) {
         this.engine = engine;
         this.catalog = catalog;
         this.profiles = profiles;
         this.versions = versions;
+        this.stored = stored;
+        this.listeners = listeners;
         this.executor = executor;
         this.clock = clock;
     }
@@ -98,6 +129,10 @@ class StockfishGameAnalysisService implements GameAnalysis {
         synchronized (jobLock) {
             if (latest != null && latest.isRunning()) {
                 return new StartResult(StartResult.Outcome.BUSY, null);
+            }
+            // Checked under the lock so a just-finished analysis of the same side is seen.
+            if (alreadyAnalyzed(accountId, game.ref(), perspective)) {
+                return new StartResult(StartResult.Outcome.ALREADY_ANALYZED, null);
             }
             job = new RunningJob(accountId, game.ref(), perspective, now());
             latest = job;
@@ -261,6 +296,28 @@ class StockfishGameAnalysisService implements GameAnalysis {
             return;
         }
         job.finish(State.COMPLETED, null, ids, now());
+        notifyCompleted(job);
+    }
+
+    private boolean alreadyAnalyzed(String accountId, GameRef game, Perspective perspective) {
+        List<AnalysisVersionStore.Side> requested = switch (perspective) {
+            case MY_MOVES -> List.of(AnalysisVersionStore.Side.OWNER);
+            case OPPONENT_MOVES -> List.of(AnalysisVersionStore.Side.OPPONENT);
+            case BOTH -> List.of(AnalysisVersionStore.Side.OWNER, AnalysisVersionStore.Side.OPPONENT);
+        };
+        return requested.stream()
+                .anyMatch(side -> stored.newest(accountId, game, side).isPresent());
+    }
+
+    /** Every listener runs; a failing one is logged and never changes the completed job. */
+    private void notifyCompleted(RunningJob job) {
+        for (AnalysisCompletionListener listener : listeners.get()) {
+            try {
+                listener.completed(job.accountId, job.game, job.perspective);
+            } catch (RuntimeException exception) {
+                LOG.warn("An analysis completion listener failed", exception);
+            }
+        }
     }
 
     static Set<ReplayedGame.Color> sides(Perspective perspective, ReplayedGame.Color owner) {

@@ -212,8 +212,8 @@ Do not guess pins, skewers, discoveries, sacrifices, or other motifs without a t
 Versioning and queue behavior:
 
 - Store owner and opponent findings separately.
-- Reanalysis creates a new immutable analysis version.
-- A game has a current analysis version per perspective and profile, while reports retain exact older versions.
+- Each perspective is analyzed at most once per game. A completed perspective is never reanalyzed; only the missing one can still be analyzed (owner decision, `07-performance-training-lists.md`).
+- Stored analysis versions are immutable, and any later report references those exact versions.
 - Queue states are queued, running, paused, completed, failed, and canceled.
 - Provide Pause, Resume, Cancel Current, Cancel Remaining, and Retry Failed.
 - Thermal-aware pausing (owner decision, 2026-11-14): the owner's Mac is a fanless MacBook Air, so heat slows the chip rather than risking damage. Before each queued game and between searches, the queue reads macOS thermal pressure, which is available without administrator rights. When macOS reports that it is limiting the CPU, the queue finishes the current search, pauses with a visible "Paused: Mac is hot" reason, and resumes on its own once the limit clears. The owner can still resume manually. Exact temperatures are not read.
@@ -389,7 +389,7 @@ Admin exposes every project operation that exists in v1:
 - Getting 50 games is bounded, idempotent, and safe across Lichess 401/429 and malformed-stream failures.
 - Single analysis supports owner, opponent, and both; bulk rejects opponent/both.
 - Queue progress survives restart and cancellation stops Stockfish safely.
-- Reports reject any selection other than 10 eligible owner analyses and remain immutable after reanalysis.
+- Reports reject any selection other than 10 eligible owner analyses and remain immutable once saved.
 - Opponent findings never enter reports or report packages.
 - Every report owns exactly two package records.
 - Mistake/Blunder exercises reproduce the original position and validate a five-ply line.

@@ -15,6 +15,7 @@ import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.chesstweek.gamereview.AnalysisCompletionListener;
 import com.chesstweek.gamereview.CatalogGame;
 import com.chesstweek.gamereview.EngineProfile;
 import com.chesstweek.gamereview.GameAnalysis;
@@ -25,6 +26,7 @@ import com.chesstweek.gamereview.GameAnalysis.StartResult.Outcome;
 import com.chesstweek.gamereview.GameAnalysis.State;
 import com.chesstweek.gamereview.internal.analysis.MoveRules;
 import com.chesstweek.gamereview.internal.analysis.ReplayedGame;
+import com.chesstweek.gamereview.internal.persistence.AnalysisVersionReader;
 import com.chesstweek.gamereview.internal.persistence.AnalysisVersionStore;
 import com.chesstweek.gamereview.internal.persistence.EngineProfileStore;
 import com.chesstweek.gamereview.internal.persistence.GameLookup;
@@ -43,6 +45,7 @@ class StockfishGameAnalysisServiceTest {
     private final Catalog catalog = new Catalog();
     private final Profiles profiles = new Profiles();
     private final Versions versions = new Versions();
+    private final List<AnalysisCompletionListener> listeners = new ArrayList<>();
     private final List<Runnable> pending = new ArrayList<>();
 
     @Test
@@ -136,8 +139,99 @@ class StockfishGameAnalysisServiceTest {
                 .isEqualTo(Outcome.BUSY);
 
         runPending();
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.OPPONENT_MOVES).outcome())
+                .isEqualTo(Outcome.STARTED);
+    }
+
+    @Test
+    void aCompletedPerspectiveCannotBeAnalyzedAgainButTheMissingOneCan(@TempDir Path directory)
+            throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5 Nf3 Nc6", true));
+        var service = serviceWithFreshEngines(directory);
+
+        service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
+        runPending();
+
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES).outcome())
+                .isEqualTo(Outcome.ALREADY_ANALYZED);
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.BOTH).outcome())
+                .isEqualTo(Outcome.ALREADY_ANALYZED);
+        assertThat(pending).isEmpty();
+        // The finished job is still the one reported.
+        assertThat(service.current(ACCOUNT).orElseThrow().state()).isEqualTo(State.COMPLETED);
+
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.OPPONENT_MOVES).outcome())
+                .isEqualTo(Outcome.STARTED);
+        runPending();
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.OPPONENT_MOVES).outcome())
+                .isEqualTo(Outcome.ALREADY_ANALYZED);
+        assertThat(versions.saved).hasSize(2);
+    }
+
+    @Test
+    void anotherAccountsAnalysisDoesNotCountAsAlreadyAnalyzed(@TempDir Path directory)
+            throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        var service = service(directory, levelEngine("Stockfish 19"));
+        versions.stored("someone", GAME_ID, AnalysisVersionStore.Side.OWNER);
+
+        assertThat(service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES).outcome())
+                .isEqualTo(Outcome.STARTED);
+    }
+
+    @Test
+    void aFailedOrCanceledAnalysisCanBeStartedAgain(@TempDir Path directory) throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        versions.fail = true;
+        var service = service(directory, levelEngine("Stockfish 19"));
+
+        service.start(ACCOUNT, GAME_ID, Perspective.BOTH);
+        runPending();
+        assertThat(service.current(ACCOUNT).orElseThrow().state()).isEqualTo(State.FAILED);
+
+        versions.fail = false;
         assertThat(service.start(ACCOUNT, GAME_ID, Perspective.BOTH).outcome())
                 .isEqualTo(Outcome.STARTED);
+    }
+
+    @Test
+    void completionListenersHearOnlyAboutCompletedAnalyses(@TempDir Path directory)
+            throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        var heard = new ArrayList<String>();
+        listeners.add((account, game, perspective) ->
+                heard.add(account + "/" + game.id() + "/" + perspective));
+        var service = serviceWithFreshEngines(directory);
+
+        versions.fail = true;
+        service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
+        runPending();
+        assertThat(heard).isEmpty();
+
+        versions.fail = false;
+        service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
+        runPending();
+        assertThat(heard).containsExactly("owner/abcd1234/MY_MOVES");
+    }
+
+    @Test
+    void aFailingListenerNeverChangesTheCompletedAnalysis(@TempDir Path directory)
+            throws Exception {
+        catalog.add(game(CatalogGame.Color.WHITE, "e4 e5", true));
+        var heard = new ArrayList<String>();
+        listeners.add((account, game, perspective) -> {
+            throw new IllegalStateException("listener broke");
+        });
+        listeners.add((account, game, perspective) -> heard.add(perspective.name()));
+        var service = service(directory, levelEngine("Stockfish 19"));
+
+        service.start(ACCOUNT, GAME_ID, Perspective.BOTH);
+        runPending();
+
+        GameAnalysis.Job job = service.current(ACCOUNT).orElseThrow();
+        assertThat(job.state()).isEqualTo(State.COMPLETED);
+        assertThat(job.versionIds()).containsExactly(1L, 2L);
+        assertThat(heard).containsExactly("BOTH");
     }
 
     @Test
@@ -151,7 +245,7 @@ class StockfishGameAnalysisServiceTest {
                 },
                 Duration.ofMillis(300));
         var service = new StockfishGameAnalysisService(
-                access, catalog, profiles, versions, pending::add, clock());
+                access, catalog, profiles, versions, versions, listeners, pending::add, clock());
 
         service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
         runPending();
@@ -265,7 +359,7 @@ class StockfishGameAnalysisServiceTest {
                 executable -> levelEngine("Stockfish 19"),
                 Duration.ofMillis(300));
         var service = new StockfishGameAnalysisService(
-                access, catalog, profiles, versions, pending::add, clock());
+                access, catalog, profiles, versions, versions, listeners, pending::add, clock());
         service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
 
         // Another engine operation holds the single engine slot while the analysis runs.
@@ -310,9 +404,10 @@ class StockfishGameAnalysisServiceTest {
                 StockfishHealthServiceTest.locator(directory),
                 executable -> levelEngine("Stockfish 19"),
                 Duration.ofMillis(300));
-        var service = new StockfishGameAnalysisService(access, catalog, profiles, versions, task -> {
-            throw new java.util.concurrent.RejectedExecutionException("no threads");
-        }, clock());
+        var service = new StockfishGameAnalysisService(
+                access, catalog, profiles, versions, versions, listeners, task -> {
+                    throw new java.util.concurrent.RejectedExecutionException("no threads");
+                }, clock());
 
         GameAnalysis.StartResult result = service.start(ACCOUNT, GAME_ID, Perspective.MY_MOVES);
 
@@ -357,7 +452,17 @@ class StockfishGameAnalysisServiceTest {
                 StockfishHealthServiceTest.locator(directory), executable -> engine,
                 Duration.ofMillis(300));
         return new StockfishGameAnalysisService(
-                access, catalog, profiles, versions, pending::add, clock());
+                access, catalog, profiles, versions, versions, listeners, pending::add, clock());
+    }
+
+    /** Each analysis launches its own level engine, as the real launcher does. */
+    private StockfishGameAnalysisService serviceWithFreshEngines(Path directory) throws Exception {
+        var access = new StockfishEngineAccess(
+                StockfishHealthServiceTest.locator(directory),
+                executable -> levelEngine("Stockfish 19"),
+                Duration.ofMillis(300));
+        return new StockfishGameAnalysisService(
+                access, catalog, profiles, versions, versions, listeners, pending::add, clock());
     }
 
     private static FakeEngineProcess levelEngine(String name) {
@@ -447,11 +552,30 @@ class StockfishGameAnalysisServiceTest {
         }
     }
 
-    private static final class Versions implements AnalysisVersionStore {
+    private static final class Versions implements AnalysisVersionStore, AnalysisVersionReader {
 
         final List<NewVersion> saved = new ArrayList<>();
+        private final List<String> stored = new ArrayList<>();
         boolean fail;
         boolean error;
+
+        void stored(String accountId, GameRef game, Side side) {
+            stored.add(accountId + "/" + game + "/" + side);
+        }
+
+        @Override
+        public Optional<StoredVersion> newest(String accountId, GameRef game, Side side) {
+            if (!stored.contains(accountId + "/" + game + "/" + side)) {
+                return Optional.empty();
+            }
+            return Optional.of(new StoredVersion(stored.size(), side, "white", "inferred", 20,
+                    null, NOW, true, "Stockfish 19", 1, 1, 0, 0, 0, 0));
+        }
+
+        @Override
+        public List<StoredMove> moves(long versionId) {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public List<Long> saveAll(List<NewVersion> versions) {
@@ -464,6 +588,7 @@ class StockfishGameAnalysisServiceTest {
             var ids = new ArrayList<Long>();
             for (NewVersion version : versions) {
                 saved.add(version);
+                stored(version.accountId(), version.game(), version.side());
                 ids.add((long) saved.size());
             }
             return ids;

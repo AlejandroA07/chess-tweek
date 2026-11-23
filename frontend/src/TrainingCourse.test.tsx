@@ -195,6 +195,47 @@ describe('TrainingCourse', () => {
     expect(screen.getByText('Position 2 of 3')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Previous position' })).toBeEnabled()
   })
+
+  it('opens another lesson at its first position', async () => {
+    const twoLessons = course()
+    const first = twoLessons.modules[0].lessons[0]
+    twoLessons.modules[0].lessons.push({
+      ...first,
+      key: 'generate-candidates',
+      title: 'Generate candidates',
+      exercises: first.exercises.map((exercise) => ({
+        ...exercise,
+        key: `${exercise.key}-candidates`,
+        prompt: `${exercise.prompt} Candidates.`,
+      })),
+    })
+    vi.stubGlobal('fetch', vi.fn(async () => response(twoLessons)))
+    const onSessionFailure = vi.fn()
+    const { rerender } = render(
+      <TrainingCourse
+        connectionState="disconnected"
+        lessonKey="read-the-last-move"
+        onSessionFailure={onSessionFailure}
+      />,
+    )
+    await screen.findByRole('group', { name: 'Position 1: Remove the checking piece.' })
+    fireEvent.click(screen.getByRole('button', { name: 'Next position' }))
+    expect(screen.getByText('Position 2 of 3')).toBeInTheDocument()
+
+    rerender(
+      <TrainingCourse
+        connectionState="disconnected"
+        lessonKey="generate-candidates"
+        onSessionFailure={onSessionFailure}
+      />,
+    )
+
+    expect(await screen.findByRole('group', {
+      name: 'Position 1: Remove the checking piece. Candidates.',
+    })).toBeInTheDocument()
+    expect(screen.getByText('Position 1 of 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous position' })).toBeDisabled()
+  })
 })
 
 function response(body: unknown, status = 200): Response {

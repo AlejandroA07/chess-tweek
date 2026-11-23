@@ -111,6 +111,8 @@ export function TrainingCourse({
   if (lesson !== undefined) {
     return (
       <LessonView
+        // A new lesson gets fresh lesson state, starting at its first position.
+        key={lesson.key}
         course={course}
         lesson={lesson}
         progress={progress}
@@ -247,8 +249,6 @@ function LessonView({
   const [completionError, setCompletionError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
-
-  useEffect(() => setActiveExerciseIndex(0), [lesson.key])
 
   useEffect(() => {
     if (!connected) return

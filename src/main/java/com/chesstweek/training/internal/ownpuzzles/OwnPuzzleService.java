@@ -109,6 +109,19 @@ class OwnPuzzleService implements OwnPuzzles {
                         .toList());
     }
 
+    @Override
+    public int labelRulesVersion() {
+        return store.labelRulesVersion();
+    }
+
+    @Override
+    public void recordLabelRulesVersion(int version) {
+        if (version < 1) {
+            throw new IllegalArgumentException("Label rules version is invalid");
+        }
+        store.recordLabelRulesVersion(version);
+    }
+
     private static boolean validTactic(Tactic tactic) {
         return tactic != null && tactic.theme() != null && THEME.matcher(tactic.theme()).matches()
                 && TACTIC_KINDS.contains(tactic.kind());

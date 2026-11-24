@@ -4,7 +4,7 @@ Stage 8B Part 1 adds seven named motifs to the Game Review tactic labels, in the
 
 ## Owner decision (2026-11-23)
 
-Own Puzzles store their tactic labels when they are created. On every application start, `composition.ownpuzzles.OwnPuzzleTacticRefresh` recomputes each Own Puzzle's labels from the stored analysis it came from, and replaces them when they differ. Nothing is reanalyzed, and attempts, Training Lists, and sessions are untouched. A puzzle whose game or analysis version is no longer reviewable keeps its labels. A failure on one game is logged without details and skips only that game, and no failure stops the application starting.
+Own Puzzles store their tactic labels when they are created. At application start (since 2026-11-24, only once after each tactic-rules change; see `2026-11-24-refresh-on-rules-change.md`), `composition.ownpuzzles.OwnPuzzleTacticRefresh` recomputes each Own Puzzle's labels from the stored analysis it came from, and replaces them when they differ. Nothing is reanalyzed, and attempts, Training Lists, and sessions are untouched. A puzzle whose game or analysis version is no longer reviewable keeps its labels. A failure on one game is logged without details and skips only that game, and no failure stops the application starting.
 
 ## The proof
 

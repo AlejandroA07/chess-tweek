@@ -17,10 +17,13 @@ import com.chesstweek.gamereview.GameReviews;
 import com.chesstweek.training.OwnPuzzles;
 
 /**
- * Brings every stored Own Puzzle's tactic labels up to date with the current tactic rules when the
- * application starts. Labels are recomputed from the stored analysis the puzzle came from, so
+ * Brings every stored Own Puzzle's tactic labels up to date once after the tactic rules change.
+ * At startup it compares {@link GameReviews#TACTIC_RULES_VERSION} with the version recorded for the
+ * stored labels and does nothing when they match. Otherwise labels are recomputed from the stored analysis the puzzle came from, so
  * nothing is reanalyzed; a puzzle whose game or analysis version is no longer available keeps its
- * labels. Training state is never touched. A failure on one game is logged and skips only that game.
+ * labels. Training state is never touched. A failure on one game is logged and skips only that game;
+ * the new version is recorded only when every game was refreshed, so a failed game is retried on the
+ * next start.
  */
 @Component
 public class OwnPuzzleTacticRefresh implements ApplicationRunner {
@@ -38,18 +41,27 @@ public class OwnPuzzleTacticRefresh implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments arguments) {
         try {
-            int changed = refresh();
-            if (changed > 0) {
-                LOGGER.info("Refreshed the tactic labels of {} Own Puzzles", changed);
+            int current = GameReviews.TACTIC_RULES_VERSION;
+            if (ownPuzzles.labelRulesVersion() >= current) {
+                return;
             }
+            Result result = refresh();
+            if (result.failedGames() == 0) {
+                ownPuzzles.recordLabelRulesVersion(current);
+            }
+            LOGGER.info("Refreshed Own Puzzle tactic labels for rules version {}: {} changed, {} games failed",
+                    current, result.changed(), result.failedGames());
         } catch (RuntimeException exception) {
             // Outdated labels only affect grouping; they must never stop the application starting.
             LOGGER.warn("Could not refresh the Own Puzzle tactic labels: {}", exception.getClass().getSimpleName());
         }
     }
 
-    /** Returns how many Own Puzzles got new labels. */
-    int refresh() {
+    /** How many Own Puzzles got new labels, and how many games could not be refreshed. */
+    record Result(int changed, int failedGames) {}
+
+    /** Recomputes every stored label with the current rules, whatever version is recorded. */
+    Result refresh() {
         Map<GameKey, List<OwnPuzzles.StoredLabels>> byGame = new LinkedHashMap<>();
         for (OwnPuzzles.StoredLabels stored : ownPuzzles.labels()) {
             OwnPuzzles.PuzzleSource source = stored.source();
@@ -57,15 +69,17 @@ public class OwnPuzzleTacticRefresh implements ApplicationRunner {
                     ignored -> new ArrayList<>()).add(stored);
         }
         int changed = 0;
+        int failed = 0;
         for (Map.Entry<GameKey, List<OwnPuzzles.StoredLabels>> game : byGame.entrySet()) {
             try {
                 changed += refresh(game.getKey(), game.getValue());
             } catch (RuntimeException exception) {
+                failed++;
                 LOGGER.warn("Could not refresh the Own Puzzle tactic labels of one game: {}",
                         exception.getClass().getSimpleName());
             }
         }
-        return changed;
+        return new Result(changed, failed);
     }
 
     private int refresh(GameKey key, List<OwnPuzzles.StoredLabels> puzzles) {

@@ -262,6 +262,23 @@ class OwnPuzzleServiceTest {
         }
     }
 
+    @Test
+    void recordsTheLabelRulesVersionAndRefusesAnInvalidOne() {
+        try (var application = start()) {
+            OwnPuzzles puzzles = application.getBean(OwnPuzzles.class);
+            jdbc(application).update("DELETE FROM training_own_puzzle_label_rules");
+
+            assertThat(puzzles.labelRulesVersion()).isZero();
+            puzzles.recordLabelRulesVersion(2);
+            puzzles.recordLabelRulesVersion(3);
+            assertThat(puzzles.labelRulesVersion()).isEqualTo(3);
+            assertThat(jdbc(application).queryForObject(
+                    "SELECT COUNT(*) FROM training_own_puzzle_label_rules", Integer.class)).isEqualTo(1);
+            assertThatThrownBy(() -> puzzles.recordLabelRulesVersion(0))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
     /** White's move at {@code ply}, from the position after 1.e4 e5 2.Nf3 Nc6. */
     private static NewOwnPuzzle puzzle(int ply, List<String> line) {
         return new NewOwnPuzzle("lichess", "abcd1234", ply, 3, AFTER_NC6, BEFORE_NC6, "b8c6", line,

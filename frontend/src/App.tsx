@@ -11,7 +11,6 @@ import { PUZZLE_SECTIONS, PuzzleTraining, puzzleRoute } from './PuzzleTraining'
 import { TrainingCourse } from './TrainingCourse'
 import { TrainingShortcut } from './TrainingShortcut'
 
-type HealthState = 'checking' | 'ready' | 'offline'
 type IconName = 'dashboard' | 'training' | 'games' | 'reports' | 'puzzles' | 'admin'
 type EmptyState = { eyebrow: string; title: string; description: string }
 type Route = { href: string; icon: IconName; label: string; emptyState: EmptyState }
@@ -97,7 +96,6 @@ const navigation: Route[] = [
 ]
 
 export function App() {
-  const [health, setHealth] = useState<HealthState>('checking')
   const [route, setRoute] = useState(currentRoute)
   const [reviewGame, setReviewGame] = useState(currentReviewGame)
   const [trainingLesson, setTrainingLesson] = useState(currentTrainingLesson)
@@ -181,29 +179,6 @@ export function App() {
       setAccountAction('idle')
     }
   }
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    void fetch('/api/health', { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error('Health request failed')
-        return response.json() as Promise<{ status: string }>
-      })
-      .then((response) => setHealth(response.status === 'ok' ? 'ready' : 'offline'))
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        setHealth('offline')
-      })
-
-    return () => controller.abort()
-  }, [])
-
-  const statusText = {
-    checking: 'Checking local backend…',
-    ready: 'Backend ready',
-    offline: 'Backend unavailable',
-  }[health]
 
   return (
     <div className={styles.shell}>
@@ -301,10 +276,7 @@ export function App() {
             <p>Local workspace</p>
             <h1>{reviewGame !== null ? 'Game Review' : route.label}</h1>
           </div>
-          <p className={styles.status} data-state={health} role="status">
-            <span aria-hidden="true" />
-            {statusText}
-          </p>
+
         </header>
 
         <main className={styles.workspace}>
@@ -315,7 +287,7 @@ export function App() {
             {route.href === '#/dashboard' && callbackNotice && (
               <CallbackBanner notice={callbackNotice} onDismiss={() => setCallbackNotice(null)} />
             )}
-            {route.href === '#/dashboard' && (
+            {(route.href === '#/admin' || (route.href === '#/dashboard' && session.kind !== 'connected')) && (
               <ConnectionPanel
                 session={session}
                 action={accountAction}
@@ -326,17 +298,17 @@ export function App() {
               />
             )}
             {route.href === '#/dashboard' && session.kind === 'connected' && (
-              <>
+              <div className={styles.dashboardRatings}>
+                <DashboardChessComRatings
+                  key={`${session.account.id}:chesscom`}
+                  onSessionFailure={handleCatalogSessionFailure}
+                />
                 <DashboardRatingContext
                   key={session.account.id}
                   currentRatings={session.account.ratings}
                   onSessionFailure={handleCatalogSessionFailure}
                 />
-                <DashboardChessComRatings
-                  key={`${session.account.id}:chesscom`}
-                  onSessionFailure={handleCatalogSessionFailure}
-                />
-              </>
+              </div>
             )}
             {route.href === '#/dashboard' && session.kind !== 'checking' && (
               <TrainingShortcut

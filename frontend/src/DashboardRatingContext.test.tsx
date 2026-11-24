@@ -83,14 +83,14 @@ function ok(body: unknown): Partial<Response> {
 describe('DashboardRatingContext', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows current Lichess ratings with stored history and the bot record', async () => {
+  it('shows current Lichess ratings with stored history', async () => {
     const fetchMock = respondWith(ok(ratingContext()))
 
     render(<DashboardRatingContext currentRatings={currentRatings} onSessionFailure={vi.fn()} />)
 
     const blitz = await screen.findByRole('article', { name: 'Blitz rating' })
     expect(screen.getAllByRole('article').map((card) => card.getAttribute('aria-labelledby')))
-      .toEqual(['rating-rapid', 'rating-blitz', 'rating-bullet', 'rating-classical', 'bot-record-title'])
+      .toEqual(['rating-rapid', 'rating-blitz', 'rating-bullet', 'rating-classical'])
     expect(within(blitz).getByText('1,765')).toBeInTheDocument()
     expect(within(blitz).getByText('Last game −6')).toBeInTheDocument()
     expect(within(blitz).getByText('1,720 to 1,765 over the last 3 stored rated games'))
@@ -113,34 +113,20 @@ describe('DashboardRatingContext', () => {
     expect(within(classical).getByText('No rated Classical games stored yet.')).toBeInTheDocument()
     expect(within(classical).queryByText(/Last game/)).not.toBeInTheDocument()
 
-    const bots = screen.getByRole('article', { name: 'Bot record' })
-    expect(within(bots).getByText('6 games counted')).toBeInTheDocument()
-    expect(within(bots).getByText('BOT ratings 1,450–1,610')).toBeInTheDocument()
-    const table = within(bots).getByRole('table', { name: 'Results by opponent group' })
-    const rows = within(table).getAllByRole('row')
-    expect(rows.map((row) => row.textContent)).toEqual([
-      'OpponentWinsDrawsLosses',
-      'Lichess AI level 3101',
-      'BOT 1,400–1,599110',
-      'BOT 1,600–1,799001',
-      'BOT without rating100',
-    ])
-    expect(screen.getByText(/built from games stored on this Mac/i)).toBeInTheDocument()
+    expect(screen.queryByRole('article', { name: 'Bot record' })).not.toBeInTheDocument()
+    expect(screen.getByText(/from games stored on this Mac/i)).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/dashboard/rating-context',
       expect.objectContaining({ credentials: 'same-origin' }),
     )
   })
 
-  it('explains empty history and bot record with a route to the games library', async () => {
+  it('explains empty history with a route to the games library', async () => {
     respondWith(ok(emptyContext()))
 
     render(<DashboardRatingContext currentRatings={currentRatings} onSessionFailure={vi.fn()} />)
 
-    const bots = await screen.findByRole('article', { name: 'Bot record' })
-    expect(within(bots).getByText('No games against Lichess AI or BOT accounts are stored yet.'))
-      .toBeInTheDocument()
-    expect(within(bots).queryByRole('table')).not.toBeInTheDocument()
+    await screen.findByText('No rated Blitz games stored yet.')
     expect(screen.getByText('No rated Blitz games stored yet.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open Games' })).toHaveAttribute('href', '#/games')
   })
@@ -168,9 +154,6 @@ describe('DashboardRatingContext', () => {
 
     expect(await screen.findByRole('heading', { name: 'Rating context could not be loaded' }))
       .toBeInTheDocument()
-    const bots = screen.getByRole('article', { name: 'Bot record' })
-    expect(within(bots).getByText('Bot record unavailable.')).toBeInTheDocument()
-    expect(within(bots).queryByRole('table')).not.toBeInTheDocument()
     const blitz = screen.getByRole('article', { name: 'Blitz rating' })
     expect(within(blitz).getByText('1,765')).toBeInTheDocument()
     expect(within(blitz).getByText('Stored history unavailable.')).toBeInTheDocument()
@@ -184,12 +167,9 @@ describe('DashboardRatingContext', () => {
     const blitz = screen.getByRole('article', { name: 'Blitz rating' })
     expect(within(blitz).getByText('1,765')).toBeInTheDocument()
     expect(within(blitz).getByText('Loading stored history…')).toBeInTheDocument()
-    expect(screen.getByRole('article', { name: 'Bot record' }).parentElement)
+    expect(screen.getByRole('article', { name: 'Blitz rating' }).parentElement)
       .toHaveAttribute('aria-busy', 'true')
-    const other = screen.getByLabelText('Other Lichess ratings')
-    expect(within(other).getByText('Correspondence')).toBeInTheDocument()
-    expect(within(other).getByText('2,020')).toBeInTheDocument()
-    expect(within(other).queryByText('Bullet')).not.toBeInTheDocument()
+    expect(screen.queryByText('Correspondence')).not.toBeInTheDocument()
   })
 
   it('reports revoked and unavailable sessions to the shell', async () => {

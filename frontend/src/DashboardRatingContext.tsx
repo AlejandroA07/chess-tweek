@@ -4,8 +4,6 @@ import {
   HISTORY_SPEEDS,
   RatingContextRequestError,
   requestRatingContext,
-  type BotGroup,
-  type BotRecord,
   type HistorySpeed,
   type RatingContext,
   type SpeedRating,
@@ -15,14 +13,6 @@ type LoadState =
   | { kind: 'loading' }
   | { kind: 'ready'; context: RatingContext }
   | { kind: 'error' }
-
-type OtherSpeed = 'correspondence'
-
-const otherSpeeds: OtherSpeed[] = ['correspondence']
-
-const otherSpeedLabels: Record<OtherSpeed, string> = {
-  correspondence: 'Correspondence',
-}
 
 const speedLabels: Record<HistorySpeed, string> = {
   rapid: 'Rapid',
@@ -35,7 +25,7 @@ export function DashboardRatingContext({
   currentRatings,
   onSessionFailure,
 }: {
-  currentRatings: Record<HistorySpeed | OtherSpeed, number | null>
+  currentRatings: Record<HistorySpeed, number | null>
   onSessionFailure: (failure: 'not_connected' | 'session_unavailable') => void
 }) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
@@ -67,23 +57,13 @@ export function DashboardRatingContext({
       <div className={styles.heading}>
         <div>
           <p className={styles.eyebrow}>Lichess ratings</p>
-          <h2 id="rating-context-title">Ratings and bot record</h2>
+          <h2 id="rating-context-title">Lichess ratings</h2>
           <p>
-            Current ratings come from Lichess. History, recent change, and the bot record are
-            built from games stored on this Mac.
+            Current ratings come from Lichess. History and recent changes come from games stored on this Mac.
           </p>
         </div>
         <a className={styles.link} href="#/games">Open Games</a>
       </div>
-
-      <dl className={styles.otherRatings} aria-label="Other Lichess ratings">
-        {otherSpeeds.map((speed) => (
-          <div key={speed}>
-            <dt>{otherSpeedLabels[speed]}</dt>
-            <dd>{formatRating(currentRatings[speed])}</dd>
-          </div>
-        ))}
-      </dl>
 
       {state.kind === 'error' && (
         <div className={styles.failure} role="alert">
@@ -109,7 +89,6 @@ export function DashboardRatingContext({
             loading={state.kind === 'loading'}
           />
         ))}
-        <BotRecordCard record={context?.botRecord ?? null} loading={state.kind === 'loading'} />
       </div>
     </section>
   )
@@ -300,80 +279,6 @@ function Sparkline({ rating }: { rating: SpeedRating }) {
       </figcaption>
     </figure>
   )
-}
-
-function BotRecordCard({ record, loading }: { record: BotRecord | null; loading: boolean }) {
-  return (
-    <article className={`${styles.card} ${styles.botCard}`} aria-labelledby="bot-record-title">
-      <h3 id="bot-record-title" className={styles.cardTitle}>Bot record</h3>
-      {record === null ? (
-        <p className={styles.note}>{loading ? 'Loading stored games…' : 'Bot record unavailable.'}</p>
-      ) : record.games === 0 ? (
-        <p className={styles.note}>No games against Lichess AI or BOT accounts are stored yet.</p>
-      ) : (
-        <div className={styles.botBody}>
-          <div>
-            <dl className={styles.tally}>
-              <div>
-                <dt>Wins</dt>
-                <dd>{formatNumber(record.wins)}</dd>
-              </div>
-              <div>
-                <dt>Draws</dt>
-                <dd>{formatNumber(record.draws)}</dd>
-              </div>
-              <div>
-                <dt>Losses</dt>
-                <dd>{formatNumber(record.losses)}</dd>
-              </div>
-            </dl>
-            <p className={styles.note}>
-              {formatNumber(record.games)} game{record.games === 1 ? '' : 's'} counted
-            </p>
-            <p className={styles.note}>
-              {record.lowestRating === null || record.highestRating === null
-                ? 'No rated BOT opponents'
-                : `BOT ratings ${formatNumber(record.lowestRating)}–${formatNumber(record.highestRating)}`}
-            </p>
-          </div>
-          <table className={styles.groups} aria-label="Results by opponent group">
-            <thead>
-              <tr>
-                <th scope="col">Opponent</th>
-                <th scope="col">Wins</th>
-                <th scope="col">Draws</th>
-                <th scope="col">Losses</th>
-              </tr>
-            </thead>
-            <tbody>
-              {record.groups.map((group) => (
-                <tr key={groupKey(group)}>
-                  <th scope="row">{groupLabel(group)}</th>
-                  <td>{formatNumber(group.wins)}</td>
-                  <td>{formatNumber(group.draws)}</td>
-                  <td>{formatNumber(group.losses)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </article>
-  )
-}
-
-function groupKey(group: BotGroup) {
-  if (group.type === 'lichess_ai') return `ai-${group.aiLevel}`
-  if (group.type === 'bot_rating_band') return `bot-${group.ratingFrom}`
-  return 'bot-unrated'
-}
-
-function groupLabel(group: BotGroup) {
-  if (group.type === 'lichess_ai') return `Lichess AI level ${group.aiLevel}`
-  if (group.type === 'bot_rating_band') {
-    return `BOT ${formatNumber(group.ratingFrom)}–${formatNumber(group.ratingTo)}`
-  }
-  return 'BOT without rating'
 }
 
 function formatLatestChange(value: number | null) {

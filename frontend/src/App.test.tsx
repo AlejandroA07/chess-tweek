@@ -42,7 +42,7 @@ describe('App', () => {
       'page',
     )
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
-    expect(await screen.findByText('Backend ready')).toBeInTheDocument()
+    expect(screen.queryByText('Backend ready')).not.toBeInTheDocument()
   })
 
   it('updates the route and selected navigation item', async () => {
@@ -882,18 +882,22 @@ describe('App', () => {
 
     render(<App />)
 
+    expect(await screen.findByText('ChessOwner')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'ChessOwner' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Admin' }))
     expect(await screen.findByRole('heading', { name: 'ChessOwner' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }))
     expect(await screen.findByRole('heading', { name: 'Rating context could not be loaded' }))
       .toBeInTheDocument()
     expect(screen.getByText('1,801')).toBeInTheDocument()
     expect(screen.getByText('1,765')).toBeInTheDocument()
     expect(screen.getByText('1,902')).toBeInTheDocument()
     expect(screen.getByText('Not rated')).toBeInTheDocument()
-    expect(screen.getByText('2,020')).toBeInTheDocument()
+    expect(screen.queryByText('Correspondence')).not.toBeInTheDocument()
     expect(screen.queryByText(/token/i)).not.toBeInTheDocument()
   })
 
-  it('shows stored rating history and the bot record on the connected Dashboard', async () => {
+  it('shows stored rating history without a bot record on the connected Dashboard', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = input.toString()
 
@@ -953,8 +957,7 @@ describe('App', () => {
     const blitz = await screen.findByRole('article', { name: 'Blitz rating' })
     expect(await within(blitz).findByText('Last game +8')).toBeInTheDocument()
     expect(within(blitz).getByText('1,765')).toBeInTheDocument()
-    const bots = screen.getByRole('article', { name: 'Bot record' })
-    expect(within(bots).getByText('BOT 1,600\u20131,799')).toBeInTheDocument()
+    expect(screen.queryByRole('article', { name: 'Bot record' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'No chess activity yet' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('link', { name: 'Games' }))
@@ -995,6 +998,7 @@ describe('App', () => {
     })
 
     render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Admin' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Log out' }))
 
     expect(await screen.findByRole('heading', { name: 'Connect your Lichess account' })).toBeInTheDocument()

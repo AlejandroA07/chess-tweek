@@ -114,7 +114,7 @@ Rules:
 
 - Base unit: `8px`; `4px` is allowed only for fine internal alignment.
 - Standard scale: `4, 8, 16, 24, 32, 48, 64px`.
-- Desktop sidebar: `256px` wide.
+- Desktop sidebar: `208px` wide.
 - Desktop top bar: approximately `72–80px` high.
 - Main desktop padding: `40–64px`, reduced before content becomes cramped.
 - Standard grid gutter: `24px`.

@@ -259,8 +259,8 @@ If this is ever reconsidered, the only safe role is rewording facts the determin
 2. **"Left theory" rule.** Accept the Lichess-compatible threshold (at most one Masters game). Also add the rating-band `/lichess` check, and choose which rating groups and speeds?
 3. **Explorer calls during review.** Allow Game Review to call the Lichess explorer with the owner's token, server-side, cached, and with failure leaving the review usable? Or show opening context only after an explicit owner action?
 4. **Time-pressure threshold** for the cause axis, and confirm that clocks are stored for chess.com games as well as Lichess games before relying on them.
-5. **"Only move" threshold** (proposed starting point about 20 expected-score points between MultiPV lines 1 and 2), to be tuned on stored games.
-6. **Scope of positional observations.** Mistakes and blunders only, or inaccuracies too?
+5. **"Only move" threshold** (proposed starting point about 20 expected-score points between MultiPV lines 1 and 2), to be tuned on stored games. Decided 2026-11-24: included in Stage 8B Part 2 at 20 points.
+6. **Scope of positional observations.** Mistakes and blunders only, or inaccuracies too? Decided 2026-11-24: inaccuracies too.
 7. **Opening plan text.** Starter notes written for the project versus owner notes only (already open in Stage 10). Shipping Wikibooks text would need CC BY-SA attribution and share-alike, which is not recommended.
 8. **LLM.** Confirm "no LLM" for Stage 8B and Stage 10. Any later LLM or Maia use would be a new dependency proposal.
 

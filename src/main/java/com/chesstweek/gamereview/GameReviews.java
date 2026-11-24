@@ -116,7 +116,44 @@ public interface GameReviews {
             String afterTerminal,
             List<Line> before,
             List<Line> after,
-            List<Tactic> tactics) {}
+            List<Tactic> tactics,
+            Positional positional,
+            OnlyMove onlyMove) {}
+
+    /**
+     * Measured differences between the end of the engine's best line and the end of the played
+     * move's line, both {@code plies} plies after the judged position. Present only for an
+     * inaccuracy, mistake, or blunder with no tactic label, no mate event, and a quiet matched
+     * depth; {@code observations} is empty when no measured feature changed. They are
+     * observations, not the engine's reasons.
+     */
+    record Positional(int plies, List<Observation> observations) {
+
+        public Positional {
+            observations = List.copyOf(observations);
+        }
+    }
+
+    /**
+     * One measured feature that differs. {@code feature} is one of {@code material},
+     * {@code bishop_pair}, {@code king_shelter}, {@code open_files_near_king}, {@code castling},
+     * {@code passed_pawns}, {@code isolated_pawns}, {@code doubled_pawns}, {@code development},
+     * or {@code mobility}; {@code side} is {@code mover} (the side that played the judged move) or
+     * {@code opponent}. {@code best} and {@code played} are the feature's values at the end of
+     * each line; {@code squares} names the passed pawns that only the line with more of them has.
+     */
+    record Observation(String feature, String side, int best, int played, List<String> squares) {
+
+        public Observation {
+            squares = List.copyOf(squares);
+        }
+    }
+
+    /**
+     * The best move was the only good one: the next engine line from the judged position scored
+     * {@code gap} expected-score units (20 per percentage point) less.
+     */
+    record OnlyMove(String nextBestMove, String nextBestSan, int gap) {}
 
     /**
      * A conservative tactic label proven from the stored engine lines. {@code theme} is one of

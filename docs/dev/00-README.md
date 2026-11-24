@@ -51,3 +51,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-23-own-puzzles-interface.md` | Records the Own Puzzles screens, the site filter and random order for New Own Puzzles, the shared puzzle player, and Game Review links to one move. | dated report |
 | `2026-11-23-more-named-tactics.md` | Records the Stage 8B named motifs, their proof rules, `lineIndex`, the coach wording, and the startup refresh of Own Puzzle tactic labels. | dated report |
 | `2026-11-24-refresh-on-rules-change.md` | Records the tactic rules version, migration V16, and the Own Puzzle label refresh that runs once after each rules change. | dated report |
+| `2026-11-24-positional-observations.md` | Records the Stage 8B measured positional observations, their matched-position rules and thresholds, the only-move signal, and the coach wording. | dated report |

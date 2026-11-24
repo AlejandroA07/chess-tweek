@@ -1,12 +1,15 @@
 import { pieceAt, playUci } from './boardPosition'
-import type { JudgedMove, Ply, Tactic } from './reviewData'
+import type { JudgedMove, Observation, Ply, Tactic } from './reviewData'
 
 /**
  * Deterministic coach cards for one finding. Every sentence is filled from the stored analysis:
- * the expected scores, the best line, the opponent's reply line, and the server's proven tactic
- * labels. Nothing is generated or guessed.
+ * the expected scores, the best line, the opponent's reply line, the server's proven tactic
+ * labels, and its measured positional observations. Nothing is generated or guessed.
  */
 export type CoachCard = { why: string; threat: string; train: string[] }
+
+/** How the card names the mover and the opponent: second person for the owner, colors otherwise. */
+type Words = { subject: string; possessive: string; opponent: string; opponentPossessive: string; have: string }
 
 export const TACTIC_TEXT: Record<Tactic['theme'], Record<Tactic['kind'], string>> = {
   allowed_mate: { allowed: 'Allowed mate', missed: 'Allowed mate' },
@@ -37,8 +40,8 @@ export function coachCard(finding: JudgedMove, plies: Ply[], owner: boolean): Co
   const mover = finding.ply % 2 === 1 ? 'White' : 'Black'
   const other = mover === 'White' ? 'Black' : 'White'
   const words = owner
-    ? { subject: 'you', possessive: 'your', opponent: 'your opponent', opponentPossessive: 'your opponent’s' }
-    : { subject: mover, possessive: `${mover}’s`, opponent: other, opponentPossessive: `${other}’s` }
+    ? { subject: 'you', possessive: 'your', opponent: 'your opponent', opponentPossessive: 'your opponent’s', have: 'have' }
+    : { subject: mover, possessive: `${mover}’s`, opponent: other, opponentPossessive: `${other}’s`, have: 'has' }
   const played = label(finding.ply, finding.san)
   const best = label(finding.ply, finding.bestMoveSan ?? finding.bestMove)
   const before = Math.round(finding.expectedBefore / 20)
@@ -49,10 +52,23 @@ export function coachCard(finding: JudgedMove, plies: Ply[], owner: boolean): Co
 
   const why = [
     `${played} lowered ${words.possessive} expected score from ${before}% to ${after}% (${(finding.loss / 20).toFixed(1)} points). The engine preferred ${best}, which keeps it near ${before}%.`,
-    ...finding.tactics.map((tactic) => explain(tactic, finding, afterFen, words)),
   ]
+  if (finding.onlyMove) {
+    const next = label(finding.ply, finding.onlyMove.nextBestSan)
+    const gap = Math.round(finding.onlyMove.gap / 20)
+    why.push(`${best} was the only move that kept it there: the next best, ${next}, scored ${gap} ${gap === 1 ? 'point' : 'points'} less.`)
+  }
+  why.push(...finding.tactics.map((tactic) => explain(tactic, finding, afterFen, words)))
   if (finding.tactics.length === 0) {
-    why.push('No forcing tactic was found: the difference is positional. Step through the best line to see which pieces it improves.')
+    const positional = finding.positional ?? null
+    if (positional === null) {
+      why.push('No forcing tactic was found, and the stored lines give no settled position a few moves on to compare. Step through the best line to see which pieces it improves.')
+    } else if (positional.observations.length === 0) {
+      why.push('No tactic or measured feature explains the difference. The engine’s line keeps a better position for reasons this review cannot name.')
+    } else {
+      const observed = positional.observations.map((observation) => observe(observation, words)).join('; ')
+      why.push(`Compared with the engine’s line at the same point, ${positional.plies} half-moves on, after ${played}: ${observed}. These are observations; the engine does not say they are the reason.`)
+    }
   }
 
   let threat: string
@@ -190,6 +206,54 @@ function forkTargets(start: string | null, pv: string[], tactic: Tactic) {
     return piece ? `the ${piece.piece} on ${square}` : square
   })
   return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/**
+ * One measured difference, worded as what is true at the end of the played move's line compared
+ * with the end of the engine's line. Never causal.
+ */
+function observe(
+  observation: Observation,
+  words: Words,
+) {
+  const mover = observation.side === 'mover'
+  const subject = mover ? words.subject : words.opponent
+  const possessive = mover ? words.possessive : words.opponentPossessive
+  // The opponent is always named in the third person.
+  const have = mover ? words.have : 'has'
+  const { best, played } = observation
+  const instead = `instead of ${best}`
+  switch (observation.feature) {
+    case 'material': {
+      const difference = Math.abs(played - best)
+      return `${subject} ${have} ${count(difference, 'point')} of material ${played < best ? 'less' : 'more'}`
+    }
+    case 'bishop_pair':
+      return played > best ? `${subject} ${have} the bishop pair` : `${subject} no longer ${have} the bishop pair`
+    case 'king_shelter':
+      return `${possessive} king has ${count(played, 'pawn')} in front of it ${instead}`
+    case 'open_files_near_king':
+      return `${possessive} king has ${count(played, 'file')} without its own pawns on or beside its file ${instead}`
+    case 'castling':
+      return played === 0 ? `${possessive} king can no longer castle` : `${possessive} king ${played === 2 ? 'has castled' : 'can still castle'}, unlike in the engine’s line`
+    case 'passed_pawns': {
+      const squares = list(observation.squares)
+      const where = observation.squares.length === 0 ? '' : played > best ? ` (on ${squares})` : ` (the engine’s line has ${squares})`
+      return `${subject} ${have} ${count(played, 'passed pawn')} ${instead}${where}`
+    }
+    case 'isolated_pawns':
+      return `${subject} ${have} ${count(played, 'isolated pawn')} ${instead}`
+    case 'doubled_pawns':
+      return `${subject} ${have} ${count(played, 'doubled pawn')} ${instead}`
+    case 'development':
+      return `${subject} ${have} ${count(played, 'minor piece')} still on ${played === 1 ? 'its' : 'their'} starting ${played === 1 ? 'square' : 'squares'} ${instead}`
+    case 'mobility':
+      return `${possessive} knights, bishops, rooks, and queens reach ${count(played, 'square')} ${instead}`
+  }
+}
+
+function count(value: number, noun: string) {
+  return `${value} ${value === 1 ? noun : `${noun}s`}`
 }
 
 /** What to practice, in pattern-library theme names (Stage 8) and habits. */

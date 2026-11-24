@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { coachCard, tacticLabel } from './coach'
-import { TACTIC_THEMES, type JudgedMove, type Ply, type Tactic } from './reviewData'
+import { OBSERVATION_FEATURES, TACTIC_THEMES, type JudgedMove, type Observation, type Ply, type Tactic } from './reviewData'
 
 const line = (move: string, moveSan: string, pv: string[], pvSan: string[]) => ({
   move, moveSan, cp: -28, mate: null, win: 3, draw: 958, loss: 39, pv, pvSan,
@@ -57,10 +57,72 @@ describe('coach cards', () => {
   it('explains positional mistakes without inventing a tactic and trains by phase', () => {
     const quiet = { ...caroKann, tactics: [] }
     const card = coachCard(quiet, plies, true)
-    expect(card.why).toContain('No forcing tactic was found: the difference is positional.')
+    expect(card.why).toContain('No forcing tactic was found, and the stored lines give no settled position a few moves on to compare.')
     expect(card.train).toEqual(['Opening study: compare this line with the plans of your opening.'])
     expect(coachCard({ ...quiet, phase: 'endgame' }, plies, true).train)
       .toEqual(['Endgame technique (pattern themes: pawnEndgame, rookEndgame).'])
+  })
+
+  it('names the measured positional differences as observations, never as reasons', () => {
+    const observed = {
+      ...caroKann,
+      tactics: [],
+      positional: {
+        plies: 4,
+        observations: [
+          { feature: 'king_shelter', side: 'mover', best: 3, played: 2, squares: [] },
+          { feature: 'passed_pawns', side: 'opponent', best: 0, played: 1, squares: ['d5'] },
+        ] as Observation[],
+      },
+    }
+    expect(coachCard(observed, plies, true).why).toBe(
+      '6… e6 lowered your expected score from 48% to 29% (19.1 points). The engine preferred 6… Bf5, which keeps it near 48%. '
+      + 'Compared with the engine’s line at the same point, 4 half-moves on, after 6… e6: your king has 2 pawns in front of it instead of 3; '
+      + 'your opponent has 1 passed pawn instead of 0 (on d5). These are observations; the engine does not say they are the reason.',
+    )
+    expect(coachCard(observed, plies, false).why).toContain('Black’s king has 2 pawns in front of it instead of 3; White has 1 passed pawn instead of 0 (on d5).')
+    expect(coachCard(observed, plies, true).why).not.toContain('because')
+    expect(coachCard(observed, plies, true).why).not.toContain('No forcing tactic was found')
+  })
+
+  it('says plainly when no measured feature changed', () => {
+    const card = coachCard({ ...caroKann, tactics: [], positional: { plies: 5, observations: [] } }, plies, true)
+    expect(card.why).toContain('No tactic or measured feature explains the difference. The engine’s line keeps a better position for reasons this review cannot name.')
+    expect(card.why).not.toContain('No forcing tactic was found')
+  })
+
+  it('leaves positional observations out when a tactic explains the move', () => {
+    const card = coachCard({
+      ...caroKann,
+      positional: { plies: 4, observations: [{ feature: 'material', side: 'mover', best: 0, played: -3, squares: [] }] },
+    }, plies, true)
+    expect(card.why).not.toContain('Compared with the engine’s line')
+  })
+
+  it('words every observation feature in both directions', () => {
+    for (const feature of OBSERVATION_FEATURES) {
+      for (const [best, played] of [[1, 0], [0, 2]]) {
+        const observation: Observation = { feature, side: 'mover', best, played, squares: feature === 'passed_pawns' ? ['d5'] : [] }
+        const why = coachCard({ ...caroKann, tactics: [], positional: { plies: 4, observations: [observation] } }, plies, true).why
+        expect(why).toMatch(/after 6… e6: you(r)? \S/)
+        expect(why).not.toContain('undefined')
+      }
+    }
+    const why = (observation: Observation) =>
+      coachCard({ ...caroKann, tactics: [], positional: { plies: 4, observations: [observation] } }, plies, true).why
+    expect(why({ feature: 'material', side: 'mover', best: 0, played: -3, squares: [] })).toContain('you have 3 points of material less')
+    expect(why({ feature: 'castling', side: 'mover', best: 1, played: 0, squares: [] })).toContain('your king can no longer castle')
+    expect(why({ feature: 'bishop_pair', side: 'opponent', best: 0, played: 1, squares: [] })).toContain('your opponent has the bishop pair')
+    expect(why({ feature: 'passed_pawns', side: 'mover', best: 1, played: 0, squares: ['c4'] }))
+      .toContain('you have 0 passed pawns instead of 1 (the engine’s line has c4)')
+  })
+
+  it('names the only move with the score of the next best', () => {
+    const card = coachCard({ ...caroKann, onlyMove: { nextBestMove: 'b8d7', nextBestSan: 'Nd7', gap: 420 } }, plies, true)
+    expect(card.why).toContain(
+      'The engine preferred 6… Bf5, which keeps it near 48%. 6… Bf5 was the only move that kept it there: the next best, 6… Nd7, scored 21 points less. The best line has',
+    )
+    expect(coachCard(caroKann, plies, true).why).not.toContain('only move')
   })
 
   it('explains a hung piece and a capture reply', () => {

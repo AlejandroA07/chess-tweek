@@ -565,6 +565,27 @@ describe('Review formatting and parsing', () => {
     const badFen = { ...review(), initialFen: '<script>' }
     expect(() => parseReview(badFen)).toThrow()
   })
+
+  it('accepts positional observations and an only move, and rejects malformed ones', () => {
+    const withEvidence = (extra: Record<string, unknown>) => {
+      const value = review()
+      if (value.selected) value.selected.moves = [judged(6, 'blunder', extra)]
+      return value
+    }
+    const observation = { feature: 'passed_pawns', side: 'opponent', best: 0, played: 1, squares: ['d5'] }
+    const parsed = parseReview(withEvidence({
+      positional: { plies: 4, observations: [observation] },
+      onlyMove: { nextBestMove: 'g8f6', nextBestSan: 'Nf6', gap: 420 },
+    }))
+    expect(parsed.selected?.moves[0].positional).toEqual({ plies: 4, observations: [observation] })
+    expect(parsed.selected?.moves[0].onlyMove).toEqual({ nextBestMove: 'g8f6', nextBestSan: 'Nf6', gap: 420 })
+    expect(parseReview(review()).selected?.moves[0].positional).toBeNull()
+    expect(() => parseReview(withEvidence({ positional: { plies: 4, observations: [{ ...observation, feature: 'space' }] } }))).toThrow()
+    expect(() => parseReview(withEvidence({ positional: { plies: 4, observations: [{ ...observation, squares: ['z9'] }] } }))).toThrow()
+    expect(() => parseReview(withEvidence({ positional: { plies: 0, observations: [] } }))).toThrow()
+    expect(() => parseReview(withEvidence({ onlyMove: { nextBestMove: 'bad', nextBestSan: 'Nf6', gap: 420 } }))).toThrow()
+    expect(() => parseReview(withEvidence({ onlyMove: { nextBestMove: 'g8f6', nextBestSan: 'Nf6', gap: 0 } }))).toThrow()
+  })
 })
 
 function json(status: number, body: unknown) {

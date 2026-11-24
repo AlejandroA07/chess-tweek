@@ -108,7 +108,7 @@ Deliver this stage as three independently reviewed parts (owner decision, 2026-1
 Stockfish reports only evaluations and move lines; every word in a Game Review is built by the app from them. This stage adds more of that meaning and is kept deliberately simple (owner decision, 2026-11-23); the further ideas from `09-game-review-explanation-research.md` are listed under "Maybe later — Game Review explanation extras". Tactic labels are computed from the stored engine lines each time a review opens, so both parts also improve games analysed earlier, and the grouping of existing Own Puzzles, without reanalysis.
 
 1. **More named tactics.** Add, in this order, discovered attacks and checks, pins, skewers, removing the defender, trapped pieces, deflection, and in-between moves to the tactic labels, under the existing conservative rule: a label is given only when the stored line proves the gain. Each motif has its own tests, including a near miss that must not be labelled. The rules are written for this project, not copied from another tagger.
-2. **Measurable positional reasons.** When no tactic explains a loss, the coach card's "Why?" names the measurable features that clearly changed between the end of the engine's preferred line and the end of the line after the played move, a few plies deep: material, the bishop pair, the king's pawn cover and open files near the king, isolated, doubled, and passed pawns, castling, development in the opening, and piece mobility only when the change is large. The wording states these as observations, not as the engine's reasons, because Stockfish's neural evaluation does not break its score into human reasons.
+2. **Measurable positional reasons.** When no tactic explains a loss, the coach card's "Why?" names the measurable features that clearly changed between the end of the engine's preferred line and the end of the line after the played move, a few plies deep: material, the bishop pair, the king's pawn cover and open files near the king, isolated, doubled, and passed pawns, castling, development in the opening, and piece mobility only when the change is large. The wording states these as observations, not as the engine's reasons, because Stockfish's neural evaluation does not break its score into human reasons. By owner decision on 2026-11-24, observations cover inaccuracies as well as mistakes and blunders, and this part also adds the "only move" signal: the engine's move is named the only good one when the next stored line scores at least 20 expected-score points less.
 
 - Acceptance: every new label and reason is proven by a test position and a near miss; reviews of stored analyses show the new labels without reanalysis; the coach card never names a reason that did not change.
 
@@ -431,12 +431,10 @@ The open decisions, including how answers are checked without generated commenta
 
 Consider:
 
-- An "only move" signal from the gap between the engine's first and second lines.
 - Marking each coach-card statement as proven, observed, or unknown with its evidence, and offering Aagaard's three questions when nothing explains a loss.
 - An optional one-tap cause per mistake (threat not seen, move not considered, calculation, judgement, time pressure, opening knowledge) and an optional "find the better move first" step. This would partly reverse the 2026-11-15 decision to drop the thinking note.
 - Time-pressure detection from stored clocks, after confirming clocks are stored for chess.com games.
 - Further motifs: overloading, interference, clearance, attraction, and x-ray.
-- Positional observations for inaccuracies as well as mistakes and blunders.
 - A "left theory" check against games at the owner's rating, and automatic explorer calls from Game Review rather than on request.
 
 No LLM or generated commentary is planned; any later proposal would be a new dependency decision.
@@ -484,17 +482,19 @@ Acceptance:
 - Stage 8 Part 8c is complete in PR #66, merged on 2026-11-23, so Stage 8 is complete. It adds the Own Puzzles dashboard, New Own Puzzles with a site filter and a newest or random solving order (owner decision, 2026-11-23), Discard and Restore, the Training List pages, Own Repetition, and Mastered practice by group. The player is shared with normal Puzzles, and the source-game link opens the Game Review at the puzzle's move (`docs/dev/2026-11-23-own-puzzles-interface.md`). The owner's live check of the merged app on 2026-11-23 found it working: the Own Puzzles from the 8a check appeared as New, a site-filtered Random solve, Discard and Restore, and the source-game link to the move all worked. This also closes the 8b check.
 - The thinking-habit trainer ideas were recorded for later in PR #65, merged on 2026-11-23 (`10-thinking-habit-trainer-ideas.md`).
 - Stage 8B Part 1 is complete in PR #68, merged on 2026-11-24. It adds discovered checks and attacks, pins, skewers, removing the defender, trapped pieces, deflection, and in-between moves, each proven by a material gain in the stored line, with a near-miss test for each. Coach cards and training suggestions cover the new labels. By owner decision on 2026-11-23, existing Own Puzzles get their tactic labels recomputed from their stored analysis (`docs/dev/2026-11-23-more-named-tactics.md`). By owner decision on 2026-11-24, that refresh runs only once after each tactic-rules change, not on every start (migration V16, `docs/dev/2026-11-24-refresh-on-rules-change.md`). A read-only run over the owner's 11 stored findings added no label and changed none.
+- Stage 8B Part 2 is delivered on `feature/positional-observations`. When no tactic explains an inaccuracy, mistake, or blunder, the coach card's Why? names the measured features that differ between the ends of the engine's line and the played line at the same quiet depth, as observations, or says plainly that none changed. It also names an only move when the next engine line scores at least 20 points less (owner decisions, 2026-11-24; `docs/dev/2026-11-24-positional-observations.md`). A read-only run over the owner's 11 stored findings gave observations for one, "nothing measured changed" for two, no comparison for three (two with two-move stored lines, one that never settles), and two only moves.
 
 ### Not yet delivered
 
-- Stage 8B Part 2 (measurable positional reasons) and Stage 9 curated collections have not started.
+- Stage 9 curated collections have not started.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
-**Next immediate action (2026-11-23):**
+**Next immediate action (2026-11-24):**
 
-1. Implement Stage 8B Part 2, measurable positional reasons, on its own `feature/<topic>` branch. The thinking-habit trainer ("Maybe later") is best considered after Stage 8B.
+1. Owner review and merge of Stage 8B Part 2 on `feature/positional-observations`. After it merges, Stage 8B is complete; the thinking-habit trainer ("Maybe later") is then best considered before Stage 9.
 2. Owner checks still open:
+   - Stage 8B Part 2: open the Game Review of the game with 7… c5 and confirm that its coach card lists the development and mobility observations; open a finding with an only move (24. fxg6 or 37. h3) and confirm that the next best move is named.
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

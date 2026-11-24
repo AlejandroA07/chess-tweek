@@ -8,6 +8,9 @@ import type { JudgedMove, Observation, Ply, Tactic } from './reviewData'
  */
 export type CoachCard = { why: string; threat: string; train: string[] }
 
+/** How the card names the mover and the opponent: second person for the owner, colors otherwise. */
+type Words = { subject: string; possessive: string; opponent: string; opponentPossessive: string; have: string }
+
 export const TACTIC_TEXT: Record<Tactic['theme'], Record<Tactic['kind'], string>> = {
   allowed_mate: { allowed: 'Allowed mate', missed: 'Allowed mate' },
   missed_mate: { allowed: 'Missed mate', missed: 'Missed mate' },
@@ -37,8 +40,8 @@ export function coachCard(finding: JudgedMove, plies: Ply[], owner: boolean): Co
   const mover = finding.ply % 2 === 1 ? 'White' : 'Black'
   const other = mover === 'White' ? 'Black' : 'White'
   const words = owner
-    ? { subject: 'you', possessive: 'your', opponent: 'your opponent', opponentPossessive: 'your opponent’s', have: 'have', opponentHas: 'has' }
-    : { subject: mover, possessive: `${mover}’s`, opponent: other, opponentPossessive: `${other}’s`, have: 'has', opponentHas: 'has' }
+    ? { subject: 'you', possessive: 'your', opponent: 'your opponent', opponentPossessive: 'your opponent’s', have: 'have' }
+    : { subject: mover, possessive: `${mover}’s`, opponent: other, opponentPossessive: `${other}’s`, have: 'has' }
   const played = label(finding.ply, finding.san)
   const best = label(finding.ply, finding.bestMoveSan ?? finding.bestMove)
   const before = Math.round(finding.expectedBefore / 20)
@@ -59,7 +62,7 @@ export function coachCard(finding: JudgedMove, plies: Ply[], owner: boolean): Co
   if (finding.tactics.length === 0) {
     const positional = finding.positional ?? null
     if (positional === null) {
-      why.push('No forcing tactic was found, and the stored lines are too short or still trading pieces a few moves on, so no position features were compared. Step through the best line to see which pieces it improves.')
+      why.push('No forcing tactic was found, and the stored lines give no settled position a few moves on to compare. Step through the best line to see which pieces it improves.')
     } else if (positional.observations.length === 0) {
       why.push('No tactic or measured feature explains the difference. The engine’s line keeps a better position for reasons this review cannot name.')
     } else {
@@ -205,19 +208,19 @@ function forkTargets(start: string | null, pv: string[], tactic: Tactic) {
   return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
-/** What to practice, in pattern-library theme names (Stage 8) and habits. */
 /**
  * One measured difference, worded as what is true at the end of the played move's line compared
  * with the end of the engine's line. Never causal.
  */
 function observe(
   observation: Observation,
-  words: { subject: string; possessive: string; opponent: string; opponentPossessive: string; have: string; opponentHas: string },
+  words: Words,
 ) {
   const mover = observation.side === 'mover'
   const subject = mover ? words.subject : words.opponent
   const possessive = mover ? words.possessive : words.opponentPossessive
-  const have = mover ? words.have : words.opponentHas
+  // The opponent is always named in the third person.
+  const have = mover ? words.have : 'has'
   const { best, played } = observation
   const instead = `instead of ${best}`
   switch (observation.feature) {
@@ -253,6 +256,7 @@ function count(value: number, noun: string) {
   return `${value} ${value === 1 ? noun : `${noun}s`}`
 }
 
+/** What to practice, in pattern-library theme names (Stage 8) and habits. */
 function training(finding: JudgedMove): string[] {
   const items: string[] = []
   const add = (item: string) => {

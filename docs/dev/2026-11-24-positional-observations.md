@@ -25,7 +25,7 @@ Otherwise `positional` is null.
 - the end of the engine's best line from the judged position
 - the end of the played move followed by the opponent's stored reply line
 
-Both are taken the same number of plies after the judged position. The depth is the first one from 4 to 8 plies at which both positions are quiet: the last move was not a capture (en passant included), and the side to move is not in check. A half-finished trade therefore never shows as a material change. When the stored lines never reach such a depth, for example because one line is only two moves long, `positional` is null.
+Both are taken the same number of plies after the judged position. The depth is the first one from 4 to 8 plies at which both positions are settled: the last move was not a capture (en passant included), the side to move is not in check, and the line's next stored move is not a capture either. A half-finished or imminent trade therefore never shows as a material change. The research proposed about four to six plies; the range reaches 8 so that lines with a trade in progress can still settle. When the stored lines never reach such a depth, for example because one line is only two moves long, `positional` is null.
 
 ## Features
 
@@ -62,7 +62,7 @@ Two choices narrow the research table on purpose:
   - Only move, after the engine's preference: "6… Bf5 was the only move that kept it there: the next best, 6… Nd7, scored 21 points less."
   - Observations: "Compared with the engine's line at the same point, 4 half-moves on, after 6… e6: your king has 2 pawns in front of it instead of 3; your opponent has 1 passed pawn instead of 0 (on d5). These are observations; the engine does not say they are the reason."
   - Nothing measured changed: "No tactic or measured feature explains the difference. The engine's line keeps a better position for reasons this review cannot name."
-  - No comparison possible: "No forcing tactic was found, and the stored lines are too short or still trading pieces a few moves on, so no position features were compared." This replaces the earlier claim that the difference was positional.
+  - No comparison possible: "No forcing tactic was found, and the stored lines give no settled position a few moves on to compare." This replaces the earlier claim that the difference was positional.
 - No sentence uses causal words. The training suggestions for moves without a tactic are unchanged and still by phase.
 
 ## Results on the owner's stored analyses
@@ -71,19 +71,20 @@ The rules were run read-only over the owner's 11 stored findings on 2026-11-24. 
 
 - The 5 findings with tactic labels keep them and get no observations.
 - 7… c5 (ply 14, mistake, opening): at 7 plies, the owner has 2 undeveloped minor pieces instead of 1, the opponent has 1 instead of 0, and the opponent's pieces reach 20 squares instead of 30.
-- 7. Ne5, 17. Rdg1, and 42. Ke5: nothing measured changed, so the card says so.
+- 7. Ne5 and 42. Ke5: nothing measured changed, so the card says so.
 - 5. Bd3 and 37. h3: a stored line is only two moves long, so nothing was compared.
+- 17. Rdg1: within 8 plies the lines never reach a position without a capture just played or about to be played, so nothing was compared.
 - Only move: 24. fxg6 (next best Qe3) and 37. h3 (next best a4), each about 49 points behind the best line.
 
 ## Tests
 
-- `PositionalObservationsTest` (15): a proving position and a near miss for every feature, including:
+- `PositionalObservationsTest` (16): a proving position and a near miss for every feature, including:
   - a king in the centre whose central pawn moves are not reported
   - castling counted only when one line can no longer castle
   - development only in the opening
   - mobility only from a difference of 10
   - the mover's view when Black moved
-  - a depth that moves past a pending recapture
+  - a depth that moves past a pending recapture, and past a quiet move that a capture follows
   - no result when the lines never settle or are too short
   - castling by the played move itself
 - `GameReviewServiceTest`: a quiet inaccuracy with nothing changed; no observations for unlabelled moves, moves with a tactic, mate events, or a final position; the only move at exactly 20 points but not at 19.95, and never for an unlabelled move or a single line.

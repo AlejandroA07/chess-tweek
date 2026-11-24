@@ -137,6 +137,20 @@ class PositionalObservationsTest {
     }
 
     @Test
+    void doesNotCompareJustBeforeACaptureTheLineStillPlays() {
+        String start = "4k2r/p7/8/8/8/8/P7/4K2R w - - 0 1";
+        // Ply 4, 2...Rh2, is quiet itself, but 3.Rxh2 follows, so the matched depth moves to ply 6.
+        Positional positional = observe(start, "a2a4",
+                List.of("e1f1", "e8d8", "a2a3", "h8h2", "h1h2", "d8c7"),
+                List.of("e8d8", "e1f1", "h8h7", "f1g1", "d8c7"));
+
+        assertThat(positional.plies()).isEqualTo(6);
+        assertThat(positional.observations())
+                .extracting(Observation::feature, Observation::side, Observation::best, Observation::played)
+                .contains(tuple("material", "mover", 5, 0));
+    }
+
+    @Test
     void givesNothingWhenTheLinesNeverSettle() {
         String start = "4k2r/p7/8/8/8/8/P7/4K2R w - - 0 1";
 

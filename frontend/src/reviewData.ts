@@ -383,8 +383,8 @@ function parseObservation(value: unknown): Observation {
     !isRecord(value) ||
     !isOneOf(value.feature, OBSERVATION_FEATURES) ||
     !isOneOf(value.side, ['mover', 'opponent']) ||
-    !isInteger(value.best, -200, 200) ||
-    !isInteger(value.played, -200, 200) ||
+    !isInteger(value.best, -1_000, 1_000) ||
+    !isInteger(value.played, -1_000, 1_000) ||
     !Array.isArray(value.squares) ||
     value.squares.length > 8 ||
     !value.squares.every((square) => typeof square === 'string' && SQUARE.test(square))

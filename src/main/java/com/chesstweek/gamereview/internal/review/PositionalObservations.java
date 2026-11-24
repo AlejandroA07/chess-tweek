@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 import io.github.wolfraam.chessgame.ChessGame;
 import io.github.wolfraam.chessgame.board.Piece;
@@ -20,8 +21,9 @@ import com.chesstweek.gamereview.GameReviews.Positional;
  * positions are compared: the end of the engine's best line, and the end of the played move
  * followed by the opponent's best reply line, both the same number of plies after the judged
  * position. That depth is the first one from {@link #MIN_PLIES} to {@link #MAX_PLIES} where both
- * positions are quiet: the last move was not a capture and the side to move is not in check, so a
- * half-finished trade never shows as a material change.
+ * positions are settled: the last move was not a capture, the side to move is not in check, and
+ * the line's next stored move is not a capture, so a half-finished trade never shows as a
+ * material change.
  *
  * <p>King cover and open files are compared only for a king on a wing in both positions. Only
  * features whose difference passes a fixed threshold are reported, and only as
@@ -52,12 +54,12 @@ final class PositionalObservations {
      */
     static Positional observe(ChessGame before, Move played, List<String> bestPv, List<String> replyPv, boolean opening) {
         Side mover = before.getSideToMove();
-        ReplayedLine best = ReplayedLine.of(before, bestPv, MAX_PLIES, null);
+        ReplayedLine best = ReplayedLine.of(before, bestPv, MAX_PLIES + 1, null);
         ChessGame afterPlayed = before.clone();
         afterPlayed.playMove(played);
-        ReplayedLine reply = ReplayedLine.of(afterPlayed, replyPv, MAX_PLIES - 1, null);
+        ReplayedLine reply = ReplayedLine.of(afterPlayed, replyPv, MAX_PLIES, null);
 
-        int available = Math.min(best.size(), reply.size() + 1);
+        int available = Math.min(MAX_PLIES, Math.min(best.size(), reply.size() + 1));
         for (int plies = MIN_PLIES; plies <= available; plies++) {
             if (quiet(best, plies - 1) && quiet(reply, plies - 2)) {
                 return new Positional(plies, compare(
@@ -82,33 +84,27 @@ final class PositionalObservations {
         if (materialBest != materialPlayed) {
             observations.add(new Observation("material", MOVER, materialBest, materialPlayed, List.of()));
         }
-        for (Side side : List.of(mover, opposite(mover))) {
-            String who = side == mover ? MOVER : OPPONENT;
-            differs(observations, "bishop_pair", who, bishopPair(best, side), bishopPair(played, side), 1);
-        }
-        for (Side side : List.of(mover, opposite(mover))) {
+        forBothSides(mover, (side, who) -> addIfDiffers(
+                observations, "bishop_pair", who, bishopPair(best, side), bishopPair(played, side), 1));
+        forBothSides(mover, (side, who) -> {
             if (onWing(best, side) && onWing(played, side)) {
-                String who = side == mover ? MOVER : OPPONENT;
-                differs(observations, "king_shelter", who, kingShelter(best, side), kingShelter(played, side), 1);
+                addIfDiffers(observations, "king_shelter", who, kingShelter(best, side), kingShelter(played, side), 1);
             }
-        }
-        for (Side side : List.of(mover, opposite(mover))) {
+        });
+        forBothSides(mover, (side, who) -> {
             if (onWing(best, side) && onWing(played, side)) {
-                String who = side == mover ? MOVER : OPPONENT;
-                differs(observations, "open_files_near_king", who, openFilesNearKing(best, side),
+                addIfDiffers(observations, "open_files_near_king", who, openFilesNearKing(best, side),
                         openFilesNearKing(played, side), 1);
             }
-        }
-        for (Side side : List.of(mover, opposite(mover))) {
-            String who = side == mover ? MOVER : OPPONENT;
+        });
+        forBothSides(mover, (side, who) -> {
             int castlingBest = castling(best, side, castledBest);
             int castlingPlayed = castling(played, side, castledPlayed);
             if ((castlingBest == 0) != (castlingPlayed == 0)) {
                 observations.add(new Observation("castling", who, castlingBest, castlingPlayed, List.of()));
             }
-        }
-        for (Side side : List.of(mover, opposite(mover))) {
-            String who = side == mover ? MOVER : OPPONENT;
+        });
+        forBothSides(mover, (side, who) -> {
             List<Square> passedBest = passedPawns(best, side);
             List<Square> passedPlayed = passedPawns(played, side);
             if (passedBest.size() != passedPlayed.size()) {
@@ -121,46 +117,53 @@ final class PositionalObservations {
                 observations.add(new Observation(
                         "passed_pawns", who, passedBest.size(), passedPlayed.size(), extra));
             }
-        }
-        for (Side side : List.of(mover, opposite(mover))) {
-            String who = side == mover ? MOVER : OPPONENT;
-            differs(observations, "isolated_pawns", who, isolatedPawns(best, side), isolatedPawns(played, side), 1);
-        }
-        for (Side side : List.of(mover, opposite(mover))) {
-            String who = side == mover ? MOVER : OPPONENT;
-            differs(observations, "doubled_pawns", who, doubledPawns(best, side), doubledPawns(played, side), 1);
-        }
+        });
+        forBothSides(mover, (side, who) -> addIfDiffers(
+                observations, "isolated_pawns", who, isolatedPawns(best, side), isolatedPawns(played, side), 1));
+        forBothSides(mover, (side, who) -> addIfDiffers(
+                observations, "doubled_pawns", who, doubledPawns(best, side), doubledPawns(played, side), 1));
         if (opening) {
-            for (Side side : List.of(mover, opposite(mover))) {
-                String who = side == mover ? MOVER : OPPONENT;
-                differs(observations, "development", who, undeveloped(best, side), undeveloped(played, side), 1);
-            }
+            forBothSides(mover, (side, who) -> addIfDiffers(
+                    observations, "development", who, undeveloped(best, side), undeveloped(played, side), 1));
         }
-        for (Side side : List.of(mover, opposite(mover))) {
-            String who = side == mover ? MOVER : OPPONENT;
-            differs(observations, "mobility", who, mobility(best, side), mobility(played, side), MOBILITY_DIFFERENCE);
-        }
+        forBothSides(mover, (side, who) -> addIfDiffers(
+                observations, "mobility", who, mobility(best, side), mobility(played, side), MOBILITY_DIFFERENCE));
         return List.copyOf(observations);
     }
 
-    private static void differs(List<Observation> observations, String feature, String who, int best, int played,
-            int threshold) {
+    /** Runs {@code measure} for the mover, then its opponent, with each one's {@code side} name. */
+    private static void forBothSides(Side mover, BiConsumer<Side, String> measure) {
+        measure.accept(mover, MOVER);
+        measure.accept(opposite(mover), OPPONENT);
+    }
+
+    private static void addIfDiffers(List<Observation> observations, String feature, String who, int best,
+            int played, int threshold) {
         if (Math.abs(played - best) >= threshold) {
             observations.add(new Observation(feature, who, best, played, List.of()));
         }
     }
 
-    /** The position after line move {@code index} is quiet: not a capture, no check. */
+    /**
+     * The position after line move {@code index} is settled: that move was not a capture, the
+     * side to move is not in check, and the line's next move, when stored, is not a capture either,
+     * so no capture sequence is pending.
+     */
     private static boolean quiet(ReplayedLine line, int index) {
-        if (index < 0) {
+        if (index < 0 || takes(line, index) || line.after(index).isKingAttacked()) {
             return false;
         }
+        return index + 1 >= line.size() || !takes(line, index + 1);
+    }
+
+    /** Whether line move {@code index} captures, en passant included. */
+    private static boolean takes(ReplayedLine line, int index) {
         Move move = line.move(index);
         ChessGame before = line.before(index);
         Piece piece = before.getPiece(move.from);
         boolean enPassant = piece != null && piece.pieceType == PieceType.PAWN
                 && move.from.x != move.to.x && before.getPiece(move.to) == null;
-        return !line.isCapture(index) && !enPassant && !line.after(index).isKingAttacked();
+        return line.isCapture(index) || enPassant;
     }
 
     /** The sides that castle in moves 0 to {@code last} of the line. */

@@ -57,7 +57,7 @@ describe('coach cards', () => {
   it('explains positional mistakes without inventing a tactic and trains by phase', () => {
     const quiet = { ...caroKann, tactics: [] }
     const card = coachCard(quiet, plies, true)
-    expect(card.why).toContain('No forcing tactic was found, and the stored lines are too short or still trading pieces a few moves on, so no position features were compared.')
+    expect(card.why).toContain('No forcing tactic was found, and the stored lines give no settled position a few moves on to compare.')
     expect(card.train).toEqual(['Opening study: compare this line with the plans of your opening.'])
     expect(coachCard({ ...quiet, phase: 'endgame' }, plies, true).train)
       .toEqual(['Endgame technique (pattern themes: pawnEndgame, rookEndgame).'])

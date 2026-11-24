@@ -71,6 +71,8 @@ It should **not** mean promising 20–100 puzzles for every row in the opening-n
 
 ## Curated count policy
 
+> **Owner update, 2026-11-24:** the curated named collections of Stage 9 are replaced by pattern ladders (see Stage 9 in `03-delivery-plan.md`). The quality gates and rating bands below still inform ladder selection; the 20/50/100 targets no longer apply.
+
 The count is a quality decision, not a storage limit.
 
 | Target | Use | Selection rule |

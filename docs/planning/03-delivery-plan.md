@@ -112,13 +112,60 @@ Stockfish reports only evaluations and move lines; every word in a Game Review i
 
 - Acceptance: every new label and reason is proven by a test position and a near miss; reviews of stored analyses show the new labels without reanalysis; the coach card never names a reason that did not change.
 
-### Stage 9 — Curated Puzzle collections
+### Stage 9 — Pattern ladders
 
-**Branch:** `feature/puzzle-collections` · **Needs:** Stage 7 Part 3.
+**Branch:** `feature/<topic>` per part · **Needs:** Stage 7 Part 3. Owner request, 2026-11-24. It replaces the earlier curated named collections: the owner keeps only their useful idea, a small fixed set of one pattern that can be finished and tracked.
 
-- Add quality-selected named collections over the already imported full corpus. Use 50 curated references as the normal target, 20 for scarce patterns, and up to 100 for high-value, high-volume patterns; collection membership never copies a Puzzle record or limits full-corpus category access.
-- Add advanced category summaries and optional focused collection practice. Custom positions remain a separate later decision because Own Puzzles are game-derived rather than manually authored.
-- Acceptance: collections reference shared Puzzles rather than copying them; named filters and counts match the imported snapshot; collection practice uses the same existing Puzzle state; storage size is reported.
+A pattern ladder trains recognition of one exact pattern. It shows the same tactic or mate again and again, each time in a different place on the board and with different pieces around it, and gets harder step by step. For example, the Opera mate (rook and bishop) could run: three mates in 1, three mates in 2, two mates in 3, two mates in 4. Then come the same mate reached through a second tactic, such as a pin, a deflection, attraction, or removing the defender. The point is the similarity from one position to the next.
+
+Proposal, to be decided before implementation:
+
+- **One ladder per pattern:** every named mate in the corpus (23, from the back-rank mate with 209,223 puzzles to the Balestra mate with 1,364), and the named tactics (fork, pin, skewer, discovered attack, deflection, and so on).
+- **Easy to hard:**
+  - For mates, by the corpus depth tags `mateIn1` to `mateIn5`, then by puzzle rating within a step.
+  - For tactics, by the length tags `oneMove`, `short`, `long`, and `veryLong`, then by rating.
+- **The same pattern, in a different place each time:**
+  - The Lichess theme names the pattern family.
+  - A project-written check of the final position keeps every step truly the same shape: which piece delivers the mate or the gain, which piece supports it, and where the king or target stands.
+  - A variety rule makes consecutive puzzles differ: wing, rank, and playing colour.
+- **Combination steps:** the same pattern together with a second theme tag on the same puzzle. Only combinations with enough quality puzzles are used.
+- **Real puzzles only:** every puzzle comes from the imported, already verified corpus. Positions are not generated or altered: moving or swapping pieces would need a fresh engine proof of a unique solution and would often change the pattern.
+- **Quality gates:** as for the guided course. Rating deviation at most 90, popularity at least 80, at least 200 plays. Starting rating bands are to be decided.
+- **Training:** each ladder is a set the owner can practise in Repetition, with progress such as "Opera mate: 7 of 10 mastered". Attempts update the same Puzzle Training List state as every other puzzle. Ladders reference shared Puzzles and never copy them.
+
+Sizing check on the 2026-11-01 snapshot, Opera mate with the quality gates:
+
+| Step | Quality puzzles |
+|---|---:|
+| Mate in 1 | 9,113 |
+| Mate in 2 | 13,590 |
+| Mate in 3 | 4,080 |
+| Mate in 4 | 862 |
+| Mate in 5 | 118 |
+| With attraction | 2,556 |
+| With a pin | 937 |
+| With a discovered attack | 303 |
+| With clearance | 265 |
+| With deflection | 204 |
+| With removing the defender | 5 |
+
+**To consider as well: training the build-up.** By owner request on 2026-11-24, this stage must also consider training the set-up that makes a pattern possible, not only executing it once it is on the board. This is open, and needs a decision on whether and how. Possible approaches:
+
+- **Earlier start.** Start a ladder puzzle some moves before the pattern, so that the set-up moves are part of the solution. The corpus stores each puzzle's source-game link, but not the earlier moves. Getting them would mean fetching the source game from Lichess, a new outbound call that needs its own decision on caching and failure.
+- **Ingredients check.** Before or instead of moving, the owner names what the pattern needs: the open file or diagonal, the guarded escape squares, the defender to remove. The answer is checked against the project's own geometry rules, never against generated text.
+- **"Almost there" positions.** Puzzles whose solution creates the pattern with a forcing set-up, using corpus combinations such as clearance, attraction, or deflection followed by the mate.
+- **From the owner's own games.** Positions from stored Game Reviews where the pattern became available, or was available to the opponent, a few moves later. These would be found with the same pattern check.
+
+Open decisions:
+
+- step sizes, and how many combination steps
+- which patterns come first
+- starting rating bands
+- whether the same-shape check applies to every ladder or only to mates
+- how a pattern too rare for a full ladder is shown
+- whether and how the build-up is trained
+
+- Acceptance: every ladder step is filled from quality-gated corpus puzzles that carry the step's tags. Consecutive puzzles in a ladder differ in place and share the pattern's shape. Ladder practice uses the existing Puzzle state. No Puzzle record is copied or altered. Counts match the imported snapshot.
 
 ### Stage 10 — Opening explorer
 
@@ -482,19 +529,18 @@ Acceptance:
 - Stage 8 Part 8c is complete in PR #66, merged on 2026-11-23, so Stage 8 is complete. It adds the Own Puzzles dashboard, New Own Puzzles with a site filter and a newest or random solving order (owner decision, 2026-11-23), Discard and Restore, the Training List pages, Own Repetition, and Mastered practice by group. The player is shared with normal Puzzles, and the source-game link opens the Game Review at the puzzle's move (`docs/dev/2026-11-23-own-puzzles-interface.md`). The owner's live check of the merged app on 2026-11-23 found it working: the Own Puzzles from the 8a check appeared as New, a site-filtered Random solve, Discard and Restore, and the source-game link to the move all worked. This also closes the 8b check.
 - The thinking-habit trainer ideas were recorded for later in PR #65, merged on 2026-11-23 (`10-thinking-habit-trainer-ideas.md`).
 - Stage 8B Part 1 is complete in PR #68, merged on 2026-11-24. It adds discovered checks and attacks, pins, skewers, removing the defender, trapped pieces, deflection, and in-between moves, each proven by a material gain in the stored line, with a near-miss test for each. Coach cards and training suggestions cover the new labels. By owner decision on 2026-11-23, existing Own Puzzles get their tactic labels recomputed from their stored analysis (`docs/dev/2026-11-23-more-named-tactics.md`). By owner decision on 2026-11-24, that refresh runs only once after each tactic-rules change, not on every start (migration V16, `docs/dev/2026-11-24-refresh-on-rules-change.md`). A read-only run over the owner's 11 stored findings added no label and changed none.
-- Stage 8B Part 2 is delivered on `feature/positional-observations`. When no tactic explains an inaccuracy, mistake, or blunder, the coach card's Why? names the measured features that differ between the ends of the engine's line and the played line at the same quiet depth, as observations, or says plainly that none changed. It also names an only move when the next engine line scores at least 20 points less (owner decisions, 2026-11-24; `docs/dev/2026-11-24-positional-observations.md`). A read-only run over the owner's 11 stored findings gave observations for one, "nothing measured changed" for two, no comparison for three (two with two-move stored lines, one that never settles), and two only moves.
+- Stage 8B Part 2 is complete in PR #71, merged on 2026-11-24, so Stage 8B is complete. When no tactic explains an inaccuracy, mistake, or blunder, the coach card's Why? names the measured features that differ between the ends of the engine's line and the played line at the same quiet depth, as observations, or says plainly that none changed. It also names an only move when the next engine line scores at least 20 points less (owner decisions, 2026-11-24; `docs/dev/2026-11-24-positional-observations.md`). A read-only run over the owner's 11 stored findings gave observations for one, "nothing measured changed" for two, no comparison for three (two with two-move stored lines, one that never settles), and two only moves. The owner's live check of the merged app on 2026-11-24 found it working.
 
 ### Not yet delivered
 
-- Stage 9 curated collections have not started.
+- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections), has not started. Its open decisions, including whether and how to train the build-up to a pattern, come first.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-24):**
 
-1. Owner review and merge of Stage 8B Part 2 on `feature/positional-observations`. After it merges, Stage 8B is complete; the thinking-habit trainer ("Maybe later") is then best considered before Stage 9.
+1. Decide the Stage 9 pattern-ladder questions with the owner, then implement its first part on its own `feature/<topic>` branch. The thinking-habit trainer ("Maybe later") can be considered alongside, because the build-up questions overlap with its routine.
 2. Owner checks still open:
-   - Stage 8B Part 2: open the Game Review of the game with 7… c5 and confirm that its coach card lists the development and mobility observations; open a finding with an only move (24. fxg6 or 37. h3) and confirm that the next best move is named.
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

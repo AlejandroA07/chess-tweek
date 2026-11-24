@@ -306,7 +306,6 @@ export function App() {
                 <DashboardRatingContext
                   key={session.account.id}
                   currentRatings={session.account.ratings}
-                  onSessionFailure={handleCatalogSessionFailure}
                 />
               </div>
             )}

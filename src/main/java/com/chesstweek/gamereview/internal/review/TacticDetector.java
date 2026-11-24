@@ -42,6 +42,9 @@ import com.chesstweek.gamereview.GameReviews.Tactic;
  * labels come from the best line before it. Overloading, interference, clearance, attraction, and
  * x-rays are not labeled. Attacks are counted geometrically (pins are ignored), which can only
  * make a piece look defended, never hanging.
+ *
+ * <p>Any change here or in {@link LineMotifs} that can change a label must raise
+ * {@link com.chesstweek.gamereview.GameReviews#TACTIC_RULES_VERSION}.
  */
 final class TacticDetector {
 

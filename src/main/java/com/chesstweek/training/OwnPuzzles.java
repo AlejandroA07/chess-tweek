@@ -32,6 +32,16 @@ public interface OwnPuzzles {
      */
     boolean replaceTactics(PuzzleSource source, List<Tactic> tactics);
 
+    /** The tactic-rules version the stored labels were last refreshed with, or 0 when never. */
+    int labelRulesVersion();
+
+    /**
+     * Records that every stored label was refreshed with rules {@code version}.
+     *
+     * @throws IllegalArgumentException when the version is not positive
+     */
+    void recordLabelRulesVersion(int version);
+
     /** Identifies one stored Own Puzzle by its account and source game position. */
     record PuzzleSource(String accountId, String gameSource, String gameId, int sourcePly) {}
 

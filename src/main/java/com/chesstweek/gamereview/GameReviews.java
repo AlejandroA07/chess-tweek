@@ -12,6 +12,13 @@ import java.util.Optional;
 public interface GameReviews {
 
     /**
+     * The version of the tactic-label rules. Raise it whenever a change to the tactic rules can
+     * change any label, so stored copies of labels (Own Puzzles) are refreshed once. 1 is the
+     * Stage 4 rules; 2 adds the Stage 8B named motifs.
+     */
+    int TACTIC_RULES_VERSION = 2;
+
+    /**
      * The account's game, or empty when it is not stored. {@code side} null selects the owner's
      * moves when analyzed, otherwise the opponent's, otherwise no side.
      */

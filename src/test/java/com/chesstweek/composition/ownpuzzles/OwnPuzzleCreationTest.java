@@ -142,13 +142,13 @@ class OwnPuzzleCreationTest {
                     new GameReviews.Tactic("pin", "missed", "bishop", "b5", List.of("c6", "e8"), 0),
                     new GameReviews.Tactic("removing_defender", "allowed", "knight", "c6", List.of("e5"), 2));
 
-            assertThat(refresh(application).refresh()).isEqualTo(1);
+            assertThat(refresh(application).refresh().changed()).isEqualTo(1);
 
             assertThat(tactics(application)).containsExactly("5/pin/missed", "5/removing_defender/allowed");
             assertThat(jdbc(application).queryForList(
                     "SELECT id FROM training_own_puzzle ORDER BY id", Long.class)).isEqualTo(ids);
             // Up-to-date labels are left alone.
-            assertThat(refresh(application).refresh()).isZero();
+            assertThat(refresh(application).refresh().changed()).isZero();
         }
     }
 
@@ -158,7 +158,7 @@ class OwnPuzzleCreationTest {
             creation(application).completed(OWNER, GAME, Perspective.MY_MOVES);
             reviews.blunderTactics = List.of();
 
-            assertThat(refresh(application).refresh()).isEqualTo(1);
+            assertThat(refresh(application).refresh().changed()).isEqualTo(1);
 
             assertThat(tactics(application)).isEmpty();
         }
@@ -171,10 +171,10 @@ class OwnPuzzleCreationTest {
             reviews.blunderTactics = List.of(new GameReviews.Tactic("pin", "missed", "bishop", "b5", List.of(), 0));
             reviews.ownerVersion = 12;
 
-            assertThat(refresh(application).refresh()).isZero();
+            assertThat(refresh(application).refresh().changed()).isZero();
             reviews.ownerVersion = 11;
             reviews.ownerAnalyzed = false;
-            assertThat(refresh(application).refresh()).isZero();
+            assertThat(refresh(application).refresh().changed()).isZero();
 
             assertThat(tactics(application)).containsExactly("5/fork/missed");
         }
@@ -202,12 +202,62 @@ class OwnPuzzleCreationTest {
                 public boolean replaceTactics(PuzzleSource source, List<OwnPuzzles.Tactic> tactics) {
                     return false;
                 }
+
+                @Override
+                public int labelRulesVersion() {
+                    return 0;
+                }
+
+                @Override
+                public void recordLabelRulesVersion(int version) {}
             };
 
             // One unreadable game is skipped; an unreadable store is logged, not thrown.
-            assertThat(new OwnPuzzleTacticRefresh(failing, application.getBean(OwnPuzzles.class)).refresh()).isZero();
+            assertThat(new OwnPuzzleTacticRefresh(failing, application.getBean(OwnPuzzles.class)).refresh())
+                    .isEqualTo(new OwnPuzzleTacticRefresh.Result(0, 1));
             new OwnPuzzleTacticRefresh(reviews, broken).run(null);
             assertThat(tactics(application)).containsExactly("5/fork/missed");
+        }
+    }
+
+    @Test
+    void startupRefreshesOnceForEachRulesVersionAndThenSkips() {
+        try (var application = start()) {
+            OwnPuzzles puzzles = application.getBean(OwnPuzzles.class);
+            assertThat(puzzles.labelRulesVersion()).isEqualTo(GameReviews.TACTIC_RULES_VERSION);
+            creation(application).completed(OWNER, GAME, Perspective.MY_MOVES);
+            reviews.blunderTactics = List.of(new GameReviews.Tactic("pin", "missed", "bishop", "b5", List.of(), 0));
+            reviews.requested.clear();
+
+            // Labels already match the current rules version: nothing is read or changed.
+            refresh(application).run(null);
+            assertThat(reviews.requested).isEmpty();
+            assertThat(tactics(application)).containsExactly("5/fork/missed");
+
+            // An older recorded version is refreshed once, then recorded.
+            puzzles.recordLabelRulesVersion(GameReviews.TACTIC_RULES_VERSION - 1);
+            refresh(application).run(null);
+            assertThat(tactics(application)).containsExactly("5/pin/missed");
+            assertThat(puzzles.labelRulesVersion()).isEqualTo(GameReviews.TACTIC_RULES_VERSION);
+            reviews.requested.clear();
+            refresh(application).run(null);
+            assertThat(reviews.requested).isEmpty();
+        }
+    }
+
+    @Test
+    void aGameThatFailsKeepsTheOldVersionSoTheNextStartRetries() {
+        try (var application = start()) {
+            OwnPuzzles puzzles = application.getBean(OwnPuzzles.class);
+            creation(application).completed(OWNER, GAME, Perspective.MY_MOVES);
+            puzzles.recordLabelRulesVersion(GameReviews.TACTIC_RULES_VERSION - 1);
+            GameReviews failing = (account, game, side) -> {
+                throw new IllegalStateException("Stored move does not replay");
+            };
+
+            new OwnPuzzleTacticRefresh(failing, puzzles).run(null);
+
+            assertThat(puzzles.labelRulesVersion()).isEqualTo(GameReviews.TACTIC_RULES_VERSION - 1);
         }
     }
 

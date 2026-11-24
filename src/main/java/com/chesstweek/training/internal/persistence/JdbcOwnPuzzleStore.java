@@ -162,4 +162,18 @@ public class JdbcOwnPuzzleStore {
         }
         return true;
     }
+
+    /** The recorded label rules version, or 0 when none is recorded. */
+    public int labelRulesVersion() {
+        List<Integer> versions = jdbc.queryForList(
+                "SELECT rules_version FROM training_own_puzzle_label_rules WHERE singleton = 1", Integer.class);
+        return versions.isEmpty() ? 0 : versions.getFirst();
+    }
+
+    public void recordLabelRulesVersion(int version) {
+        jdbc.update("""
+                INSERT INTO training_own_puzzle_label_rules (singleton, rules_version) VALUES (1, ?)
+                ON CONFLICT (singleton) DO UPDATE SET rules_version = excluded.rules_version
+                """, version);
+    }
 }

@@ -411,7 +411,7 @@ Admin exposes every project operation that exists in v1:
 - [ ] **7b. Full Puzzle corpus** — deliver the manual Admin download/import/update workflow, snapshot verification, full-corpus indexed access, and safe retention rules for the complete official Lichess Puzzle dataset. Needs 7a.
 - [ ] **7c. Normal Puzzle training** — deliver Random, By Category, and Repetition; account-scoped attempts; the five performance lists; counters, strikes, Mastered category summaries, and restart-safe progress. Needs 7b.
 - [ ] **8. Own Puzzles** — deliver separate game-derived Puzzle storage, New/Discarded/Restore flows, source-game links, and an independent repetition dashboard using the same performance rules. Needs 7c.
-- [ ] **9. Curated Puzzle collections** — deliver quality-selected named collections and advanced category practice over references to the full Puzzle corpus without copying Puzzle records. Needs 7c.
+- [ ] **9. Pattern ladders** — train recognition of one exact tactic or mate pattern with real corpus puzzles in varied places, from easy to hard and then combined with a second tactic, practised in Repetition. Also consider training the build-up to the pattern. Replaces the curated collections (owner request, 2026-11-24). Needs 7c.
 - [ ] **10. Opening explorer** — deliver Masters, Lichess by rating and speed, and My games move statistics. Needs 5 and 7b.
 - [ ] **11. Repertoire builder** — deliver London and Caro-Kann trees, coverage and gaps, notes, and PGN import/export. Needs 10.
 - [ ] **12. Repertoire trainer** — after separately deciding its progression rules, deliver drilling of repertoire moves with popularity-weighted replies and notes. Needs 11.

@@ -24,6 +24,17 @@ class GameReviewServiceTest {
     }
 
     @Test
+    void passesTheOpponentsMoveIntoEachJudgedPositionToTheTacticRules() {
+        var game = com.chesstweek.gamereview.internal.analysis.ReplayedGame.fromSan("e4 d5 exd5 Qxd5");
+
+        assertThat(GameReviewService.previous(game, 1)).isNull();
+        assertThat(GameReviewService.previous(game, 2)).isEqualTo(new TacticDetector.Previous(START, "e2e4"));
+        assertThat(GameReviewService.previous(game, 4)).isEqualTo(new TacticDetector.Previous(
+                game.before(3).fen(), "e4d5"));
+        assertThat(GameReviewService.previous(game, 5)).isNull();
+    }
+
+    @Test
     void capsCentipawnLossAndCountsMatesAsTheCap() {
         assertThat(GameReviewService.centipawnLoss(move(false, cp(120), cp(30), "none"))).isEqualTo(150);
         assertThat(GameReviewService.centipawnLoss(move(false, cp(50), cp(-80), "none"))).isZero();

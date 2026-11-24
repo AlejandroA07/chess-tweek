@@ -145,7 +145,7 @@ function review(options: { my?: boolean; opponent?: boolean } = {}) {
               loss: 900,
               before: [line('d8e7', 'Qe7', { cp: -40 }, ['d8e7', 'g1f3', 'g8f6'], ['Qe7', 'Nf3', 'Nf6'])],
               after: [line('h5f7', 'Qxf7#', { mate: 1 }, ['h5f7'], ['Qxf7#'])],
-              tactics: [{ theme: 'allowed_mate', kind: 'allowed', piece: null, square: null, targets: [] }],
+              tactics: [{ theme: 'allowed_mate', kind: 'allowed', piece: null, square: null, targets: [], lineIndex: null }],
             }),
           ],
         }

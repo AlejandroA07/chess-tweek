@@ -49,3 +49,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-23-own-puzzle-creation.md` | Records Own Puzzle creation from completed My Moves analyses, migration V14, and the rule that a completed side is never analyzed again. | dated report |
 | `2026-11-23-own-puzzle-training.md` | Records Own Puzzle attempts, Training Lists, New, Discard, and Restore, repetition and Mastered practice by group, the shared attempt engine, migration V15, and the Own Puzzle endpoints. | dated report |
 | `2026-11-23-own-puzzles-interface.md` | Records the Own Puzzles screens, the site filter and random order for New Own Puzzles, the shared puzzle player, and Game Review links to one move. | dated report |
+| `2026-11-23-more-named-tactics.md` | Records the Stage 8B named motifs, their proof rules, `lineIndex`, the coach wording, and the startup refresh of Own Puzzle tactic labels. | dated report |

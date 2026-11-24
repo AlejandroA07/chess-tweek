@@ -67,7 +67,7 @@ class GameReviewService implements GameReviews {
                 phases,
                 info(mine),
                 info(theirs),
-                selected == null ? null : sideReview(chosen, selected, versions.moves(selected.id()))));
+                selected == null ? null : sideReview(chosen, selected, versions.moves(selected.id()), replay)));
     }
 
     private static List<Ply> plies(ReplayedGame replay) {
@@ -94,8 +94,9 @@ class GameReviewService implements GameReviews {
                         version.moveCount(), version.inaccuracies(), version.mistakes(), version.blunders());
     }
 
-    private static SideReview sideReview(Side side, StoredVersion version, List<StoredMove> stored) {
-        List<JudgedMove> moves = stored.stream().map(GameReviewService::judgedMove).toList();
+    private static SideReview sideReview(
+            Side side, StoredVersion version, List<StoredMove> stored, ReplayedGame replay) {
+        List<JudgedMove> moves = stored.stream().map(move -> judgedMove(move, previous(replay, move.ply()))).toList();
         return new SideReview(
                 side,
                 version.id(),
@@ -110,7 +111,15 @@ class GameReviewService implements GameReviews {
                 moves);
     }
 
-    private static JudgedMove judgedMove(StoredMove move) {
+    /** The opponent's move into {@code ply}, or null for the first move or a ply the game lacks. */
+    static TacticDetector.Previous previous(ReplayedGame replay, int ply) {
+        if (ply < 2 || ply > replay.plyCount()) {
+            return null;
+        }
+        return new TacticDetector.Previous(replay.before(ply - 1).fen(), replay.moves().get(ply - 2).uci());
+    }
+
+    private static JudgedMove judgedMove(StoredMove move, TacticDetector.Previous previous) {
         return new JudgedMove(
                 move.ply(),
                 move.san(),
@@ -135,7 +144,8 @@ class GameReviewService implements GameReviews {
                         move.label(),
                         move.mateEvent(),
                         move.before().isEmpty() ? List.of() : move.before().getFirst().pv(),
-                        move.after().isEmpty() ? List.of() : move.after().getFirst().pv()));
+                        move.after().isEmpty() ? List.of() : move.after().getFirst().pv(),
+                        previous));
     }
 
     private static List<Line> lines(String fen, List<StoredLine> stored) {

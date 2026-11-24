@@ -114,12 +114,26 @@ public interface GameReviews {
     /**
      * A conservative tactic label proven from the stored engine lines. {@code theme} is one of
      * {@code allowed_mate}, {@code missed_mate}, {@code back_rank}, {@code hanging_piece},
-     * {@code fork}, or {@code general_tactics}; {@code kind} is {@code allowed} (from the
-     * opponent's reply line) or {@code missed} (from the best line). {@code piece} and
-     * {@code square} name the hanging piece, the forking piece, or the mating piece when known,
-     * and {@code targets} lists the forked squares.
+     * {@code fork}, {@code discovered_check}, {@code discovered_attack}, {@code pin},
+     * {@code skewer}, {@code removing_defender}, {@code trapped_piece}, {@code deflection},
+     * {@code in_between_move}, or {@code general_tactics}; {@code kind} is {@code allowed} (from
+     * the opponent's reply line) or {@code missed} (from the best line). {@code piece} and
+     * {@code square} name the theme's key piece when known, {@code targets} lists the squares it
+     * acts on, and {@code lineIndex} is the zero-based index in that line of the move after which
+     * the pattern is on the board, or null when the theme has no single such move.
      */
-    record Tactic(String theme, String kind, String piece, String square, List<String> targets) {}
+    record Tactic(
+            String theme, String kind, String piece, String square, List<String> targets, Integer lineIndex) {
+
+        public Tactic {
+            targets = targets == null ? List.of() : List.copyOf(targets);
+        }
+
+        /** A label without a line index. */
+        public Tactic(String theme, String kind, String piece, String square, List<String> targets) {
+            this(theme, kind, piece, square, targets, null);
+        }
+    }
 
     /** One engine line from the side to move; {@code pvSan} stops at the first move that is not legal. */
     record Line(

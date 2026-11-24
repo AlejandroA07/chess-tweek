@@ -132,6 +132,105 @@ class OwnPuzzleCreationTest {
         }
     }
 
+    @Test
+    void theStartupRefreshReplacesOutdatedTacticLabelsFromTheStoredAnalysis() {
+        try (var application = start()) {
+            creation(application).completed(OWNER, GAME, Perspective.MY_MOVES);
+            List<Long> ids = jdbc(application).queryForList(
+                    "SELECT id FROM training_own_puzzle ORDER BY id", Long.class);
+            reviews.blunderTactics = List.of(
+                    new GameReviews.Tactic("pin", "missed", "bishop", "b5", List.of("c6", "e8"), 0),
+                    new GameReviews.Tactic("removing_defender", "allowed", "knight", "c6", List.of("e5"), 2));
+
+            assertThat(refresh(application).refresh()).isEqualTo(1);
+
+            assertThat(tactics(application)).containsExactly("5/pin/missed", "5/removing_defender/allowed");
+            assertThat(jdbc(application).queryForList(
+                    "SELECT id FROM training_own_puzzle ORDER BY id", Long.class)).isEqualTo(ids);
+            // Up-to-date labels are left alone.
+            assertThat(refresh(application).refresh()).isZero();
+        }
+    }
+
+    @Test
+    void theStartupRefreshCanRemoveEveryLabel() {
+        try (var application = start()) {
+            creation(application).completed(OWNER, GAME, Perspective.MY_MOVES);
+            reviews.blunderTactics = List.of();
+
+            assertThat(refresh(application).refresh()).isEqualTo(1);
+
+            assertThat(tactics(application)).isEmpty();
+        }
+    }
+
+    @Test
+    void theStartupRefreshKeepsLabelsWhenTheAnalysisIsNotTheOneThePuzzleCameFrom() {
+        try (var application = start()) {
+            creation(application).completed(OWNER, GAME, Perspective.MY_MOVES);
+            reviews.blunderTactics = List.of(new GameReviews.Tactic("pin", "missed", "bishop", "b5", List.of(), 0));
+            reviews.ownerVersion = 12;
+
+            assertThat(refresh(application).refresh()).isZero();
+            reviews.ownerVersion = 11;
+            reviews.ownerAnalyzed = false;
+            assertThat(refresh(application).refresh()).isZero();
+
+            assertThat(tactics(application)).containsExactly("5/fork/missed");
+        }
+    }
+
+    @Test
+    void aFailingRefreshNeverStopsTheApplicationStarting() {
+        try (var application = start()) {
+            creation(application).completed(OWNER, GAME, Perspective.MY_MOVES);
+            GameReviews failing = (account, game, side) -> {
+                throw new IllegalStateException("Stored move does not replay");
+            };
+            OwnPuzzles broken = new OwnPuzzles() {
+                @Override
+                public int create(String accountId, List<OwnPuzzles.NewOwnPuzzle> puzzles) {
+                    return 0;
+                }
+
+                @Override
+                public List<StoredLabels> labels() {
+                    throw new IllegalStateException("database unavailable");
+                }
+
+                @Override
+                public boolean replaceTactics(PuzzleSource source, List<OwnPuzzles.Tactic> tactics) {
+                    return false;
+                }
+            };
+
+            // One unreadable game is skipped; an unreadable store is logged, not thrown.
+            assertThat(new OwnPuzzleTacticRefresh(failing, application.getBean(OwnPuzzles.class)).refresh()).isZero();
+            new OwnPuzzleTacticRefresh(reviews, broken).run(null);
+            assertThat(tactics(application)).containsExactly("5/fork/missed");
+        }
+    }
+
+    @Test
+    void theApplicationRefreshesLabelsAtStartup() {
+        try (var application = start()) {
+            assertThat(application.getBeansOfType(OwnPuzzleTacticRefresh.class)).hasSize(1);
+        }
+    }
+
+    private OwnPuzzleTacticRefresh refresh(ConfigurableApplicationContext application) {
+        return new OwnPuzzleTacticRefresh(reviews, application.getBean(OwnPuzzles.class));
+    }
+
+    private static List<String> tactics(ConfigurableApplicationContext application) {
+        return jdbc(application).queryForList("""
+                SELECT p.source_ply || '/' || t.theme || '/' || t.kind
+                FROM training_own_puzzle_tactic t
+                JOIN training_own_puzzle p ON p.id = t.own_puzzle_id
+                ORDER BY p.source_ply, t.theme, t.kind
+                """, String.class);
+    }
+
     private OwnPuzzleCreation creation(ConfigurableApplicationContext application) {
         return new OwnPuzzleCreation(reviews, application.getBean(OwnPuzzles.class));
     }
@@ -141,6 +240,8 @@ class OwnPuzzleCreationTest {
 
         final List<Side> requested = new ArrayList<>();
         boolean ownerAnalyzed = true;
+        long ownerVersion = 11;
+        List<GameReviews.Tactic> blunderTactics = List.of(new GameReviews.Tactic("fork", "missed", "B", "b5", List.of()));
 
         @Override
         public Optional<GameReview> review(String accountId, GameRef game, Side side) {
@@ -150,12 +251,11 @@ class OwnPuzzleCreationTest {
             }
             SideReview selected = null;
             if (side == Side.MY_MOVES && ownerAnalyzed) {
-                selected = sideReview(side, 11, List.of(
+                selected = sideReview(side, ownerVersion, List.of(
                         judged(1, "none", "opening", List.of("e2e4", "e7e5", "g1f3"), List.of()),
                         judged(3, "inaccuracy", "opening",
                                 List.of("d2d4", "e5d4", "g1f3", "g8f6"), List.of()),
-                        judged(5, "blunder", "middlegame", List.of("f1b5", "a7a6"),
-                                List.of(new Tactic("fork", "missed", "B", "b5", List.of())))));
+                        judged(5, "blunder", "middlegame", List.of("f1b5", "a7a6"), blunderTactics)));
             } else if (side == Side.OPPONENT_MOVES) {
                 selected = sideReview(side, 12, List.of(
                         judged(4, "blunder", "opening", List.of("g8f6", "d2d4", "e5d4"),

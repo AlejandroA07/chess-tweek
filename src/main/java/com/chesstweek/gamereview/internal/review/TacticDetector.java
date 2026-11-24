@@ -1,6 +1,7 @@
 package com.chesstweek.gamereview.internal.review;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -30,14 +31,17 @@ import com.chesstweek.gamereview.GameReviews.Tactic;
  *       attacks two or more enemy pieces worth at least a knight (or the king), each either the
  *       king, worth more than the attacker, or undefended; and the same side captures on one of
  *       those squares within the next eight plies of the line.
+ *   <li><b>Named motifs</b>: discovered checks and attacks, pins, skewers, removing the
+ *       defender, trapped pieces, deflections, and in-between moves, each proven by a material gain
+ *       later in the same line ({@link LineMotifs}).
  *   <li><b>General tactics</b>: a mistake or blunder with none of the above where the line still
  *       changes material by at least two points.
  * </ul>
  *
  * "Allowed" labels come from the opponent's best reply line after the played move; "missed"
- * labels come from the best line before it. Pins, skewers, discoveries, and other motifs are not
- * labeled. Attacks are counted geometrically (pins are ignored), which can only make a piece look
- * defended, never hanging.
+ * labels come from the best line before it. Overloading, interference, clearance, attraction, and
+ * x-rays are not labeled. Attacks are counted geometrically (pins are ignored), which can only
+ * make a piece look defended, never hanging.
  */
 final class TacticDetector {
 
@@ -55,14 +59,9 @@ final class TacticDetector {
 
     private TacticDetector() {}
 
-    /**
-     * @param fenBefore position before the played move
-     * @param played the played move in UCI
-     * @param label the move's severity label
-     * @param mateEvent the stored mate event
-     * @param bestPv the best line from {@code fenBefore}, or empty
-     * @param replyPv the opponent's best line after the played move, or empty
-     */
+    /** The opponent's move into the judged position and the position it was played from. */
+    record Previous(String fenBefore, String uci) {}
+
     static List<Tactic> detect(
             String fenBefore,
             String played,
@@ -70,6 +69,26 @@ final class TacticDetector {
             String mateEvent,
             List<String> bestPv,
             List<String> replyPv) {
+        return detect(fenBefore, played, label, mateEvent, bestPv, replyPv, null);
+    }
+
+    /**
+     * @param fenBefore position before the played move
+     * @param played the played move in UCI
+     * @param label the move's severity label
+     * @param mateEvent the stored mate event
+     * @param bestPv the best line from {@code fenBefore}, or empty
+     * @param replyPv the opponent's best line after the played move, or empty
+     * @param previous the opponent's move into {@code fenBefore}, or null for the game's first move
+     */
+    static List<Tactic> detect(
+            String fenBefore,
+            String played,
+            String label,
+            String mateEvent,
+            List<String> bestPv,
+            List<String> replyPv,
+            Previous previous) {
         if (label.equals("none")) {
             return List.of();
         }
@@ -89,10 +108,15 @@ final class TacticDetector {
                 backRank(before, bestPv, MISSED).ifPresent(tactics::add);
             }
             if (tactics.isEmpty()) {
+                Move playedMove = move(before, played).orElseThrow();
                 hanging(after.get(), replyPv, ALLOWED).ifPresent(tactics::add);
                 fork(after.get(), replyPv, ALLOWED).ifPresent(tactics::add);
+                tactics.addAll(LineMotifs.detect(ReplayedLine.of(after.get(), replyPv, LineMotifs.MAX_PLIES,
+                        new ReplayedLine.Prior(before, playedMove)), ALLOWED));
                 hanging(before, bestPv, MISSED).ifPresent(tactics::add);
                 fork(before, bestPv, MISSED).ifPresent(tactics::add);
+                tactics.addAll(LineMotifs.detect(ReplayedLine.of(before, bestPv, LineMotifs.MAX_PLIES,
+                        prior(previous, before)), MISSED));
             }
             if (tactics.isEmpty() && !label.equals("inaccuracy")) {
                 general(after.get(), replyPv, ALLOWED).ifPresent(tactics::add);
@@ -171,7 +195,7 @@ final class TacticDetector {
                 if (targets.contains(moves.get(later).to) && isCapture(start, moves, later)) {
                     List<String> names = targets.stream().map(square -> square.name).toList();
                     return Optional.of(new Tactic(
-                            "fork", kind, name(forker.pieceType), candidate.to.name, names));
+                            "fork", kind, name(forker.pieceType), candidate.to.name, names, index));
                 }
             }
         }
@@ -249,6 +273,33 @@ final class TacticDetector {
         return total;
     }
 
+    /** The previous move as a line prior, only when it really leads to {@code position}. */
+    private static ReplayedLine.Prior prior(Previous previous, ChessGame position) {
+        if (previous == null || previous.fenBefore() == null || previous.uci() == null) {
+            return null;
+        }
+        try {
+            ChessGame game = new ChessGame(previous.fenBefore());
+            Move move = move(game, previous.uci()).orElse(null);
+            if (move == null) {
+                return null;
+            }
+            ChessGame next = game.clone();
+            next.playMove(move);
+            return placement(next.getFen()).equals(placement(position.getFen()))
+                    ? new ReplayedLine.Prior(game, move)
+                    : null;
+        } catch (RuntimeException exception) {
+            return null;
+        }
+    }
+
+    /** Placement, side to move, castling, and en passant; the move counters are ignored. */
+    private static String placement(String fen) {
+        String[] fields = fen.split(" ");
+        return String.join(" ", Arrays.copyOf(fields, Math.min(fields.length, 4)));
+    }
+
     private static Optional<ChessGame> play(ChessGame start, String uci) {
         ChessGame game = start.clone();
         Optional<Move> move = move(game, uci);
@@ -298,6 +349,18 @@ final class TacticDetector {
                 }
             }
             return false;
+        }
+
+        /** The squares of every {@code side} piece that attacks {@code square}. */
+        static List<Square> attackers(ChessGame game, Square square, Side side) {
+            List<Square> attackers = new ArrayList<>();
+            for (Square from : game.getOccupiedSquares()) {
+                Piece piece = game.getPiece(from);
+                if (piece.side == side && !from.equals(square) && attackedBy(game, from).contains(square)) {
+                    attackers.add(from);
+                }
+            }
+            return attackers;
         }
 
         /** Every square the piece on {@code from} attacks. */

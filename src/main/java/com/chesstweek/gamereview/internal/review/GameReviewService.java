@@ -33,6 +33,8 @@ class GameReviewService implements GameReviews {
     /** Centipawn losses are capped per move, and a mate counts as this many centipawns. */
     static final int CENTIPAWN_CAP = 1_000;
     private static final List<String> PHASES = List.of("opening", "middlegame", "endgame");
+    /** The next best line must score at least this much less (20 percentage points) for an only move. */
+    static final int ONLY_MOVE_GAP = 20 * ExpectedScore.UNITS_PER_PERCENTAGE_POINT;
 
     private final GameLookup games;
     private final AnalysisVersionReader versions;
@@ -119,7 +121,11 @@ class GameReviewService implements GameReviews {
         return new TacticDetector.Previous(replay.before(ply - 1).fen(), replay.moves().get(ply - 2).uci());
     }
 
-    private static JudgedMove judgedMove(StoredMove move, TacticDetector.Previous previous) {
+    static JudgedMove judgedMove(StoredMove move, TacticDetector.Previous previous) {
+        List<String> bestPv = move.before().isEmpty() ? List.of() : move.before().getFirst().pv();
+        List<String> replyPv = move.after().isEmpty() ? List.of() : move.after().getFirst().pv();
+        List<Tactic> tactics = TacticDetector.detect(
+                move.fenBefore(), move.uci(), move.label(), move.mateEvent(), bestPv, replyPv, previous);
         return new JudgedMove(
                 move.ply(),
                 move.san(),
@@ -138,14 +144,46 @@ class GameReviewService implements GameReviews {
                 move.afterTerminal(),
                 lines(move.fenBefore(), move.before()),
                 move.after().isEmpty() ? List.of() : lines(fenAfter(move), move.after()),
-                TacticDetector.detect(
-                        move.fenBefore(),
-                        move.uci(),
-                        move.label(),
-                        move.mateEvent(),
-                        move.before().isEmpty() ? List.of() : move.before().getFirst().pv(),
-                        move.after().isEmpty() ? List.of() : move.after().getFirst().pv(),
-                        previous));
+                tactics,
+                positional(move, tactics, bestPv, replyPv),
+                onlyMove(move));
+    }
+
+    /** Measured observations for a labelled move that no tactic or mate explains, or null. */
+    static Positional positional(StoredMove move, List<Tactic> tactics, List<String> bestPv, List<String> replyPv) {
+        if (move.label().equals("none") || move.playedBest() || !tactics.isEmpty()
+                || !move.mateEvent().equals("none") || !move.afterTerminal().equals("none")) {
+            return null;
+        }
+        try {
+            var before = new ChessGame(move.fenBefore());
+            Move played = before.getMove(NotationType.UCI, move.uci());
+            if (played == null || !before.isLegalMove(played)) {
+                return null;
+            }
+            return PositionalObservations.observe(before, played, bestPv, replyPv, move.phase().equals("opening"));
+        } catch (RuntimeException exception) {
+            // An unreadable stored position yields no observation rather than a wrong one.
+            return null;
+        }
+    }
+
+    /**
+     * For a labelled move, the second engine line when it scored at least {@link #ONLY_MOVE_GAP}
+     * less than the best line, so the best move was the only one that kept the score; otherwise null.
+     */
+    static OnlyMove onlyMove(StoredMove move) {
+        if (move.label().equals("none") || move.before().size() < 2) {
+            return null;
+        }
+        StoredLine best = move.before().get(0);
+        StoredLine next = move.before().get(1);
+        int gap = expected(best) - expected(next);
+        return gap >= ONLY_MOVE_GAP ? new OnlyMove(next.move(), firstSan(move.fenBefore(), next.move()), gap) : null;
+    }
+
+    private static int expected(StoredLine line) {
+        return 2 * line.win() + line.draw();
     }
 
     private static List<Line> lines(String fen, List<StoredLine> stored) {

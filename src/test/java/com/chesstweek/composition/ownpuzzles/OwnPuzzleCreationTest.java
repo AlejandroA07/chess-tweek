@@ -329,7 +329,7 @@ class OwnPuzzleCreationTest {
                 800, 100, bestLine, bestLine);
         return new JudgedMove(ply, MOVES.get(ply - 1), MOVES.get(ply - 1), fenBefore(ply), phase,
                 "deep", label, "none", label.equals("none"), bestLine.getFirst(),
-                bestLine.getFirst(), 1000, 900, 100, "none", List.of(line), List.of(), tactics);
+                bestLine.getFirst(), 1000, 900, 100, "none", List.of(line), List.of(), tactics, null, null);
     }
 
     private static List<GameReviews.Ply> plies() {

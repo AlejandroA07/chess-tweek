@@ -60,6 +60,12 @@ class GameReviewControllerTest {
                 .andExpect(jsonPath("$.selected.moves[0].tactics[0].theme").value("fork"))
                 .andExpect(jsonPath("$.selected.moves[0].tactics[0].targets[1]").value("a8"))
                 .andExpect(jsonPath("$.selected.moves[0].tactics[0].lineIndex").value(2))
+                .andExpect(jsonPath("$.selected.moves[0].positional.plies").value(4))
+                .andExpect(jsonPath("$.selected.moves[0].positional.observations[0].feature").value("passed_pawns"))
+                .andExpect(jsonPath("$.selected.moves[0].positional.observations[0].side").value("opponent"))
+                .andExpect(jsonPath("$.selected.moves[0].positional.observations[0].squares[0]").value("d5"))
+                .andExpect(jsonPath("$.selected.moves[0].onlyMove.nextBestSan").value("Nf3"))
+                .andExpect(jsonPath("$.selected.moves[0].onlyMove.gap").value(420))
                 .andExpect(content().string(not(containsString("e4 e5"))));
 
         assertThat(requests).containsExactly("owner-id lichess:game0001 OPPONENT_MOVES");
@@ -155,7 +161,10 @@ class GameReviewControllerTest {
         var line = new GameReviews.Line("d2d4", "d4", 20, null, 50, 900, 50, List.of("d2d4"), List.of("d4"));
         var move = new GameReviews.JudgedMove(1, "e4", "e2e4", "start-fen", "opening", "quick", "none", "none",
                 false, "d2d4", "d4", 1_050, 960, 90, "none", List.of(line), List.of(line),
-                List.of(new GameReviews.Tactic("fork", "allowed", "knight", "c7", List.of("e8", "a8"), 2)));
+                List.of(new GameReviews.Tactic("fork", "allowed", "knight", "c7", List.of("e8", "a8"), 2)),
+                new GameReviews.Positional(4, List.of(
+                        new GameReviews.Observation("passed_pawns", "opponent", 0, 1, List.of("d5")))),
+                new GameReviews.OnlyMove("g1f3", "Nf3", 420));
         var statistics = new GameReviews.Statistics(1, 0, 0, 0, 4.5, 30.0, Map.of(
                 "opening", new GameReviews.PhaseStatistics(1, 0, 0, 0, 4.5, 30.0)));
         return new GameReviews.GameReview(

@@ -75,6 +75,42 @@ export type Tactic = {
   lineIndex?: number | null
 }
 
+export type ObservationFeature =
+  | 'material'
+  | 'bishop_pair'
+  | 'king_shelter'
+  | 'open_files_near_king'
+  | 'castling'
+  | 'passed_pawns'
+  | 'isolated_pawns'
+  | 'doubled_pawns'
+  | 'development'
+  | 'mobility'
+
+export const OBSERVATION_FEATURES: ObservationFeature[] = [
+  'material', 'bishop_pair', 'king_shelter', 'open_files_near_king', 'castling', 'passed_pawns', 'isolated_pawns',
+  'doubled_pawns', 'development', 'mobility',
+]
+
+/**
+ * One measured feature that differs between the end of the engine's line and the end of the
+ * played move's line. An observation, not the engine's reason.
+ */
+export type Observation = {
+  feature: ObservationFeature
+  side: 'mover' | 'opponent'
+  best: number
+  played: number
+  /** Passed pawns that only the line with more of them has. */
+  squares: string[]
+}
+
+/** Present only when no tactic explains a labelled move; empty observations mean nothing measured changed. */
+export type Positional = { plies: number; observations: Observation[] }
+
+/** The engine's move was the only good one: the next line scored `gap` units (20 per point) less. */
+export type OnlyMove = { nextBestMove: string; nextBestSan: string; gap: number }
+
 export type JudgedMove = {
   ply: number
   san: string
@@ -94,6 +130,9 @@ export type JudgedMove = {
   before: EngineLine[]
   after: EngineLine[]
   tactics: Tactic[]
+  /** Absent or null when not computed. */
+  positional?: Positional | null
+  onlyMove?: OnlyMove | null
 }
 
 export type SelectedSide = {
@@ -322,7 +361,49 @@ function parseJudgedMove(value: unknown, plyCount: number): JudgedMove {
     before: value.before.map(parseLine),
     after: value.after.map(parseLine),
     tactics: value.tactics.map(parseTactic),
+    positional: value.positional === undefined || value.positional === null ? null : parsePositional(value.positional),
+    onlyMove: value.onlyMove === undefined || value.onlyMove === null ? null : parseOnlyMove(value.onlyMove),
   }
+}
+
+function parsePositional(value: unknown): Positional {
+  if (
+    !isRecord(value) ||
+    !isInteger(value.plies, 1, 40) ||
+    !Array.isArray(value.observations) ||
+    value.observations.length > 24
+  ) {
+    throw new Error('Invalid positional observations')
+  }
+  return { plies: value.plies, observations: value.observations.map(parseObservation) }
+}
+
+function parseObservation(value: unknown): Observation {
+  if (
+    !isRecord(value) ||
+    !isOneOf(value.feature, OBSERVATION_FEATURES) ||
+    !isOneOf(value.side, ['mover', 'opponent']) ||
+    !isInteger(value.best, -200, 200) ||
+    !isInteger(value.played, -200, 200) ||
+    !Array.isArray(value.squares) ||
+    value.squares.length > 8 ||
+    !value.squares.every((square) => typeof square === 'string' && SQUARE.test(square))
+  ) {
+    throw new Error('Invalid observation')
+  }
+  return value as Observation
+}
+
+function parseOnlyMove(value: unknown): OnlyMove {
+  if (
+    !isRecord(value) ||
+    !isUci(value.nextBestMove) ||
+    !isText(value.nextBestSan, 10) ||
+    !isInteger(value.gap, 1, 2_000)
+  ) {
+    throw new Error('Invalid only move')
+  }
+  return value as OnlyMove
 }
 
 const SQUARE = /^[a-h][1-8]$/

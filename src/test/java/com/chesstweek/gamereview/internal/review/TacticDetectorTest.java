@@ -180,6 +180,17 @@ class TacticDetectorTest {
     }
 
     @Test
+    void labelsAMissedPinThatWinsAPieceThePinnedPieceGuards() {
+        // 1.Bb5 pins the knight to the king; 3.Rxe5+ takes the bishop the knight was guarding,
+        // and the pinned knight cannot take back.
+        assertThat(missed("4k3/p7/2n5/4b3/8/8/8/4RBK1 w - - 0 1", "f1b5", "a7a6", "e1e5", "e8f8"))
+                .containsExactly(new Tactic("pin", "missed", "bishop", "b5", List.of("c6", "e8", "e5"), 0));
+        // Near miss: with the king on g8 nothing is pinned. The line stops before Nxe5, so only the
+        // pin rule keeps the label away.
+        assertThat(missed("6k1/p7/2n5/4b3/8/8/8/4RBK1 w - - 0 1", "f1b5", "a7a6", "e1e5")).isEmpty();
+    }
+
+    @Test
     void labelsAMissedSkewerOfTheKingAndRook() {
         assertThat(missed("4k2r/8/8/8/8/8/8/R5K1 w - - 0 1", "a1a8", "e8e7", "a8h8")).containsExactly(
                 new Tactic("skewer", "missed", "rook", "a8", List.of("e8", "h8"), 0));
@@ -212,6 +223,26 @@ class TacticDetectorTest {
         // Near miss: the pawn on e5 still defends d4. The line stops before exd4, so only the
         // only-defender rule keeps the label away.
         assertThat(missed("6k1/1p6/2n5/1B2p3/3b4/8/8/3R3K w - - 0 1", "b5c6", "b7c6", "d1d4")).isEmpty();
+    }
+
+    @Test
+    void labelsARemovalOfTheDefenderWhoseGainComesTwoMovesLater() {
+        String fen = "6k1/1p6/2n5/1B6/3b4/8/8/3R3K w - - 0 1";
+
+        assertThat(missed(fen, "b5c6", "b7c6", "h1g2", "g8f7", "d1d4")).containsExactly(
+                new Tactic("removing_defender", "missed", "knight", "c6", List.of("d4"), 0));
+        // Near miss: the bishop is taken only on the third move after the defender falls.
+        assertThat(missed(fen, "b5c6", "b7c6", "h1g2", "g8f7", "g2f3", "f7e7", "d1d4")).isEmpty();
+    }
+
+    @Test
+    void labelsADeflectionWhoseGainComesTwoMovesLater() {
+        String fen = "8/6k1/5n2/8/8/8/1B6/3R2K1 w - - 0 1";
+
+        assertThat(missed(fen, "d1d7", "g7g8", "d7d8", "g8h7", "b2f6")).containsExactly(
+                new Tactic("deflection", "missed", "king", "g7", List.of("f6"), 0));
+        // Near miss: the king comes back to g7 and defends the knight again before it is taken.
+        assertThat(missed(fen, "d1d7", "g7g8", "d7d8", "g8g7", "b2f6")).isEmpty();
     }
 
     @Test

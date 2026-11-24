@@ -19,20 +19,23 @@ Every motif needs two things:
 |---|---|---|
 | `discovered_check` | A gainer move (not castling) uncovers a check by another gainer slider. | That move or the next gainer move captures. |
 | `discovered_attack` | A gainer move uncovers a slider's attack on a piece worth at least a knight that is worth more than the slider or undefended. | Within the next two gainer moves, a capture on that square or by the piece that moved. |
-| `pin` | A gainer slider, an enemy piece worth at least a knight, and behind it the enemy king or a more valuable piece stand on one line. | The pinned piece is captured on its square while all three still stand there. |
+| `pin` | A gainer slider, an enemy piece worth at least a knight, and behind it the enemy king or a more valuable piece stand on one line. | While all three still stand there, the gainer captures the pinned piece, or captures something the pinned piece guards, so that taking back would break the pin (rules version 3). |
 | `skewer` | A gainer slider moves to attack the enemy king, or a piece worth more than the piece behind it, which is worth at least a knight. | The front piece steps off, and the slider takes the piece behind at once. |
-| `removing_defender` | The gainer captures the only defender of an enemy piece worth at least a knight. | The gainer's next move takes that piece. |
+| `removing_defender` | The gainer captures the only defender of an enemy piece worth at least a knight. | Within the next two gainer moves, the gainer takes that piece while it is still undefended (rules version 3; at first only the next move counted). |
 | `trapped_piece` | After a gainer move, with the opponent not in check, an enemy knight, bishop, rook, or queen is attacked and either undefended or attacked by something cheaper. It is not pinned to its king, and every legal move of it ends the same way unless it takes something at least as valuable. | The piece is captured later, wherever it went. |
-| `deflection` | A gainer check, or a capture of something worth at least the defender that the defender recaptures, makes the replying piece abandon the only defence of an enemy piece worth at least a knight. | The gainer takes that piece at once. |
+| `deflection` | A gainer check, or a capture of something worth at least the defender that the defender recaptures, makes the replying piece abandon the only defence of an enemy piece worth at least a knight. | Within the next two gainer moves, the gainer takes that piece while it is still undefended (rules version 3; at first only the next move counted). |
 | `in_between_move` | Right after the opponent captures, the gainer could recapture but first gives check or takes a piece worth at least a knight. | The gainer recaptures later and ends at least 2 points better than the direct recapture could have at best. |
 
 The in-between move needs the opponent's capture into the line. For `allowed`, that is the played move. For `missed`, `GameReviewService` passes the game's previous move; it is used only when it really leads to the judged position.
 
-These rules are narrower than the research table in three places, on purpose, so that a label is never given on a weaker proof:
+On 2026-11-24 the owner pointed out that two first-version rules were too narrow. A pin often wins a different piece, the one the pinned piece can no longer protect, and a defender's loss is often cashed in a move later. Rules version 3 (`GameReviews.TACTIC_RULES_VERSION`) adds both cases, each with a proving test and a near miss. The startup refresh applies them to existing Own Puzzles once (`2026-11-24-refresh-on-rules-change.md`).
 
-- A pin counts only when the pinned piece itself is won. It does not count when the gain is a capture that the pinned piece could otherwise have answered.
-- Removing the defender and deflection need the capture on the very next gainer move, and do not count a mate on that square. Mates already have their own labels.
-- Pins that were already on the board count when the pinned piece is then won.
+Two narrowings remain, on purpose:
+
+- Removing the defender and deflection do not count a mate on the abandoned square, because mates have their own labels.
+- A gain that is only positional, such as a weaker king or a passed pawn, is never a tactic label, because the line does not prove it. Stage 8B Part 2 reports such changes as observations.
+
+Pins that were already on the board count too, when the line then wins material through them.
 
 A discovered check is proven by any capture with the same move or the next gainer move, because the check gives the opponent no time to answer elsewhere. A discovered attack is proven by a capture on an uncovered target, or by the piece that moved.
 
@@ -59,7 +62,7 @@ The detector was run read-only over all 11 labelled moves stored on 2026-11-23. 
 
 ## Tests
 
-- `TacticDetectorTest` (25): every motif has a proving position and a near miss:
+- `TacticDetectorTest` (28): every motif has a proving position and a near miss:
   - a discovered check that wins nothing
   - an uncovered queen that is never taken
   - a pinned knight taken by the rook and recaptured
@@ -71,6 +74,10 @@ The detector was run read-only over all 11 labelled moves stored on 2026-11-23. 
   - The missed in-between move is checked with the previous move, without it, and with one that does not lead to the position.
   - A piece pinned to its king is never trapped.
   - An allowed skewer from the reply line.
+  - Rules version 3:
+    - A pin that wins the bishop the pinned knight guarded. The near miss has no pin.
+    - Removing the defender won two moves later. The near miss wins it three moves later.
+    - A deflection won two moves later. The near miss has the king come back to defend first.
   - An allowed pin whose apparent gain is only the recapture of the played capture, which the baseline rules out.
   - The owner's two forks now carry their line index.
 - `GameReviewServiceTest`: the previous move passed for each ply.

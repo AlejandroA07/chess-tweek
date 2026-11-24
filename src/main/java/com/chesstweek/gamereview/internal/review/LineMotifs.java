@@ -30,20 +30,22 @@ import com.chesstweek.gamereview.internal.review.TacticDetector.Attacks;
  *       least a knight that is worth more than the slider or undefended; within the next two
  *       gainer moves the gainer captures on that square, or captures with the piece that moved.
  *   <li><b>Pin</b>: a gainer slider, an enemy piece worth at least a knight, and behind it the
- *       enemy king or a more valuable piece stand on one line; the pinned piece is later captured
- *       on its square while the same three pieces still stand there.
+ *       enemy king or a more valuable piece stand on one line. While the same three pieces still
+ *       stand there, the gainer either captures the pinned piece, or captures something the pinned
+ *       piece guards on a square off the line, so that taking back would break the pin.
  *   <li><b>Skewer</b>: a gainer slider moves to attack the enemy king or a piece worth more than
  *       the piece behind it; that front piece steps off the line, and the slider takes the piece
  *       behind at once.
  *   <li><b>Removing the defender</b>: the gainer captures the only defender of an enemy piece
- *       worth at least a knight, and takes that piece with its next move.
+ *       worth at least a knight, and takes that piece, still undefended, within its next
+ *       {@value #FOLLOW_UP_MOVES} moves.
  *   <li><b>Trapped piece</b>: after a gainer move, an enemy knight, bishop, rook, or queen that is
  *       not pinned to its king stands attacked and losing material, and every legal move of it
  *       does too unless it takes something at least as valuable; it is later captured.
  *   <li><b>Deflection</b>: a gainer check, or a capture of something worth at least the defender
  *       that the defender recaptures, makes the replying
  *       piece leave the only defence of an enemy piece worth at least a knight, which the gainer
- *       takes at once.
+ *       takes, still undefended, within its next {@value #FOLLOW_UP_MOVES} moves.
  *   <li><b>In-between move</b>: right after the opponent captures, the gainer could recapture but
  *       first gives check or takes a piece worth at least a knight, then recaptures later, ending
  *       at least {@value #MATERIAL} points better than the direct recapture could at best.
@@ -60,6 +62,8 @@ final class LineMotifs {
     /** The longest prefix of a line any motif reads. */
     static final int MAX_PLIES = PATTERN_PLIES + GAIN_PLIES + 2;
     static final int MATERIAL = 2;
+    /** Removing the defender and deflection may take the abandoned piece within this many gainer moves. */
+    static final int FOLLOW_UP_MOVES = 2;
 
     private static final int[][] DIAGONAL = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
     private static final int[][] STRAIGHT = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -145,9 +149,20 @@ final class LineMotifs {
                     if (!pin.standsIn(line.before(j))) {
                         break;
                     }
-                    if (line.move(j).to.equals(pin.pinned) && line.wins(i, j, MATERIAL)) {
+                    Square taken = line.move(j).to;
+                    if (taken.equals(pin.pinned) && line.wins(i, j, MATERIAL)) {
                         return Optional.of(tactic("pin", kind, pin.piece, pin.slider,
                                 List.of(pin.pinned.name, pin.behind.name), i));
+                    }
+                    // The pinned piece guarded the captured square but could only take back by
+                    // leaving the pin line, which the pin forbids or makes too costly. While the pin
+                    // still stands after the capture, the only pieces on its line are the three
+                    // pinned ones, so the captured square is always off the line.
+                    boolean guardedByPinned = Attacks.attackedBy(line.before(j), pin.pinned).contains(taken);
+                    if (line.isCapture(j) && guardedByPinned
+                            && pin.standsIn(line.after(j)) && line.wins(i, j, MATERIAL)) {
+                        return Optional.of(tactic("pin", kind, pin.piece, pin.slider,
+                                List.of(pin.pinned.name, pin.behind.name, taken.name), i));
                     }
                 }
             }
@@ -198,18 +213,18 @@ final class LineMotifs {
             }
             ChessGame before = line.before(j);
             Square defenderSquare = line.move(j).to;
-            Move next = line.move(j + 2);
-            Piece guarded = before.getPiece(next.to);
-            if (guarded == null || guarded.side == gainer || guarded.pieceType == PieceType.KING
-                    || value(guarded) < 3 || next.to.equals(defenderSquare)) {
-                continue;
-            }
-            boolean onlyDefender = Attacks.attackedBy(before, defenderSquare).contains(next.to)
-                    && Attacks.attackers(before, next.to, guarded.side).size() == 1;
-            boolean stillThere = guarded.equals(line.before(j + 2).getPiece(next.to));
-            if (onlyDefender && stillThere && line.wins(j, j + 2, MATERIAL)) {
-                return Optional.of(tactic("removing_defender", kind, defender, defenderSquare,
-                        List.of(next.to.name), j));
+            for (Square guardedSquare : Attacks.attackedBy(before, defenderSquare)) {
+                Piece guarded = before.getPiece(guardedSquare);
+                if (guarded == null || guarded.side == gainer || guarded.pieceType == PieceType.KING
+                        || value(guarded) < 3
+                        || Attacks.attackers(before, guardedSquare, guarded.side).size() != 1) {
+                    continue;
+                }
+                Optional<Integer> take = takenWithin(line, j, guardedSquare, guarded);
+                if (take.isPresent() && line.wins(j, take.get(), MATERIAL)) {
+                    return Optional.of(tactic("removing_defender", kind, defender, defenderSquare,
+                            List.of(guardedSquare.name), j));
+                }
             }
         }
         return Optional.empty();
@@ -263,17 +278,35 @@ final class LineMotifs {
             if (!check && (!reply.to.equals(forcing.to) || value(line.captured(j)) < value(defender))) {
                 continue;
             }
-            Move take = line.move(j + 2);
-            Piece target = after.getPiece(take.to);
-            if (target == null || target.side == gainer || target.pieceType == PieceType.KING
-                    || value(target) < 3 || take.to.equals(reply.to)) {
-                continue;
+            for (Square duty : Attacks.attackedBy(after, reply.from)) {
+                Piece target = after.getPiece(duty);
+                if (target == null || target.side == gainer || target.pieceType == PieceType.KING
+                        || value(target) < 3 || duty.equals(reply.to)
+                        || Attacks.isAttacked(line.after(j + 1), duty, target.side)) {
+                    continue;
+                }
+                Optional<Integer> take = takenWithin(line, j, duty, target);
+                if (take.isPresent() && line.wins(j, take.get(), MATERIAL)) {
+                    return Optional.of(tactic("deflection", kind, defender, reply.from, List.of(duty.name), j));
+                }
             }
-            boolean defended = Attacks.attackedBy(after, reply.from).contains(take.to);
-            boolean leftUndefended = !Attacks.isAttacked(line.after(j + 1), take.to, target.side);
-            if (defended && leftUndefended && line.isCapture(j + 2) && line.wins(j, j + 2, MATERIAL)) {
-                return Optional.of(tactic("deflection", kind, defender, reply.from,
-                        List.of(take.to.name), j));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The index of the gainer move that captures {@code piece} on {@code square} within the next
+     * {@value #FOLLOW_UP_MOVES} gainer moves after {@code start}, while it still stands there and
+     * no enemy piece defends it; empty otherwise.
+     */
+    private static Optional<Integer> takenWithin(ReplayedLine line, int start, Square square, Piece piece) {
+        for (int k = start + 2; k < line.size() && k <= start + 2 * FOLLOW_UP_MOVES; k += 2) {
+            ChessGame before = line.before(k);
+            if (!piece.equals(before.getPiece(square))) {
+                return Optional.empty();
+            }
+            if (line.move(k).to.equals(square)) {
+                return Attacks.isAttacked(before, square, piece.side) ? Optional.empty() : Optional.of(k);
             }
         }
         return Optional.empty();

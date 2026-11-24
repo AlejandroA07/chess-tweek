@@ -141,8 +141,13 @@ function motif(
       return `${lead}, uncovering a check from ${gainer} ${key}, and the line wins material.`
     case 'discovered_attack':
       return `${lead}, uncovering an attack by ${gainer} ${key} on ${list(tactic.targets.map((square) => named(fen, square)))}, and the line wins material.`
-    case 'pin':
-      return `${lead}: ${gainer} ${key} pins ${first ?? 'a piece'} to ${second ?? 'the piece behind it'}, and the line wins the pinned piece.`
+    case 'pin': {
+      const pinned = `${lead}: ${gainer} ${key} pins ${first ?? 'a piece'} to ${second ?? 'the piece behind it'}`
+      const guarded = tactic.targets[2]
+      return guarded === undefined
+        ? `${pinned}, and the line wins the pinned piece.`
+        : `${pinned}, so it cannot take back on ${guarded}, and the line wins material there.`
+    }
     case 'skewer':
       return `${lead}: ${gainer} ${key} attacks ${first ?? 'a piece'}; once it moves, ${second ?? 'the piece behind it'} is taken.`
     case 'removing_defender':

@@ -14,9 +14,10 @@ public interface GameReviews {
     /**
      * The version of the tactic-label rules. Raise it whenever a change to the tactic rules can
      * change any label, so stored copies of labels (Own Puzzles) are refreshed once. 1 is the
-     * Stage 4 rules; 2 adds the Stage 8B named motifs.
+     * Stage 4 rules; 2 adds the Stage 8B named motifs; 3 lets a pin win a piece the pinned piece
+     * guards, and gives removing the defender and deflection two moves to win the piece.
      */
-    int TACTIC_RULES_VERSION = 2;
+    int TACTIC_RULES_VERSION = 3;
 
     /**
      * The account's game, or empty when it is not stored. {@code side} null selects the owner's

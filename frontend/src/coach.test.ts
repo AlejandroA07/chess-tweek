@@ -105,6 +105,23 @@ describe('coach cards', () => {
     ])
   })
 
+  it('explains a pin that wins a piece the pinned piece guards', () => {
+    const pin: JudgedMove = {
+      ...caroKann,
+      ply: 31,
+      san: 'Kh1',
+      uci: 'g1h1',
+      fenBefore: '4k3/p7/2n5/4b3/8/8/8/4RBK1 w - - 0 1',
+      phase: 'endgame',
+      before: [line('f1b5', 'Bb5', ['f1b5', 'a7a6', 'e1e5', 'e8f8'], ['Bb5', 'a6', 'Rxe5+', 'Kf8'])],
+      after: [line('a7a6', 'a6', ['a7a6'], ['a6'])],
+      tactics: [{ theme: 'pin', kind: 'missed', piece: 'bishop', square: 'b5', targets: ['c6', 'e8', 'e5'], lineIndex: 0 }],
+    }
+    expect(coachCard(pin, plies, true).why).toContain(
+      'The best line has 16. Bb5: your bishop on b5 pins the knight on c6 to the king on e8, so it cannot take back on e5, and the line wins material there.',
+    )
+  })
+
   it('explains an allowed in-between move from the reply line', () => {
     const before = '3q2k1/8/8/8/6b1/5N2/6P1/3Q2K1 b - - 0 1'
     const inBetween: JudgedMove = {

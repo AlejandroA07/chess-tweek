@@ -29,6 +29,21 @@ describe('TrainingCourse', () => {
     expect(screen.getByText(/independent Chess Tweek course/)).toBeInTheDocument()
   })
 
+  it('shows the recommended lesson above the continuation button', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
+      response(input.toString().endsWith('/progress') ? progress('in_progress') : course()),
+    ))
+    render(<TrainingCourse connectionState="connected" lessonKey={null} onSessionFailure={vi.fn()} />)
+
+    expect(await screen.findByRole('link', { name: 'Continue lesson' })).toBeInTheDocument()
+    expect(screen.getAllByText('Read the last move')).toHaveLength(2)
+    expect(screen.getByRole('link', { name: 'Continue lesson' })).toHaveAttribute(
+      'href', '#/training/lessons/read-the-last-move',
+    )
+    expect(screen.getByText("What is wrong with my opponent's move?")).toBeInTheDocument()
+    expect(screen.queryByText('Recommended next')).not.toBeInTheDocument()
+  })
+
   it('plays the whole line as a timed puzzle attempt with a written hint', async () => {
     const requests: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -64,6 +79,8 @@ describe('TrainingCourse', () => {
     render(<TrainingCourse connectionState="connected" lessonKey="read-the-last-move" onSessionFailure={vi.fn()} />)
 
     expect(await screen.findByRole('heading', { name: 'Read the last move' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Position 1: Remove the checking piece.' }).closest('[data-active-board]')).not.toBeNull()
+    expect(screen.getByRole('heading', { name: 'The idea' })).toBeInTheDocument()
     // The timer starts only when solving starts, so the board waits for that choice.
     expect(screen.getByRole('button', { name: 'e1, white king' })).toBeDisabled()
     expect(screen.getByText(/also counts as an attempt on its Lichess puzzle/)).toBeInTheDocument()

@@ -95,7 +95,7 @@
 .workspace {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: minmax(18rem, 30rem) minmax(22rem, 1fr);
+  grid-template-columns: minmax(18rem, min(55%, calc(100vh - 12rem))) minmax(22rem, 1fr);
   grid-template-rows: auto 1fr;
   align-items: start;
 }
@@ -747,4 +747,8 @@
   .tabs button {
     transition: background-color 150ms ease;
   }
+}
+
+.boardPanel > [role='img']:last-child {
+  max-width: none;
 }

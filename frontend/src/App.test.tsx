@@ -109,7 +109,7 @@ describe('App', () => {
     await waitFor(() => expect(window.location.hash).toBe('#/training'))
     await waitFor(() => expect(screen.getByRole('link', { name: 'Training' }))
       .toHaveAttribute('aria-current', 'page'))
-    expect(await screen.findByRole('heading', { name: 'Four questions before you commit' }))
+    expect(await screen.findByRole('heading', { name: 'Five questions before you commit' }))
       .toBeInTheDocument()
     expect(screen.getByText('Course material remains available.')).toBeInTheDocument()
   })

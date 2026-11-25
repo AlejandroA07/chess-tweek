@@ -333,7 +333,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
         </section>
       ) : (
         <section className={styles.puzzleCard} aria-labelledby="puzzle-title">
-          <div className={styles.board}>
+          <div className={styles.board} data-active-board>
             <InteractiveChessBoard
               key={attempt.attemptId}
               fen={attempt.positionFen}

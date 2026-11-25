@@ -254,7 +254,7 @@
   position: relative;
   isolation: isolate;
   min-height: calc(100vh - 5rem);
-  padding: clamp(var(--space-4), 5vw, var(--space-8));
+  padding: var(--space-2) clamp(var(--space-4), 4vw, var(--space-8)) var(--space-6);
   overflow: hidden;
   background: var(--color-canvas);
 }
@@ -553,4 +553,17 @@
   .navLink {
     transition: none;
   }
+}
+
+/* Board views keep their own return links and use the full window width. */
+.shell:has([data-active-board]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.shell:has([data-active-board]) .sidebar {
+  display: none;
+}
+
+.shell:has([data-active-board]) .workspaceStack {
+  width: 100%;
 }

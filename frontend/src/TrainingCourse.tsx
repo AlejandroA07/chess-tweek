@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { InteractiveChessBoard } from './ChessBoard'
 import styles from './TrainingCourse.module.css'
+import { TrainingShortcutCard } from './TrainingShortcut'
 import { LIST_LABELS, seconds, type PuzzleAttempt, type PuzzleCompletion } from './puzzles'
 import {
   completeLesson,
@@ -113,7 +114,6 @@ export function TrainingCourse({
       <LessonView
         // A new lesson gets fresh lesson state, starting at its first position.
         key={lesson.key}
-        course={course}
         lesson={lesson}
         progress={progress}
         connected={connectionState === 'connected'}
@@ -140,24 +140,17 @@ function CourseDashboard({
     ?? availableLessons[0]
   const completed = progress?.completedLessons ?? 0
   const total = progress?.totalLessons ?? availableLessons.length
-  const percent = total === 0 ? 0 : Math.round((completed / total) * 100)
 
   return (
     <div className={styles.coursePage}>
-      <section className={styles.hero} aria-labelledby="course-title">
-        <div>
-          <p className={styles.eyebrow}>Independent guided course</p>
-          <h2 id="course-title">{course.title}</h2>
-          <p className={styles.subtitle}>{course.subtitle}</p>
-        </div>
-        <div className={styles.progressCard} aria-label="Course progress">
-          <span>{progress === null ? 'Course preview' : `${completed} of ${total} lessons`}</span>
-          <div className={styles.progressTrack} aria-hidden="true">
-            <span style={{ width: `${percent}%` }} />
-          </div>
-          <strong>{progress === null ? 'Progress starts after connection' : `${percent}% complete`}</strong>
-        </div>
-      </section>
+      {recommended && (
+        <TrainingShortcutCard
+          detail={progress === null ? 'Course preview' : `${completed} of ${total} lessons completed`}
+          nextLesson={recommended.title}
+          href={`#/training/lessons/${recommended.key}`}
+          action={progress?.lessons[recommended.key]?.state === 'in_progress' ? 'Continue lesson' : 'Start lesson'}
+        />
+      )}
 
       {connectionState !== 'connected' && (
         <section className={styles.notice} aria-label="Offline course access">
@@ -166,25 +159,12 @@ function CourseDashboard({
         </section>
       )}
 
-      {recommended && (
-        <section className={styles.continuePanel} aria-labelledby="continue-title">
-          <div>
-            <p className={styles.eyebrow}>Recommended next</p>
-            <h3 id="continue-title">{recommended.title}</h3>
-            <p>{recommended.summary}</p>
-            <span>{recommended.estimatedMinutes} minutes · 3 positions</span>
-          </div>
-          <a className={styles.primaryLink} href={`#/training/lessons/${recommended.key}`}>
-            {progress?.lessons[recommended.key]?.state === 'in_progress' ? 'Continue lesson' : 'Start lesson'}
-          </a>
-        </section>
-      )}
-
       <section className={styles.routine} aria-labelledby="routine-title">
         <p className={styles.eyebrow}>The move routine</p>
-        <h3 id="routine-title">Four questions before you commit</h3>
+        <h3 id="routine-title">Five questions before you commit</h3>
         <ol>
           <li><strong>Read:</strong> What changed, and what is threatened?</li>
+          <li><strong>Assess:</strong> What is wrong with my opponent's move?</li>
           <li><strong>Generate:</strong> Which checks, captures, threats, or active moves matter?</li>
           <li><strong>Test:</strong> What is the opponent's strongest reply?</li>
           <li><strong>Verify:</strong> Is the chosen move tactically safe?</li>
@@ -230,7 +210,6 @@ function CourseDashboard({
 }
 
 function LessonView({
-  course,
   lesson,
   progress,
   connected,
@@ -238,7 +217,6 @@ function LessonView({
   onRefreshProgress,
   onSessionFailure,
 }: {
-  course: Course
   lesson: Lesson
   progress: Progress | null
   connected: boolean
@@ -281,44 +259,11 @@ function LessonView({
   return (
     <article className={styles.lessonPage}>
       <a className={styles.backLink} href="#/training">← Course roadmap</a>
-      <header className={styles.lessonHeader}>
-        <div>
-          <p className={styles.eyebrow}>{course.title}</p>
-          <h2>{lesson.title}</h2>
-          <p>{lesson.summary}</p>
-        </div>
-        <span>{lesson.estimatedMinutes} minutes</span>
-      </header>
-
-      {!connected && (
-        <section className={styles.notice} aria-label="Connection required for exercises">
-          <strong>Read-only course mode</strong>
-          <p>Connect Lichess from Dashboard to submit moves and save lesson progress.</p>
-        </section>
-      )}
-
-      <section className={styles.lessonText} aria-labelledby="lesson-explanation">
-        <div>
-          <h3 id="lesson-explanation">The idea</h3>
-          {lesson.explanation.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-        </div>
-        <aside>
-          <h3>Recall checklist</h3>
-          <ol>{lesson.checklist.map((item) => <li key={item}>{item}</li>)}</ol>
-        </aside>
-      </section>
-
-      <section className={styles.exerciseSection} aria-labelledby="practice-title">
-        <div className={styles.sectionHeading}>
-          <div>
-            <p className={styles.eyebrow}>Guided practice</p>
-            <h3 id="practice-title">Apply the routine on the board</h3>
-          </div>
-          <span>{lesson.exercises.length} positions</span>
-        </div>
+      <section className={styles.exerciseSection} aria-label="Guided practice">
         <ExerciseCard
           key={activeExercise.key}
           exercise={activeExercise}
+          lesson={lesson}
           number={activeExerciseIndex + 1}
           connected={connected}
           savedState={progress?.lessons[lesson.key]?.exercises[activeExercise.key]?.state ?? 'not_started'}
@@ -382,6 +327,7 @@ type ExercisePhase =
 
 function ExerciseCard({
   exercise,
+  lesson,
   number,
   connected,
   savedState,
@@ -389,6 +335,7 @@ function ExerciseCard({
   onSessionFailure,
 }: {
   exercise: Exercise
+  lesson: Lesson
   number: number
   connected: boolean
   savedState: 'not_started' | 'in_progress' | 'solved' | 'revealed'
@@ -533,7 +480,7 @@ function ExerciseCard({
   const playing = phase.kind === 'playing'
   return (
     <article className={styles.exerciseCard} aria-labelledby={`${exercise.key}-title`}>
-      <div className={styles.exerciseBoard}>
+      <div className={styles.exerciseBoard} data-active-board>
         <InteractiveChessBoard
           key={attempt?.attemptId ?? phase.kind}
           fen={exercise.fen}
@@ -547,6 +494,18 @@ function ExerciseCard({
         />
       </div>
       <div className={styles.exerciseBody}>
+        <h2 className={styles.lessonTitle}>{lesson.title}</h2>
+        <section className={styles.lessonText} aria-labelledby="lesson-explanation">
+          <div>
+            <h3 id="lesson-explanation">The idea</h3>
+            {lesson.explanation.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+          </div>
+          <div>
+            <h3>Recall checklist</h3>
+            <ol>{lesson.checklist.map((item) => <li key={item}>{item}</li>)}</ol>
+          </div>
+        </section>
+        {!connected && <p className={styles.statusText}>Connect Lichess from Dashboard to submit moves and save lesson progress.</p>}
         <p className={styles.eyebrow}>
           Position {number} · {difficultyLabel(exercise.difficultyTier)} · Lichess {exercise.sourceRating}
         </p>

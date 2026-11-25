@@ -38,21 +38,37 @@ export function TrainingShortcut({
   const started = progress !== null && Object.values(progress.lessons)
     .some((lesson) => lesson.state !== 'not_started')
   return (
+    <TrainingShortcutCard
+      detail={!connected
+        ? 'Explore the original course offline; connect to save progress.'
+        : failed
+          ? 'The course is available, but saved progress could not be loaded.'
+          : progress === null
+            ? 'Loading saved course progress…'
+            : `${progress.completedLessons} of ${progress.totalLessons} lessons completed`}
+      href="#/training"
+      action={started ? 'Continue training' : connected ? 'Start the method' : 'Explore course'}
+    />
+  )
+}
+
+export function TrainingShortcutCard({ detail, href, action, nextLesson }: {
+  detail: string
+  href: string
+  action: string
+  nextLesson?: string
+}) {
+  return (
     <section className={styles.shortcut} aria-labelledby="training-shortcut-title">
       <div>
         <p>Guided training</p>
         <h2 id="training-shortcut-title">Grandmaster Thinking Method</h2>
-        <span>
-          {!connected
-            ? 'Explore the original course offline; connect to save progress.'
-            : failed
-              ? 'The course is available, but saved progress could not be loaded.'
-              : progress === null
-                ? 'Loading saved course progress…'
-                : `${progress.completedLessons} of ${progress.totalLessons} lessons completed`}
-        </span>
+        <span>{detail}</span>
       </div>
-      <a href="#/training">{started ? 'Continue training' : connected ? 'Start the method' : 'Explore course'}</a>
+      <div className={styles.action}>
+        {nextLesson && <strong>{nextLesson}</strong>}
+        <a href={href}>{action}</a>
+      </div>
     </section>
   )
 }

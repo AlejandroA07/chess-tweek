@@ -383,6 +383,7 @@ function ReviewWorkspace({
             <div
               ref={boardPanel}
               className={styles.boardPanel}
+              data-active-board
               tabIndex={0}
               onKeyDown={onBoardKey}
               aria-label="Board navigation. Use the arrow keys, Home, and End to move through the game or the shown engine line."

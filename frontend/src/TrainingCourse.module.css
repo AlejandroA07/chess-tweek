@@ -178,7 +178,7 @@
 
 .routine ol {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-3);
   margin: var(--space-4) 0 0;
   padding: 0;
@@ -447,4 +447,78 @@
   .progressTrack span {
     transition: none;
   }
+}
+
+.lessonPage {
+  gap: var(--space-1);
+}
+
+.exerciseCard {
+  grid-template-columns: minmax(18rem, min(55%, calc(100vh - 10rem))) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+  padding: var(--space-3);
+}
+
+.exerciseBoard > div {
+  max-width: none;
+}
+
+.exerciseBody {
+  align-self: start;
+  min-width: 0;
+}
+
+.lessonTitle {
+  margin: 0 0 var(--space-2);
+  font: 600 1.5rem / 1.25 var(--font-display);
+}
+
+.lessonText {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+
+.lessonText h3 {
+  font-size: 1.125rem;
+}
+
+.lessonText p {
+  margin: var(--space-1) 0 var(--space-2);
+  line-height: 1.4;
+}
+
+.lessonText ol {
+  gap: var(--space-1);
+  margin: var(--space-1) 0 var(--space-3);
+}
+
+@media (max-width: 900px) {
+  .exerciseCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .exerciseBoard {
+    max-width: min(100%, 42rem);
+  }
+}
+
+.exerciseBody {
+  font-size: 0.875rem;
+}
+
+.exerciseBody h4 {
+  margin: var(--space-1) 0;
+  font-size: 1.0625rem;
+  line-height: 1.3;
+}
+
+.exerciseBody .eyebrow,
+.exerciseBody .statusText {
+  margin: var(--space-2) 0;
+}
+
+.exerciseActions {
+  margin-top: var(--space-2);
 }

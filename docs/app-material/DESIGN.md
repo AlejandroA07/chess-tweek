@@ -116,15 +116,15 @@ Rules:
 - Standard scale: `4, 8, 16, 24, 32, 48, 64px`.
 - Desktop sidebar: `208px` wide.
 - Desktop top bar: approximately `72–80px` high.
-- Main desktop padding: `40–64px`, reduced before content becomes cramped.
+- Main workspace starts close to the top bar; horizontal padding stays fluid and reduces before content becomes cramped.
 - Standard grid gutter: `24px`.
 - Main content uses a fluid grid and should not exceed the readable width of its task.
-- Analysis and puzzle views prioritize a square board with adjacent move and evidence panels.
+- When a board is displayed in a lesson, puzzle, or game review, hide the sidebar and use the available width for a square board with adjacent content; retain a clear return link.
 - Dense tables use alignment and whitespace before adding more borders.
 
 Responsive behavior:
 
-- At `1280px` and wider, use the full sidebar and multi-column workspace.
+- At `1280px` and wider, use the full sidebar and multi-column workspace, except when a board is displayed.
 - Between `768px` and `1279px`, reduce outer padding and collapse secondary panels before shrinking primary content excessively.
 - Below `768px`, use a navigation drawer and stack content in task order.
 - At `320px`, controls remain usable without page-level horizontal scrolling; chessboards scale to the viewport.
@@ -157,8 +157,8 @@ The selected navigation item uses a primary-brown left rule, solid or subtle war
 ## Guided-course view
 
 - The Training destination opens a calm course dashboard, not a competitive puzzle lobby. Lead with the course title, one-sentence purpose, progress, and a clear recommended next lesson.
-- Show the four-step move routine as a stable recall aid and the course roadmap as solid surface cards. Available lessons are direct links; future modules use the plain text label **Planned**, not locks, countdowns, rewards, streaks, or invented scores.
-- A lesson keeps explanation and recall checklist readable before practice. Guided exercises use the project chessboard as the primary interactive object with prompt, status, hints, feedback, reveal, and completion controls beside or below it.
+- Show the five-question move routine as a stable recall aid and the course roadmap as solid surface cards. Available lessons are direct links; future modules use the plain text label **Planned**, not locks, countdowns, rewards, streaks, or invented scores.
+- A lesson places the chessboard on the left and its title, explanation, recall checklist, prompt, status, hints, feedback, reveal, and completion controls to its right on wide screens; stack them on narrow screens.
 - Correctness, progress, and revealed-answer states use text as well as color. A returned solved exercise can request **Review answer**, which replays the full line and states that it does not change the Training Lists, and **Solve again**.
 - Each exercise is its Lichess puzzle's full line (owner decision, 2026-11-22). The board stays read-only until **Start solving**, because Solve Time starts then, and the card says beforehand that solving also counts as an attempt on the puzzle in the Training Lists. While solving, the card shows the moves to find, the fast-solve limit, and Wrong Moves. It also states next to the two written hints and Show solution that using any of them places the puzzle in Hard to Solve. Completion shows the course explanation and the puzzle result in words, for example "Puzzle training: moved from Retiring to Hard to Solve."
 - Disconnected mode keeps all authored explanation and positions readable, while a calm inline notice explains that submitting moves and saving progress require Lichess connection.

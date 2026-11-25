@@ -23,6 +23,7 @@
           "checklist": [
             "Am I in check?",
             "What did the opponent's move attack or uncover?",
+            "What is wrong with my opponent's move?",
             "Is any piece loose, overloaded, or facing mate?",
             "Can I answer the threat with an active move?"
           ],

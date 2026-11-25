@@ -42,7 +42,7 @@ describe('App', () => {
       'page',
     )
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
-    expect(await screen.findByText('Backend ready')).toBeInTheDocument()
+    expect(screen.queryByText('Backend ready')).not.toBeInTheDocument()
   })
 
   it('updates the route and selected navigation item', async () => {
@@ -882,85 +882,18 @@ describe('App', () => {
 
     render(<App />)
 
+    expect(await screen.findByText('ChessOwner')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'ChessOwner' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Admin' }))
     expect(await screen.findByRole('heading', { name: 'ChessOwner' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'Rating context could not be loaded' }))
-      .toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }))
+    expect(await screen.findByRole('heading', { name: 'Lichess ratings' })).toBeInTheDocument()
     expect(screen.getByText('1,801')).toBeInTheDocument()
     expect(screen.getByText('1,765')).toBeInTheDocument()
     expect(screen.getByText('1,902')).toBeInTheDocument()
     expect(screen.getByText('Not rated')).toBeInTheDocument()
-    expect(screen.getByText('2,020')).toBeInTheDocument()
+    expect(screen.queryByText('Correspondence')).not.toBeInTheDocument()
     expect(screen.queryByText(/token/i)).not.toBeInTheDocument()
-  })
-
-  it('shows stored rating history and the bot record on the connected Dashboard', async () => {
-    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
-      const url = input.toString()
-
-      if (url === '/api/health') {
-        return { ok: true, json: async () => ({ status: 'ok' }) } as Response
-      }
-      if (url === '/api/lichess/session') {
-        return { ok: true, json: async () => connectedSession() } as Response
-      }
-      if (url === '/api/dashboard/rating-context') {
-        return {
-          ok: true,
-          json: async () => ({
-            ratings: [
-              { speed: 'rapid', gamesCounted: 0, latestChange: null, points: [] },
-              {
-                speed: 'blitz',
-                gamesCounted: 2,
-                latestChange: 8,
-                points: [
-                  { playedAt: '2026-11-10T00:00:00Z', rating: 1757 },
-                  { playedAt: '2026-11-11T00:00:00Z', rating: 1765 },
-                ],
-              },
-              { speed: 'bullet', gamesCounted: 0, latestChange: null, points: [] },
-              { speed: 'classical', gamesCounted: 0, latestChange: null, points: [] },
-            ],
-            botRecord: {
-              wins: 1,
-              draws: 0,
-              losses: 0,
-              games: 1,
-              lowestRating: 1750,
-              highestRating: 1750,
-              groups: [
-                {
-                  type: 'bot_rating_band',
-                  ratingFrom: 1600,
-                  ratingTo: 1799,
-                  aiLevel: null,
-                  wins: 1,
-                  draws: 0,
-                  losses: 0,
-                  games: 1,
-                },
-              ],
-            },
-          }),
-        } as Response
-      }
-
-      throw new Error(`Unexpected request: ${url}`)
-    })
-
-    render(<App />)
-
-    const blitz = await screen.findByRole('article', { name: 'Blitz rating' })
-    expect(await within(blitz).findByText('Last game +8')).toBeInTheDocument()
-    expect(within(blitz).getByText('1,765')).toBeInTheDocument()
-    const bots = screen.getByRole('article', { name: 'Bot record' })
-    expect(within(bots).getByText('BOT 1,600\u20131,799')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'No chess activity yet' })).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('link', { name: 'Games' }))
-    await waitFor(() =>
-      expect(screen.queryByRole('article', { name: 'Bot record' })).not.toBeInTheDocument(),
-    )
   })
 
   it('logs out through the protected endpoint and returns to the disconnected state', async () => {
@@ -995,6 +928,7 @@ describe('App', () => {
     })
 
     render(<App />)
+    fireEvent.click(screen.getByRole('link', { name: 'Admin' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Log out' }))
 
     expect(await screen.findByRole('heading', { name: 'Connect your Lichess account' })).toBeInTheDocument()

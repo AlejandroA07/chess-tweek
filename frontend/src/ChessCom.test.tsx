@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AdminChessCom } from './AdminChessCom'
 import { DashboardChessComRatings } from './DashboardRatingContext'
 import { GameRetrievalPanel } from './GameRetrievalPanel'
@@ -215,29 +215,45 @@ describe('Chess.com ratings on Dashboard', () => {
     },
   })
 
-  it('shows the latest stored rating and its history from chess.com games', async () => {
+  it('shows four compact ratings from stored games', async () => {
     const calls = server(() => json(200, context([
       { playedAt: '2026-11-01T00:00:00Z', rating: 1290 },
       { playedAt: '2026-11-02T00:00:00Z', rating: 1312 },
     ])))
     render(<DashboardChessComRatings onSessionFailure={vi.fn()} />)
 
-    const blitz = await screen.findByRole('article', { name: 'Blitz rating' })
-    expect(within(blitz).getByText('1,312')).toBeInTheDocument()
-    expect(within(blitz).getByText('Latest rating in your stored games')).toBeInTheDocument()
-    expect(within(blitz).getByText('2 rated games stored')).toBeInTheDocument()
-    expect(screen.queryByRole('article', { name: 'Classical rating' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('article', { name: 'Bot record' })).not.toBeInTheDocument()
+    const blitz = await screen.findByRole('article', { name: 'Blitz' })
+    expect(blitz).toHaveTextContent('Blitz1,312')
+    expect(screen.getAllByRole('article').map((card) => card.textContent)).toEqual([
+      'RapidNot rated', 'Blitz1,312', 'BulletNot rated', 'ClassicalNot available',
+    ])
+    expect(screen.getByRole('link', { name: 'Open Games' })).toHaveAttribute('href', '#/games')
     expect(calls[0].url).toBe('/api/dashboard/rating-context?source=chesscom')
   })
 
-  it('explains how to add chess.com games when none are stored', async () => {
+  it('shows four cards when no games are stored', async () => {
     server(() => json(200, context([])))
     render(<DashboardChessComRatings onSessionFailure={vi.fn()} />)
 
-    expect(await screen.findByText(/No rated chess.com rapid, blitz, or bullet games are stored yet/)).toBeInTheDocument()
-    expect(screen.queryByText('Not rated')).not.toBeInTheDocument()
+    expect(await screen.findByRole('article', { name: 'Classical' })).toHaveTextContent('Not available')
+    expect(screen.getAllByText('Not rated')).toHaveLength(3)
   })
+
+  it('retries a failed ratings request', async () => {
+    let requests = 0
+    server(() => ++requests === 1 ? json(503, {}) : json(200, context([])))
+    render(<DashboardChessComRatings onSessionFailure={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    expect(await screen.findByRole('article', { name: 'Rapid' })).toHaveTextContent('Not rated')
+  })
+
+  it('reports an expired session', async () => {
+    server(() => json(401, { error: 'not_connected' }))
+    const onSessionFailure = vi.fn()
+    render(<DashboardChessComRatings onSessionFailure={onSessionFailure} />)
+    await waitFor(() => expect(onSessionFailure).toHaveBeenCalledWith('not_connected'))
+  })
+
 })
 
 describe('Chess.com games in the catalog', () => {

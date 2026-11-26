@@ -217,6 +217,12 @@ public class PuzzleTrainingService implements PuzzleTraining {
         return state.performance(accountId, puzzleId);
     }
 
+    /** Starts a category attempt on one chosen Puzzle; used by the pattern ladders. */
+    Optional<Attempt> startInCategory(String accountId, long puzzleId) {
+        requireAccount(accountId);
+        return start(accountId, puzzleId, Entry.CATEGORY);
+    }
+
     private Optional<Attempt> start(String accountId, long puzzleId, Entry entry) {
         PuzzleLibrary.Puzzle puzzle = library.puzzle(puzzleId).orElse(null);
         if (puzzle == null) {

@@ -85,8 +85,9 @@ class PuzzleCategoryIndex {
     }
 
     /**
-     * Recounts every category's Puzzles in one pass over the membership primary key. Call once
-     * after an import changes membership, never on a request.
+     * Recounts every category's Puzzles in one pass over the membership primary key, then rebuilds
+     * the pattern-ladder index and its rating-band counts. Call once after an import changes
+     * membership, never on a request.
      */
     void refreshCounts() {
         jdbc.update("""
@@ -95,6 +96,56 @@ class PuzzleCategoryIndex {
                     SELECT COUNT(*) FROM training_puzzle_category_member m
                     WHERE m.category_id = training_puzzle_category.id)
                 """);
+        refreshLadders();
+    }
+
+    /**
+     * Rebuilds the quality-gated, rating-ordered members of every pattern Theme and their counts
+     * per 100-point rating band (migration V17 holds the same definition for existing libraries).
+     */
+    private void refreshLadders() {
+        jdbc.update("DELETE FROM training_puzzle_ladder_band");
+        jdbc.update("DELETE FROM training_puzzle_ladder_member");
+        jdbc.update("""
+                INSERT INTO training_puzzle_ladder_member (category_id, rating, puzzle_id)
+                SELECT m.category_id, c.rating, m.puzzle_id
+                FROM training_puzzle_category category
+                JOIN training_puzzle_classification classification
+                  ON classification.kind = category.kind
+                 AND classification.classification_key = category.classification_key
+                JOIN training_puzzle_category_member m ON m.category_id = category.id
+                JOIN training_puzzle_current c ON c.puzzle_id = m.puzzle_id
+                WHERE category.kind = 'theme'
+                  AND classification.group_name IN (%s)
+                  AND c.rating_deviation <= ?
+                  AND c.popularity >= ?
+                  AND c.play_count >= ?
+                """.formatted(LADDER_GROUP_PLACEHOLDERS),
+                ladderGateArguments());
+        jdbc.update("""
+                INSERT INTO training_puzzle_ladder_band (category_id, band, puzzle_count)
+                SELECT category_id, rating / 100, COUNT(*)
+                FROM training_puzzle_ladder_member
+                GROUP BY category_id, rating / 100
+                """);
+    }
+
+    /** The Theme catalog groups whose Themes are pattern ladders (owner decision, 2026-11-26). */
+    static final List<String> LADDER_GROUPS = List.of("Mate themes", "Motifs", "Advanced");
+    /** One {@code ?} per ladder group, for an {@code IN (...)} over {@link #LADDER_GROUPS}. */
+    static final String LADDER_GROUP_PLACEHOLDERS =
+            String.join(", ", java.util.Collections.nCopies(LADDER_GROUPS.size(), "?"));
+    /** The guided-course quality gates that every ladder Puzzle meets. */
+    static final int LADDER_MAX_RATING_DEVIATION = 90;
+    static final int LADDER_MIN_POPULARITY = 80;
+    static final int LADDER_MIN_PLAYS = 200;
+
+    private static Object[] ladderGateArguments() {
+        List<Object> arguments = new ArrayList<>(LADDER_GROUPS);
+        arguments.add(LADDER_MAX_RATING_DEVIATION);
+        arguments.add(LADDER_MIN_POPULARITY);
+        arguments.add(LADDER_MIN_PLAYS);
+        return arguments.toArray();
     }
 
     void insertMembers(long puzzleId, List<Integer> categories) {

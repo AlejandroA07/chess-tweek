@@ -31,6 +31,8 @@ export type PlayerAttempt = {
   discardable: boolean
   /** Names a discardable puzzle in its confirmation, for example "Blunder at move 12 (Black), Nov 20, 2026". */
   title?: string
+  /** One more fact beside the board, for example a pattern ladder's place: "Puzzle 35 in 1000–1399". */
+  fact?: { label: string; value: string }
 }
 
 /** The completion fields every kind of Puzzle shares. */
@@ -68,6 +70,11 @@ export type PlayerSource<C extends PlayerCompletion> = {
   emptyText: string
   /** The explanation when one chosen puzzle can no longer be started. */
   unavailableText?: string
+  /**
+   * Offered instead of trying again when a pattern ladder package has no puzzle left, because
+   * trying again cannot help; the explanation is `emptyText`.
+   */
+  endAction?: { href: string; label: string }
   move: (attemptId: number, uci: string) => Promise<MoveResult<C>>
   hint: (attemptId: number) => Promise<string>
   reveal: (attemptId: number) => Promise<RevealResult<C>>
@@ -106,9 +113,11 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
   const [feedback, setFeedback] = useState<{ tone: 'correct' | 'incorrect'; text: string } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [ended, setEnded] = useState(false)
   const statusRef = useRef<HTMLDivElement>(null)
   const puzzleTitleRef = useRef<HTMLHeadingElement>(null)
   const startRef = useRef<HTMLButtonElement>(null)
+  const endRef = useRef<HTMLAnchorElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
   const discardRef = useRef<HTMLButtonElement>(null)
 
@@ -144,6 +153,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
       return 'This session ended because another Practice Session was started. Start a new session to continue.'
     }
     if (code === 'own_puzzle_not_found' && source.unavailableText !== undefined) return source.unavailableText
+    if (code === 'ladder_complete') return source.emptyText
     if (code !== 'no_puzzle_available') return 'A puzzle could not be started. Try again.'
     return source.emptyText
   }
@@ -157,6 +167,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
     setConfirmingDiscard(false)
     setNotice(afterNotice)
     setError(null)
+    setEnded(false)
     try {
       // The attempt (and its Solve Time) starts here; the board is interactive as soon as it returns.
       const attempt = await nextAttempt()
@@ -164,6 +175,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
     } catch (requestError) {
       reportSessionFailure(requestError, onSessionFailure)
       setPhase({ kind: 'ready' })
+      setEnded(requestError instanceof PuzzleRequestError && requestError.code === 'ladder_complete')
       setError(startFailure(requestError))
     }
   }
@@ -287,7 +299,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
     if (before === phase.kind) return
     if (phase.kind === 'complete') statusRef.current?.focus()
     else if (phase.kind === 'playing') puzzleTitleRef.current?.focus()
-    else if (phase.kind === 'ready') startRef.current?.focus()
+    else if (phase.kind === 'ready') (endRef.current ?? startRef.current)?.focus()
   }, [phase.kind])
 
   // The confirmation takes focus at its safest control; cancelling returns focus to Discard.
@@ -300,6 +312,8 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
 
   const attempt = phase.kind === 'playing' || phase.kind === 'complete' ? phase.attempt : null
   const side = attempt === null ? null : sideToMove(attempt.positionFen)
+  // A used-up pattern ladder package offers its end action, since trying again cannot help.
+  const endAction = ended ? source.endAction ?? null : null
   const canDiscard = phase.kind === 'playing' && phase.attempt.discardable && source.discard !== undefined
 
   return (
@@ -320,7 +334,10 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
           </h3>
           {notice && <p className={styles.muted} role="status">{notice}</p>}
           {error && <p className={styles.error} role="alert">{error}</p>}
-          {phase.kind === 'ready' && (
+          {phase.kind === 'ready' && endAction !== null && (
+            <a ref={endRef} className={styles.primaryLink} href={endAction.href}>{endAction.label}</a>
+          )}
+          {phase.kind === 'ready' && endAction === null && (
             <button
               ref={startRef}
               className={styles.primaryButton}
@@ -367,6 +384,12 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
                 <dt>Wrong Moves</dt>
                 <dd>{wrongMoves}</dd>
               </div>
+              {attempt.fact !== undefined && (
+                <div>
+                  <dt>{attempt.fact.label}</dt>
+                  <dd>{attempt.fact.value}</dd>
+                </div>
+              )}
               {inSession && progress !== null && (
                 <div>
                   <dt>Session</dt>

@@ -80,6 +80,8 @@ export type PuzzleFailure =
   | 'own_puzzle_not_found'
   | 'own_puzzle_classified'
   | 'own_puzzle_not_discarded'
+  | 'pattern_not_found'
+  | 'ladder_complete'
   | 'unavailable'
 
 export class PuzzleRequestError extends Error {
@@ -170,6 +172,103 @@ export async function startCategoryPuzzle(kind: CategoryKind, key: string): Prom
   if (!KINDS.includes(kind) || !isCategoryKey(key)) throw new PuzzleRequestError('unavailable')
   const response = await send(`${base}/categories/${kind}/${encodeURIComponent(key)}/attempts`)
   return parseAttempt(await response.json())
+}
+
+/** A fixed rating package of a pattern ladder; `high` is exclusive. */
+export type RatingPackageKey = 'up-to-1000' | '1000-1400' | '1400-1800' | '1800-2200' | '2200-2600' | '2600-plus'
+
+export const RATING_PACKAGES: { key: RatingPackageKey; label: string }[] = [
+  { key: 'up-to-1000', label: 'Below 1000' },
+  { key: '1000-1400', label: '1000–1399' },
+  { key: '1400-1800', label: '1400–1799' },
+  { key: '1800-2200', label: '1800–2199' },
+  { key: '2200-2600', label: '2200–2599' },
+  { key: '2600-plus', label: '2600 and above' },
+]
+
+export type LadderPattern = { key: string; name: string; group: string; puzzles: number }
+
+/** How many puzzles were presented since the package was started or restarted, and the last rating. */
+export type LadderProgress = { presented: number; lastRating: number }
+
+export type LadderPackage = {
+  key: RatingPackageKey
+  low: number
+  high: number
+  puzzles: number
+  progress: LadderProgress | null
+}
+
+export type Ladder = { pattern: LadderPattern; packages: LadderPackage[] }
+
+export type LadderStep = { attempt: PuzzleAttempt; progress: LadderProgress }
+
+export async function loadLadderPatterns(signal?: AbortSignal): Promise<LadderPattern[]> {
+  const value = await read(`${base}/ladders`, signal)
+  if (!isRecord(value) || !Array.isArray(value.patterns) || value.patterns.length > 500) {
+    throw new PuzzleRequestError('unavailable')
+  }
+  return value.patterns.map((entry) => parseLadderPattern(entry))
+}
+
+export async function loadLadder(pattern: string, signal?: AbortSignal): Promise<Ladder> {
+  if (!isCategoryKey(pattern)) throw new PuzzleRequestError('unavailable')
+  const value = await read(`${base}/ladders/${encodeURIComponent(pattern)}`, signal)
+  if (
+    !isRecord(value) || !Array.isArray(value.packages) ||
+    value.packages.length !== RATING_PACKAGES.length
+  ) throw new PuzzleRequestError('unavailable')
+  const packages = value.packages.map((entry, index) => parseLadderPackage(entry, RATING_PACKAGES[index].key))
+  return { pattern: parseLadderPattern(value.pattern, true), packages }
+}
+
+export async function nextLadderPuzzle(pattern: string, ratingPackage: RatingPackageKey): Promise<LadderStep> {
+  if (!isCategoryKey(pattern) || !isPackageKey(ratingPackage)) throw new PuzzleRequestError('unavailable')
+  const response = await send(`${base}/ladders/${encodeURIComponent(pattern)}/${ratingPackage}/attempts`)
+  const value: unknown = await response.json()
+  if (!isRecord(value)) throw new PuzzleRequestError('unavailable')
+  const progress = parseProgress(value.progress)
+  if (progress === null) throw new PuzzleRequestError('unavailable')
+  return { attempt: parseAttempt(value.attempt), progress }
+}
+
+export async function restartLadder(pattern: string, ratingPackage: RatingPackageKey): Promise<void> {
+  if (!isCategoryKey(pattern) || !isPackageKey(ratingPackage)) throw new PuzzleRequestError('unavailable')
+  await send(`${base}/ladders/${encodeURIComponent(pattern)}/${ratingPackage}/restart`)
+}
+
+export function isPackageKey(value: unknown): value is RatingPackageKey {
+  return RATING_PACKAGES.some((entry) => entry.key === value)
+}
+
+/** A pattern in the list has puzzles; the one a ladder names may have none after an import. */
+function parseLadderPattern(value: unknown, allowEmpty = false): LadderPattern {
+  if (
+    !isRecord(value) || !isCategoryKey(value.key) || !isText(value.name, 180) ||
+    !isText(value.group, 80) || !isInteger(value.puzzles, allowEmpty ? 0 : 1, 100_000_000)
+  ) throw new PuzzleRequestError('unavailable')
+  return { key: value.key, name: value.name, group: value.group, puzzles: value.puzzles }
+}
+
+function parseLadderPackage(value: unknown, key: RatingPackageKey): LadderPackage {
+  if (
+    !isRecord(value) || value.key !== key || !isInteger(value.low, 0, 4100) ||
+    !isInteger(value.high, 100, 4100) || value.high <= value.low ||
+    !isInteger(value.puzzles, 0, 100_000_000)
+  ) throw new PuzzleRequestError('unavailable')
+  const progress = value.progress === null || value.progress === undefined ? null : parseProgress(value.progress)
+  if (value.progress !== null && value.progress !== undefined && progress === null) {
+    throw new PuzzleRequestError('unavailable')
+  }
+  return { key, low: value.low, high: value.high, puzzles: value.puzzles, progress }
+}
+
+function parseProgress(value: unknown): LadderProgress | null {
+  if (
+    !isRecord(value) || !isInteger(value.presented, 1, 100_000_000) ||
+    !isInteger(value.lastRating, 100, 4000)
+  ) return null
+  return { presented: value.presented, lastRating: value.lastRating }
 }
 
 export async function submitPuzzleMove(attemptId: number, move: string): Promise<PuzzleMoveResult> {
@@ -264,6 +363,8 @@ async function requireResponse(response: Response) {
   if (code === SERVER_ERROR.ownPuzzleNotFound) throw new PuzzleRequestError('own_puzzle_not_found')
   if (code === SERVER_ERROR.ownPuzzleClassified) throw new PuzzleRequestError('own_puzzle_classified')
   if (code === SERVER_ERROR.ownPuzzleNotDiscarded) throw new PuzzleRequestError('own_puzzle_not_discarded')
+  if (code === SERVER_ERROR.patternNotFound) throw new PuzzleRequestError('pattern_not_found')
+  if (code === SERVER_ERROR.ladderComplete) throw new PuzzleRequestError('ladder_complete')
   throw new PuzzleRequestError('unavailable')
 }
 

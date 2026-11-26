@@ -114,58 +114,35 @@ Stockfish reports only evaluations and move lines; every word in a Game Review i
 
 ### Stage 9 — Pattern ladders
 
-**Branch:** `feature/<topic>` per part · **Needs:** Stage 7 Part 3. Owner request, 2026-11-24. It replaces the earlier curated named collections: the owner keeps only their useful idea, a small fixed set of one pattern that can be finished and tracked.
+**Branch:** `feature/<topic>` per part · **Needs:** Stage 7 Part 3. Owner request, 2026-11-24. It replaces the earlier curated named collections. The design was simplified by owner decision on 2026-11-26: a ladder is one pattern climbed by rating, with no fixed set size, no depth or combination steps, and no project shape check.
 
-A pattern ladder trains recognition of one exact pattern. It shows the same tactic or mate again and again, each time in a different place on the board and with different pieces around it, and gets harder step by step. For example, the Opera mate (rook and bishop) could run: three mates in 1, three mates in 2, two mates in 3, two mates in 4. Then come the same mate reached through a second tactic, such as a pin, a deflection, attraction, or removing the defender. The point is the similarity from one position to the next.
+A pattern ladder trains recognition of one pattern by showing many real puzzles of it, from the easiest to the hardest. The owner chooses a pattern and a rating package, plays as many puzzles as they want, and moves to another package or pattern whenever they decide.
 
-Proposal, to be decided before implementation:
+Decisions (owner, 2026-11-26):
 
-- **One ladder per pattern:** every named mate in the corpus (23, from the back-rank mate with 209,223 puzzles to the Balestra mate with 1,364), and the named tactics (fork, pin, skewer, discovered attack, deflection, and so on).
-- **Easy to hard:**
-  - For mates, by the corpus depth tags `mateIn1` to `mateIn5`, then by puzzle rating within a step.
-  - For tactics, by the length tags `oneMove`, `short`, `long`, and `veryLong`, then by rating.
-- **The same pattern, in a different place each time:**
-  - The Lichess theme names the pattern family.
-  - A project-written check of the final position keeps every step truly the same shape: which piece delivers the mate or the gain, which piece supports it, and where the king or target stands.
-  - A variety rule makes consecutive puzzles differ: wing, rank, and playing colour.
-- **Combination steps:** the same pattern together with a second theme tag on the same puzzle. Only combinations with enough quality puzzles are used.
-- **Real puzzles only:** every puzzle comes from the imported, already verified corpus. Positions are not generated or altered: moving or swapping pieces would need a fresh engine proof of a unique solution and would often change the pattern.
-- **Quality gates:** as for the guided course. Rating deviation at most 90, popularity at least 80, at least 200 plays. Starting rating bands are to be decided.
-- **Training:** each ladder is a set the owner can practise in Repetition, with progress such as "Opera mate: 7 of 10 mastered". Attempts update the same Puzzle Training List state as every other puzzle. Ladders reference shared Puzzles and never copy them.
+- **Patterns:** the named mates and the named tactics. Both work the same way. A pattern is a Lichess theme, trusted as tagged; there is no project-written check of the final position.
+- **Rating packages:** a fixed list: up to 1000, 1000–1400, 1400–1800, 1800–2200, 2200–2600, and 2600 and above. Each package shows how many puzzles it holds for the chosen pattern. There is no rating floor or ceiling beyond what the corpus holds.
+- **Order:** inside a package, puzzles run from the lowest rating to the highest. There is no ordering or filter by mate depth or puzzle length.
+- **No combinations:** there is no filter or step for a second theme on the same puzzle.
+- **Resume:** each pattern and package remembers where the owner stopped and continues from the next puzzle. The owner can restart a package from its beginning.
+- **Quality gates:** as for the guided course. Rating deviation at most 90, popularity at least 80, at least 200 plays.
+- **Real puzzles only:** every puzzle comes from the imported, already verified corpus. Positions are not generated or altered.
+- **Training state:** attempts update the same Puzzle Training List state as every other puzzle, so misses reach Repetition as usual. Ladders reference shared Puzzles and never copy them.
+- **Build-up:** training the set-up before a pattern is not part of this stage (owner decision, 2026-11-26). The ideas below stay for later, alongside the thinking-habit trainer.
 
-Sizing check on the 2026-11-01 snapshot, Opera mate with the quality gates:
+The Themes page from Stage 7 Part 3b already lists these themes and plays puzzles from them, so the ladder builds on it. Confirmed by the owner on 2026-11-26:
 
-| Step | Quality puzzles |
-|---|---:|
-| Mate in 1 | 9,113 |
-| Mate in 2 | 13,590 |
-| Mate in 3 | 4,080 |
-| Mate in 4 | 862 |
-| Mate in 5 | 118 |
-| With attraction | 2,556 |
-| With a pin | 937 |
-| With a discovered attack | 303 |
-| With clearance | 265 |
-| With deflection | 204 |
-| With removing the defender | 5 |
+- The patterns are the themes in the Themes page sections Mate themes, Motifs, and Advanced.
+- A package skips Mastered puzzles, as By Category does.
 
-**To consider as well: training the build-up.** By owner request on 2026-11-24, this stage must also consider training the set-up that makes a pattern possible, not only executing it once it is on the board. This is open, and needs a decision on whether and how. Possible approaches:
+**Maybe later: training the build-up.** Possible approaches recorded on 2026-11-24:
 
-- **Earlier start.** Start a ladder puzzle some moves before the pattern, so that the set-up moves are part of the solution. The corpus stores each puzzle's source-game link, but not the earlier moves. Getting them would mean fetching the source game from Lichess, a new outbound call that needs its own decision on caching and failure.
+- **Earlier start.** Start a puzzle some moves before the pattern, so that the set-up moves are part of the solution. The corpus stores each puzzle's source-game link, but not the earlier moves. Getting them would mean fetching the source game from Lichess, a new outbound call that needs its own decision on caching and failure.
 - **Ingredients check.** Before or instead of moving, the owner names what the pattern needs: the open file or diagonal, the guarded escape squares, the defender to remove. The answer is checked against the project's own geometry rules, never against generated text.
 - **"Almost there" positions.** Puzzles whose solution creates the pattern with a forcing set-up, using corpus combinations such as clearance, attraction, or deflection followed by the mate.
-- **From the owner's own games.** Positions from stored Game Reviews where the pattern became available, or was available to the opponent, a few moves later. These would be found with the same pattern check.
+- **From the owner's own games.** Positions from stored Game Reviews where the pattern became available, or was available to the opponent, a few moves later.
 
-Open decisions:
-
-- step sizes, and how many combination steps
-- which patterns come first
-- starting rating bands
-- whether the same-shape check applies to every ladder or only to mates
-- how a pattern too rare for a full ladder is shown
-- whether and how the build-up is trained
-
-- Acceptance: every ladder step is filled from quality-gated corpus puzzles that carry the step's tags. Consecutive puzzles in a ladder differ in place and share the pattern's shape. Ladder practice uses the existing Puzzle state. No Puzzle record is copied or altered. Counts match the imported snapshot.
+- Acceptance: each package holds exactly the quality-gated corpus puzzles of its pattern within its rating range, ordered by rating. Leaving and returning resumes at the next puzzle. Ladder practice uses the existing Puzzle state. No Puzzle record is copied or altered. Counts match the imported snapshot.
 
 ### Stage 10 — Opening explorer
 
@@ -533,13 +510,13 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections), has not started. Its open decisions, including whether and how to train the build-up to a pattern, come first.
+- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections; design decided 2026-11-26). Part 1 delivers the whole decided scope and is implemented on `feature/pattern-ladders`, awaiting the owner's review and live check (`docs/dev/2026-11-26-pattern-ladders.md`). Stage 9 is complete when it merges.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
-**Next immediate action (2026-11-24):**
+**Next immediate action (2026-11-26):**
 
-1. Decide the Stage 9 pattern-ladder questions with the owner, then implement its first part on its own `feature/<topic>` branch. The thinking-habit trainer ("Maybe later") can be considered alongside, because the build-up questions overlap with its routine.
+1. Review and merge Stage 9 Part 1 (`feature/pattern-ladders`). Live check after merging: start the app (the first start runs migration V17, about 8 seconds on the full library), open Pattern ladders, pick a pattern and a package, solve a few puzzles, leave and return to confirm it continues where it stopped, and restart the package.
 2. Owner checks still open:
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.

@@ -268,7 +268,7 @@ These were the first bounded-import decisions. The 2026-11-19 full-corpus decisi
 
 4. **No mistake notes (2026-11-15).** The "what I was thinking" note and one-tap mistake reasons are dropped. The engine's best line and reply line already show what was missed.
 
-Still open: whether the project ships starter notes for the London and Caro-Kann plans, or only the owner's own notes and imported PGN comments. Decide before Stage 10.
+Decided 2026-11-26: the project ships short starter notes for the London and Caro-Kann plans, which the owner can edit (see Stage 10 in `03-delivery-plan.md`).
 
 ## Sources
 

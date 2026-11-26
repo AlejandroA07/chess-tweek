@@ -70,6 +70,14 @@ export type PlayerSource<C extends PlayerCompletion> = {
   emptyText: string
   /** The explanation when one chosen puzzle can no longer be started. */
   unavailableText?: string
+  /** The explanation when a session source was replaced by a newer one; Practice Session wording by default. */
+  replacedText?: string
+  /** The explanation when a used-up source ends (`ladder_complete`); `emptyText` by default. */
+  completeText?: string
+  /** Labels the action that creates a new session after one ended; "Start a new session" by default. */
+  newSessionLabel?: string
+  /** Names a session source's position fact; "Session" by default. */
+  progressLabel?: string
   /**
    * Offered instead of trying again when a pattern ladder package has no puzzle left, because
    * trying again cannot help; the explanation is `emptyText`.
@@ -150,10 +158,11 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
     const code = requestError instanceof PuzzleRequestError ? requestError.code : null
     if (code === 'session_complete' || code === 'session_not_found') setSessionId(null)
     if (code === 'session_not_found') {
-      return 'This session ended because another Practice Session was started. Start a new session to continue.'
+      return source.replacedText ??
+        'This session ended because another Practice Session was started. Start a new session to continue.'
     }
     if (code === 'own_puzzle_not_found' && source.unavailableText !== undefined) return source.unavailableText
-    if (code === 'ladder_complete') return source.emptyText
+    if (code === 'ladder_complete') return source.completeText ?? source.emptyText
     if (code !== 'no_puzzle_available') return 'A puzzle could not be started. Try again.'
     return source.emptyText
   }
@@ -344,7 +353,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
               type="button"
               onClick={() => void start()}
             >
-              {inSession && sessionId === null ? 'Start a new session' : 'Try another puzzle'}
+              {inSession && sessionId === null ? source.newSessionLabel ?? 'Start a new session' : 'Try another puzzle'}
             </button>
           )}
         </section>
@@ -392,7 +401,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
               )}
               {inSession && progress !== null && (
                 <div>
-                  <dt>Session</dt>
+                  <dt>{source.progressLabel ?? 'Session'}</dt>
                   <dd>
                     {progress.round > 1 && `Round ${progress.round} · `}
                     {progress.position} of {progress.total}

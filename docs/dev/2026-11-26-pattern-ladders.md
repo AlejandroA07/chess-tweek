@@ -9,7 +9,7 @@ Stage 9 Part 1 implements the pattern ladders the owner decided on 2026-11-26 (`
 - **Rating packages:** Below 1000, 1000–1399, 1400–1799, 1800–2199, 2200–2599, and 2600 and above. `PatternLadders.RatingPackage` holds the bounds, lower inclusive and upper exclusive. The URL keys are `up-to-1000`, `1000-1400`, `1400-1800`, `1800-2200`, `2200-2600`, and `2600-plus`.
 - **Order:** rating, then Puzzle ID for equal ratings.
 - **Skipped:** Puzzles the account has Mastered, as By Category does. Puzzles in other Training Lists are included.
-- **Resume:** each account, pattern, and package keeps a place: the last presented Puzzle's rating and ID, and how many were presented. Starting the next Puzzle moves the place there, so a puzzle left unfinished is not shown again until the package is restarted. Restart forgets the place only; Training List state is never touched.
+- **Resume:** each account, pattern, and package keeps a place: the last presented Puzzle's rating and ID, and its position in the package (since Part 2, `docs/dev/2026-11-26-fast-ladder-and-jump.md`; Part 1 counted Puzzles shown). Starting the next Puzzle moves the place there, so a puzzle left unfinished is not shown again until the package is restarted. Restart forgets the place only; Training List state is never touched.
 - **Attempts:** a ladder attempt is an ordinary `category` attempt of the shared Puzzle engine, so Wrong Moves, hints, Show solution, and Solve Time update the same Training List state as every other Puzzle. Ladders reference Puzzles by ID and never copy them.
 
 ## Storage (migration V17)

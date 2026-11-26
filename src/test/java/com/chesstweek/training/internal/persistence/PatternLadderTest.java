@@ -3,6 +3,7 @@ package com.chesstweek.training.internal.persistence;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -113,8 +114,10 @@ class PatternLadderTest {
             jdbc.update("DELETE FROM training_puzzle_current WHERE puzzle_id = ?", ids.get(2));
             PatternLadders ladders = ladders(application);
 
-            assertThat(ladders.next(OWNER, "fork", RatingPackage.FROM_1000).attempt().puzzleId())
-                    .isEqualTo(ids.get(3));
+            PatternLadders.Next next = ladders.next(OWNER, "fork", RatingPackage.FROM_1000);
+            assertThat(next.attempt().puzzleId()).isEqualTo(ids.get(3));
+            // The place is the position in the package, counting the two skipped Puzzles.
+            assertThat(next.progress()).isEqualTo(new PatternLadders.Progress(3, 1350));
             assertThat(ladders.next(OWNER, "fork", RatingPackage.FROM_1000).outcome())
                     .isEqualTo(NextOutcome.COMPLETE);
             // Mastered is per account.
@@ -142,6 +145,218 @@ class PatternLadderTest {
             assertThat(training.performance(OWNER, attempt.puzzleId())).contains(
                     new PuzzleTraining.Performance(PuzzleTraining.TrainingList.RETIRING, 0, 0));
         }
+    }
+
+    @Test
+    void aJumpMovesThePlaceSoTheChosenPositionComesNext() {
+        try (var application = start()) {
+            List<Long> ids = fixture(application);
+            PatternLadders ladders = ladders(application);
+
+            assertThat(ladders.jump(OWNER, "fork", RatingPackage.FROM_1000, 3))
+                    .isEqualTo(PatternLadders.JumpOutcome.MOVED);
+            assertThat(ladders.ladder(OWNER, "fork").orElseThrow().packages().get(1).progress())
+                    .isEqualTo(new PatternLadders.Progress(2, 1200));
+            PatternLadders.Next third = ladders.next(OWNER, "fork", RatingPackage.FROM_1000);
+            assertThat(third.attempt().puzzleId()).isEqualTo(ids.get(3));
+            assertThat(third.progress()).isEqualTo(new PatternLadders.Progress(3, 1350));
+
+            // Position 1 is the start of the package again.
+            assertThat(ladders.jump(OWNER, "fork", RatingPackage.FROM_1000, 1))
+                    .isEqualTo(PatternLadders.JumpOutcome.MOVED);
+            assertThat(ladders.next(OWNER, "fork", RatingPackage.FROM_1000).attempt().puzzleId())
+                    .isEqualTo(ids.get(1));
+
+            for (int outside : new int[] {0, 4, -1}) {
+                assertThat(ladders.jump(OWNER, "fork", RatingPackage.FROM_1000, outside))
+                        .isEqualTo(PatternLadders.JumpOutcome.OUT_OF_RANGE);
+            }
+            assertThat(ladders.jump(OWNER, "fork", RatingPackage.FROM_2600, 1))
+                    .isEqualTo(PatternLadders.JumpOutcome.OUT_OF_RANGE);
+            assertThat(ladders.jump(OWNER, "mateIn1", RatingPackage.FROM_1000, 1))
+                    .isEqualTo(PatternLadders.JumpOutcome.NOT_FOUND);
+            // Another account's place is untouched.
+            assertThat(ladders.next(OTHER, "fork", RatingPackage.FROM_1000).attempt().puzzleId())
+                    .isEqualTo(ids.get(1));
+        }
+    }
+
+    @Test
+    void aFastLadderClimbsTheRatingStepsThenCombinesWithOtherPatterns() {
+        try (var application = start()) {
+            FastFixture fixture = fastFixture(application);
+            PatternLadders ladders = ladders(application);
+
+            PatternLadders.FastLadder fast = ladders.startFast(OWNER, "fork").orElseThrow();
+            assertThat(fast.total()).isEqualTo(5);
+            List<PatternLadders.FastNext> steps = new ArrayList<>();
+            for (int position = 1; position <= 5; position++) {
+                PatternLadders.FastNext next = ladders.nextFast(OWNER, fast.fastLadderId());
+                assertThat(next.outcome()).isEqualTo(PatternLadders.FastOutcome.STARTED);
+                assertThat(next.position()).isEqualTo(position);
+                assertThat(next.total()).isEqualTo(5);
+                steps.add(next);
+            }
+            assertThat(ladders.nextFast(OWNER, fast.fastLadderId()).outcome())
+                    .isEqualTo(PatternLadders.FastOutcome.COMPLETE);
+
+            // One Puzzle per rating step that has one, lowest step first.
+            assertThat(steps.subList(0, 3)).extracting(next -> next.attempt().puzzleId())
+                    .containsExactly(fixture.a(), fixture.b(), fixture.c());
+            assertThat(steps.subList(0, 3)).extracting(next -> next.step().range())
+                    .containsExactly(new PatternLadders.RatingRange(0, 800),
+                            new PatternLadders.RatingRange(800, 1000),
+                            new PatternLadders.RatingRange(2000, 2200));
+            // Then one Puzzle per other pattern it combines with, nearest to 2000-2199 first.
+            Map<String, Long> combinations = new java.util.HashMap<>();
+            for (PatternLadders.FastNext next : steps.subList(3, 5)) {
+                assertThat(next.step().range()).isNull();
+                combinations.put(next.step().combinedWith().key(), next.attempt().puzzleId());
+            }
+            assertThat(combinations).containsOnlyKeys("pin", "skewer");
+            assertThat(combinations.get("pin")).isIn(fixture.d(), fixture.f());
+            assertThat(combinations.get("skewer")).isEqualTo(fixture.e());
+            assertThat(steps.get(3).step().combinedWith().displayName()).isIn("Pin", "Skewer");
+
+            // A new fast ladder replaces the previous one.
+            PatternLadders.FastLadder again = ladders.startFast(OWNER, "fork").orElseThrow();
+            assertThat(ladders.nextFast(OWNER, fast.fastLadderId()).outcome())
+                    .isEqualTo(PatternLadders.FastOutcome.NOT_FOUND);
+            assertThat(ladders.nextFast(OTHER, again.fastLadderId()).outcome())
+                    .isEqualTo(PatternLadders.FastOutcome.NOT_FOUND);
+            assertThat(ladders.nextFast(OWNER, again.fastLadderId()).outcome())
+                    .isEqualTo(PatternLadders.FastOutcome.STARTED);
+        }
+    }
+
+    @Test
+    void aFastLadderSkipsMasteredPuzzlesAndUnknownPatterns() {
+        try (var application = start()) {
+            FastFixture fixture = fastFixture(application);
+            application.getBean(JdbcTemplate.class).update("""
+                    INSERT INTO training_puzzle_performance (
+                        account_id, puzzle_id, list, successes, strikes, classified_at_ms, updated_at_ms
+                    ) VALUES (?, ?, 'mastered', 0, 0, 0, 0)
+                    """, OWNER, fixture.c());
+            PatternLadders ladders = ladders(application);
+
+            PatternLadders.FastLadder fast = ladders.startFast(OWNER, "fork").orElseThrow();
+            // The 2000-2199 step has only C, which is Mastered; H is below the quality gates.
+            assertThat(fast.total()).isEqualTo(4);
+            List<Long> served = new ArrayList<>();
+            for (int position = 1; position <= 4; position++) {
+                served.add(ladders.nextFast(OWNER, fast.fastLadderId()).attempt().puzzleId());
+            }
+            assertThat(served).doesNotContain(fixture.c(), fixture.h()).doesNotHaveDuplicates();
+            assertThat(ladders.startFast(OWNER, "mateIn1")).isEmpty();
+            assertThat(ladders.startFast(OWNER, "operaMate")).isEmpty();
+        }
+    }
+
+    @Test
+    void aPuzzleInAFastLadderIsRetainedByALaterImport() {
+        try (var application = start()) {
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            jdbc.update("""
+                    INSERT INTO training_puzzle (
+                        provider, external_id, source_fen, source_moves_uci, setup_move_uci,
+                        position_fen, solution_uci, game_url, license, created_at_ms
+                    )
+                    SELECT provider, 'Z0001', source_fen, source_moves_uci, setup_move_uci,
+                           position_fen, solution_uci, game_url, license, created_at_ms
+                    FROM training_puzzle ORDER BY id LIMIT 1
+                    """);
+            long puzzleId = jdbc.queryForObject(
+                    "SELECT id FROM training_puzzle WHERE external_id = 'Z0001'", Long.class);
+            Object[] arguments = java.util.Collections.nCopies(7, puzzleId).toArray();
+            assertThat(jdbc.queryForObject(JdbcPuzzleCorpusStore.RETAINED, Integer.class, arguments))
+                    .isZero();
+
+            int fork = jdbc.queryForObject("""
+                    SELECT id FROM training_puzzle_category
+                    WHERE kind = 'theme' AND classification_key = 'fork'
+                    """, Integer.class);
+            jdbc.update("""
+                    INSERT INTO training_puzzle_fast_ladder (account_id, category_id, created_at_ms)
+                    VALUES (?, ?, 0)
+                    """, OWNER, fork);
+            jdbc.update("""
+                    INSERT INTO training_puzzle_fast_ladder_item (
+                        fast_ladder_id, position, puzzle_id, rating_low, rating_high
+                    ) VALUES (last_insert_rowid(), 1, ?, 0, 800)
+                    """, puzzleId);
+            assertThat(jdbc.queryForObject(JdbcPuzzleCorpusStore.RETAINED, Integer.class, arguments))
+                    .isEqualTo(1);
+        }
+    }
+
+    @Test
+    void aCombinationKeepsSeveralCandidatesSoASharedPuzzleCannotLeaveAnotherThemeEmpty() {
+        try (var application = start()) {
+            FastFixture fixture = fastFixture(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            // D now carries both pin and skewer; E (skewer only) moves into the same range.
+            jdbc.update("UPDATE training_puzzle_current SET source_themes = 'fork pin skewer' WHERE puzzle_id = ?",
+                    fixture.d());
+            jdbc.update("UPDATE training_puzzle_current SET rating = 2260 WHERE puzzle_id = ?", fixture.e());
+            application.getBean(PuzzleCategoryIndex.class).refreshCounts();
+            JdbcPatternLadderStore store = application.getBean(JdbcPatternLadderStore.class);
+            int fork = store.pattern("fork").orElseThrow().categoryId();
+
+            Map<String, List<Long>> candidates = store.combinationsInRange(OWNER, fork, 2200, 2400,
+                    java.util.Set.of("pin", "skewer"), java.util.Set.of(), new java.util.Random(7));
+            assertThat(candidates.get("pin")).containsExactlyInAnyOrder(fixture.d(), fixture.f());
+            assertThat(candidates.get("skewer")).containsExactlyInAnyOrder(fixture.d(), fixture.e());
+
+            // Whatever D fills, the other Theme still gets a Puzzle from 2200-2399.
+            for (int run = 0; run < 10; run++) {
+                PatternLadders.FastLadder fast = ladders(application).startFast(OWNER, "fork").orElseThrow();
+                assertThat(fast.total()).isEqualTo(5);
+                Map<String, Long> combined = new java.util.HashMap<>();
+                for (int position = 1; position <= 5; position++) {
+                    PatternLadders.FastNext next = ladders(application).nextFast(OWNER, fast.fastLadderId());
+                    if (next.step().combinedWith() != null) {
+                        combined.put(next.step().combinedWith().key(), next.attempt().puzzleId());
+                    }
+                }
+                assertThat(combined.values()).allMatch(id -> id == fixture.d() || id == fixture.e() || id == fixture.f());
+                assertThat(combined).containsOnlyKeys("pin", "skewer");
+            }
+        }
+    }
+
+    private record FastFixture(long a, long b, long c, long d, long e, long f, long h) {}
+
+    /**
+     * Fork Puzzles A 750, B 950, C 2010 (fork only); D 2250 and F 2300 (fork and pin); E 2900
+     * (fork and skewer); and H 2100 (fork and skewer, below the popularity gate).
+     */
+    private static FastFixture fastFixture(ConfigurableApplicationContext application) {
+        JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+        List<Long> ids = jdbc.queryForList(
+                "SELECT puzzle_id FROM training_puzzle_current ORDER BY puzzle_id LIMIT 7", Long.class);
+        jdbc.update("DELETE FROM training_puzzle_category_member");
+        jdbc.update("UPDATE training_puzzle_current SET popularity = 0");
+        int[] ratings = {750, 950, 2010, 2250, 2900, 2300, 2100};
+        String[] themes = {"fork", "fork", "fork", "fork pin", "fork skewer", "fork pin", "fork skewer"};
+        for (int index = 0; index < ids.size(); index++) {
+            jdbc.update("""
+                    UPDATE training_puzzle_current
+                    SET rating = ?, rating_deviation = 80, popularity = ?, play_count = 500,
+                        source_themes = ?
+                    WHERE puzzle_id = ?
+                    """, ratings[index], index == 6 ? 50 : 90, themes[index], ids.get(index));
+            for (String theme : themes[index].split(" ")) {
+                jdbc.update("""
+                        INSERT INTO training_puzzle_category_member (category_id, puzzle_id)
+                        SELECT id, ? FROM training_puzzle_category
+                        WHERE kind = 'theme' AND classification_key = ?
+                        """, ids.get(index), theme);
+            }
+        }
+        application.getBean(PuzzleCategoryIndex.class).refreshCounts();
+        return new FastFixture(ids.get(0), ids.get(1), ids.get(2), ids.get(3), ids.get(4),
+                ids.get(5), ids.get(6));
     }
 
     /**

@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -99,6 +100,69 @@ class PatternLadderControllerTest {
     }
 
     @Test
+    void jumpsToAPositionInAPackage() throws Exception {
+        MockMvc mockMvc = mockMvc(connected());
+        mockMvc.perform(post(BASE + "/operaMate/1000-1400/jump").cookie(SESSION).header("Origin", ORIGIN)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"position\":980}"))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        assertThat(ladders.positions).containsExactly(980);
+
+        ladders.jumpOutcome = PatternLadders.JumpOutcome.OUT_OF_RANGE;
+        mockMvc.perform(post(BASE + "/operaMate/1000-1400/jump").cookie(SESSION).header("Origin", ORIGIN)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"position\":99999}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_training_request"));
+        ladders.jumpOutcome = PatternLadders.JumpOutcome.NOT_FOUND;
+        mockMvc.perform(post(BASE + "/mateIn1/1000-1400/jump").cookie(SESSION).header("Origin", ORIGIN)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"position\":1}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("pattern_not_found"));
+    }
+
+    @Test
+    void startsAFastLadderAndPresentsItsStepsWithoutRevealingTheSolution() throws Exception {
+        MockMvc mockMvc = mockMvc(connected());
+        mockMvc.perform(post(BASE + "/operaMate/fast").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.fastLadderId").value(9))
+                .andExpect(jsonPath("$.total").value(51));
+
+        mockMvc.perform(post(BASE + "/fast/9/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.attempt.attemptId").value(7))
+                .andExpect(jsonPath("$.position").value(1))
+                .andExpect(jsonPath("$.total").value(51))
+                .andExpect(jsonPath("$.step.ratingLow").value(0))
+                .andExpect(jsonPath("$.step.ratingHigh").value(800))
+                .andExpect(jsonPath("$.step.combinedWith").doesNotExist())
+                .andExpect(content().string(not(containsString("b2g7"))));
+
+        ladders.combined = true;
+        mockMvc.perform(post(BASE + "/fast/9/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.step.ratingLow").doesNotExist())
+                .andExpect(jsonPath("$.step.combinedWith.key").value("pin"))
+                .andExpect(jsonPath("$.step.combinedWith.name").value("Pin"));
+
+        ladders.fastOutcome = PatternLadders.FastOutcome.COMPLETE;
+        mockMvc.perform(post(BASE + "/fast/9/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("ladder_complete"));
+        ladders.fastOutcome = PatternLadders.FastOutcome.NOT_FOUND;
+        mockMvc.perform(post(BASE + "/fast/9/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("session_not_found"));
+
+        ladders.missing = true;
+        mockMvc.perform(post(BASE + "/mateIn1/fast").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("no_puzzle_available"));
+    }
+
+    @Test
     void rejectsInvalidInputBeforeAuthorizingOrActing() throws Exception {
         var authorizations = new AtomicInteger();
         MockMvc mockMvc = mockMvc(counting(authorizations));
@@ -111,6 +175,15 @@ class PatternLadderControllerTest {
         }
         mockMvc.perform(get(BASE + "/opera%20mate").cookie(SESSION))
                 .andExpect(status().isBadRequest());
+        for (String body : List.of("{}", "{\"position\":0}", "{\"position\":-3}", "{\"position\":\"x\"}")) {
+            mockMvc.perform(post(BASE + "/operaMate/1000-1400/jump").cookie(SESSION).header("Origin", ORIGIN)
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(post(BASE + "/opera%20mate/fast").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post(BASE + "/fast/0/attempts").cookie(SESSION).header("Origin", ORIGIN))
+                .andExpect(status().isBadRequest());
         assertThat(authorizations).hasValue(0);
         assertThat(ladders.calls).hasValue(0);
     }
@@ -119,7 +192,8 @@ class PatternLadderControllerTest {
     void refusesCrossOriginWritesAndDisconnectedSessionsBeforeActing() throws Exception {
         var authorizations = new AtomicInteger();
         MockMvc mockMvc = mockMvc(counting(authorizations));
-        for (String path : List.of("/operaMate/1000-1400/attempts", "/operaMate/1000-1400/restart")) {
+        for (String path : List.of("/operaMate/1000-1400/attempts", "/operaMate/1000-1400/restart",
+                "/operaMate/1000-1400/jump", "/operaMate/fast", "/fast/9/attempts")) {
             mockMvc.perform(post(BASE + path).cookie(SESSION).header("Origin", "https://example.com"))
                     .andExpect(status().isForbidden());
             mockMvc.perform(post(BASE + path).cookie(SESSION))
@@ -167,6 +241,10 @@ class PatternLadderControllerTest {
         final List<RatingPackage> packages = new ArrayList<>();
         final AtomicInteger calls = new AtomicInteger();
         NextOutcome outcome = NextOutcome.STARTED;
+        JumpOutcome jumpOutcome = JumpOutcome.MOVED;
+        FastOutcome fastOutcome = FastOutcome.STARTED;
+        final List<Integer> positions = new ArrayList<>();
+        boolean combined;
         boolean missing;
         RuntimeException failure;
 
@@ -207,6 +285,33 @@ class PatternLadderControllerTest {
             act(accountId);
             packages.add(ratingPackage);
             return !missing;
+        }
+
+        @Override
+        public JumpOutcome jump(String accountId, String patternKey, RatingPackage ratingPackage, int position) {
+            act(accountId);
+            positions.add(position);
+            return jumpOutcome;
+        }
+
+        @Override
+        public Optional<FastLadder> startFast(String accountId, String patternKey) {
+            act(accountId);
+            return missing ? Optional.empty() : Optional.of(new FastLadder(9, 51));
+        }
+
+        @Override
+        public FastNext nextFast(String accountId, long fastLadderId) {
+            act(accountId);
+            if (fastOutcome != FastOutcome.STARTED) {
+                return new FastNext(fastOutcome, null, 0, 0, null);
+            }
+            FastStep step = combined
+                    ? new FastStep(null, new Pattern("pin", "Pin", "Motifs", 0))
+                    : new FastStep(new RatingRange(0, 800), null);
+            return new FastNext(FastOutcome.STARTED,
+                    new PuzzleTraining.Attempt(7, 11, "L0001", FEN, "g3f3", 750, 2, 11_000, null),
+                    combined ? 2 : 1, 51, step);
         }
 
         private void act(String accountId) {

@@ -71,6 +71,26 @@
   border-top: 3px solid var(--color-primary);
 }
 
+/* A full-width card that leads a module grid, such as the fast ladder. */
+.wideModule {
+  grid-column: 1 / -1;
+}
+
+/* Jumping to a position inside a pattern ladder package. */
+.jump {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.jump .field input {
+  min-width: 7rem;
+  width: 9rem;
+}
+
 .module[data-status='planned'] {
   border-top-color: var(--color-border-strong);
 }

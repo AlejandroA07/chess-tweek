@@ -151,7 +151,7 @@ export function PuzzleTraining({
   if (route.kind.startsWith('own-')) {
     return <OwnPuzzles route={route as OwnRoute} onSessionFailure={onSessionFailure} />
   }
-  if (route.kind === 'ladders' || route.kind === 'ladder' || route.kind === 'ladder-play') {
+  if (route.kind === 'ladders' || route.kind === 'ladder' || route.kind === 'ladder-play' || route.kind === 'ladder-fast') {
     return <PatternLadders route={route} categories={categories} onSessionFailure={onSessionFailure} />
   }
   if (route.kind === 'dashboard') return <PuzzleDashboard />

@@ -28,6 +28,37 @@ public interface PatternLadders {
     boolean restart(String accountId, String patternKey, RatingPackage ratingPackage);
 
     /**
+     * Moves the account's place so that the package's next Puzzle is the one at {@code position}
+     * (1-based, in rating order over the whole package, counting Mastered Puzzles too).
+     */
+    JumpOutcome jump(String accountId, String patternKey, RatingPackage ratingPackage, int position);
+
+    /**
+     * Draws a new fast ladder for the pattern, replacing the account's previous one: one random
+     * Puzzle from each {@link #FAST_STEPS} range, then, in random order, one Puzzle of the pattern
+     * that also carries each other pattern Theme, rated 2000-2199 or as near as possible. Mastered
+     * Puzzles are skipped. Empty when the pattern is unknown or has no Puzzle to draw.
+     */
+    Optional<FastLadder> startFast(String accountId, String patternKey);
+
+    /** Starts an attempt on the fast ladder's next Puzzle that has not been presented. */
+    FastNext nextFast(String accountId, long fastLadderId);
+
+    /** The rating steps of a fast ladder, lower bound inclusive and upper bound exclusive. */
+    List<RatingRange> FAST_STEPS = List.of(
+            new RatingRange(0, 800),
+            new RatingRange(800, 1000),
+            new RatingRange(1000, 1200),
+            new RatingRange(1200, 1400),
+            new RatingRange(1400, 1600),
+            new RatingRange(1600, 1800),
+            new RatingRange(1800, 2000),
+            new RatingRange(2000, 2200));
+
+    /** Where a combination step is drawn from first; it widens in 200-point steps from here. */
+    RatingRange FAST_COMBINATION_RANGE = new RatingRange(2000, 2200);
+
+    /**
      * A fixed rating range, lower bound inclusive and upper bound exclusive. Bounds are multiples
      * of 100 so a package's size is a sum of stored 100-point band counts.
      */
@@ -90,4 +121,29 @@ public interface PatternLadders {
     }
 
     record Next(NextOutcome outcome, PuzzleTraining.Attempt attempt, Progress progress) {}
+
+    enum JumpOutcome {
+        MOVED,
+        /** The position is not between 1 and the package's size. */
+        OUT_OF_RANGE,
+        NOT_FOUND
+    }
+
+    record RatingRange(int low, int high) {}
+
+    record FastLadder(long fastLadderId, int total) {}
+
+    /** A fast ladder step: a rating range, or the other pattern it is combined with. */
+    record FastStep(RatingRange range, Pattern combinedWith) {}
+
+    enum FastOutcome {
+        STARTED,
+        /** Every Puzzle in the fast ladder has been presented. */
+        COMPLETE,
+        /** Not the account's current fast ladder, for example because a new one was started. */
+        NOT_FOUND
+    }
+
+    record FastNext(
+            FastOutcome outcome, PuzzleTraining.Attempt attempt, int position, int total, FastStep step) {}
 }

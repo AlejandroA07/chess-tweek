@@ -23,6 +23,7 @@ import com.chesstweek.gamereview.MyGamesExplorer;
 import com.chesstweek.identity.LichessSessionAuthorization;
 import com.chesstweek.identity.LichessSessionAuthorizer;
 import com.chesstweek.identity.LichessSessionService;
+import com.chesstweek.shared.chess.ExplorerLine;
 import com.chesstweek.shared.chess.ExplorerPosition;
 import com.chesstweek.training.OpeningExplorer;
 
@@ -35,6 +36,8 @@ import com.chesstweek.training.OpeningExplorer;
 public final class OpeningExplorerController {
 
     private static final int MAX_LIST_PARAMETER = 120;
+    private static final int MAX_LINE_PARAMETER = ExplorerLine.MAX_MOVES * 6;
+    private static final String START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     private final LichessSessionAuthorizer sessionAuthorizer;
     private final OpeningExplorer openingExplorer;
@@ -47,6 +50,30 @@ public final class OpeningExplorerController {
         this.sessionAuthorizer = sessionAuthorizer;
         this.openingExplorer = openingExplorer;
         this.myGamesExplorer = myGamesExplorer;
+    }
+
+    /**
+     * Plays a line of UCI moves from a start position (the standard start when {@code from} is
+     * empty) and returns each move in SAN with the position it reaches.
+     */
+    @GetMapping("/api/explorer/line")
+    public ResponseEntity<?> line(
+            @CookieValue(name = LichessSessionService.COOKIE_NAME, required = false)
+                    String sealedSession,
+            @RequestParam(name = "from", defaultValue = "") String from,
+            @RequestParam(name = "moves", defaultValue = "") String moves) {
+        Optional<ExplorerPosition> start = ExplorerPosition.parse(from.isEmpty() ? START_FEN : from);
+        if (start.isEmpty() || moves.length() > MAX_LINE_PARAMETER) {
+            return invalidRequest();
+        }
+        List<String> ucis = moves.isEmpty() ? List.of() : List.of(moves.split(",", -1));
+        Optional<ExplorerLine> line = ExplorerLine.play(start.get(), ucis);
+        if (line.isEmpty()) {
+            return invalidRequest();
+        }
+        return withSession(sealedSession, authorization -> ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(LineResponse.from(line.get())));
     }
 
     @GetMapping("/api/explorer/masters")
@@ -191,6 +218,20 @@ public final class OpeningExplorerController {
     }
 
     public record ErrorResponse(String error) {}
+
+    public record LineMoveResponse(String uci, String san, String fen) {}
+
+    public record LineResponse(String start, List<LineMoveResponse> moves, String fen) {
+
+        static LineResponse from(ExplorerLine line) {
+            return new LineResponse(
+                    line.start().fen(),
+                    line.steps().stream()
+                            .map(step -> new LineMoveResponse(step.uci(), step.san(), step.position().fen()))
+                            .toList(),
+                    line.end().fen());
+        }
+    }
 
     public record ResultsResponse(long white, long draws, long black) {}
 

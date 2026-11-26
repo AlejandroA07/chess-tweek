@@ -35,6 +35,7 @@ describe('App', () => {
       'Games',
       'Reports',
       'Puzzles',
+      'Openings',
       'Admin',
     ])
     expect(within(navigation).getByRole('link', { name: 'Dashboard' })).toHaveAttribute(

@@ -213,6 +213,27 @@ class OpeningExplorerControllerTest {
     }
 
     @Test
+    void playsALineAndReturnsSanAndPositions() throws Exception {
+        MockMvc mvc = mvc(CONNECTED, new FakeExplorer(), noGames());
+
+        mvc.perform(get("/api/explorer/line").param("moves", "e2e4,c7c6").cookie(SESSION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.start").value(START))
+                .andExpect(jsonPath("$.moves[0].san").value("e4"))
+                .andExpect(jsonPath("$.moves[1].uci").value("c7c6"))
+                .andExpect(jsonPath("$.fen").value("rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"));
+        mvc.perform(get("/api/explorer/line").param("from", START).cookie(SESSION))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.moves").isEmpty());
+        for (String moves : List.of("e2e5", "e2e4,", ",e2e4", "e2e4;c7c6", "e2e4,".repeat(201))) {
+            mvc.perform(get("/api/explorer/line").param("moves", moves).cookie(SESSION))
+                    .andExpect(status().isBadRequest());
+        }
+        mvc.perform(get("/api/explorer/line").param("from", "bad").cookie(SESSION))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void reportsMyGamesStorageFailureSafely() throws Exception {
         MyGamesExplorer failing = (accountId, position, filter) -> {
             throw new DataAccessResourceFailureException("disk /Users/private/path");

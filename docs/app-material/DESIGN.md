@@ -19,7 +19,7 @@ The interface must not look like a generic SaaS dashboard or an arcade chess sit
 - Apply the low-contrast light chessboard pattern behind every main workspace.
 - Keep navigation, cards, forms, tables, dialogs, and chessboards on solid surfaces so the pattern never reduces readability.
 - Use the hero's typographic Chess Tweek wordmark with the subtitle “Analysis Studio.” Do not use “Grandmaster Studio” as the product name.
-- Use the approved application navigation: Dashboard, Training, Games, Reports, Puzzles, and Admin.
+- Use the approved application navigation: Dashboard, Training, Games, Reports, Puzzles, Openings, and Admin. Openings was added by owner decision on 2026-11-27 for the Stage 10 opening explorer.
 - There is one light theme in v1. Do not add an incomplete dark theme.
 
 ## Color tokens
@@ -71,7 +71,7 @@ Pieces use filled chess glyphs from the system symbol font: white pieces are sur
 
 ## Shared chessboard background
 
-The checkerboard background is mandatory on every page workspace, including first run, Dashboard, Training, Games, Reports, Puzzles, and Admin. It is decorative and must be hidden from assistive technology.
+The checkerboard background is mandatory on every page workspace, including first run, Dashboard, Training, Games, Reports, Puzzles, Openings, and Admin. It is decorative and must be hidden from assistive technology.
 
 Canonical construction:
 
@@ -146,11 +146,11 @@ The supplied design review is desktop-first. Responsive layouts must preserve hi
 The persistent desktop shell contains:
 
 1. Chess Tweek wordmark and “Analysis Studio” subtitle.
-2. Navigation in this order: Dashboard, Training, Games, Reports, Puzzles, Admin.
+2. Navigation in this order: Dashboard, Training, Games, Reports, Puzzles, Openings, Admin.
 3. A compact connected-Lichess account region at the bottom.
 4. A top bar used only for page context and relevant actions.
 
-Do not add global search, Go Pro, notifications without a real feature, chat bubbles, Play Bot, Coach, Opening Lab, Endgames, Settings, or Help merely because they appear in generated references.
+Do not add global search, Go Pro, notifications without a real feature, chat bubbles, Play Bot, Coach, Opening Lab (the real Openings destination is not a lab), Endgames, Settings, or Help merely because they appear in generated references.
 
 The selected navigation item uses a primary-brown left rule, solid or subtle warm background, icon, and bold text. Selection must not rely on color alone.
 
@@ -200,6 +200,16 @@ The selected navigation item uses a primary-brown left rule, solid or subtle war
 - The Own Puzzle player is the normal player with these differences. The eyebrow above the board shows severity, phase, and opening family instead of a rating. While a New puzzle is open, a text-style Discard action follows Hint and Show solution. After completion, the source link opens the Game Review at the puzzle's move. No source link appears before completion, because the review shows the best move.
 - "Open source game" opens the Game Review with My Moves selected and the finding at that move in view, exactly as if it had been chosen from the findings list.
 - Own Repetition and Mastered Own Puzzles mirror the normal-Puzzle Repetition dashboard and Mastered view. Mastered Own Puzzles are grouped by opening, game phase, and tactic instead of by theme and Lichess opening.
+
+## Openings view
+
+- The Openings destination opens a home page, not a board. It leads with one intro card (eyebrow "Opening explorer", the page purpose in one sentence, and "Open the explorer"), then "Positions with notes": starter notes grouped by opening in authored order, then "Your other notes". Each entry is a link with its title (or "Your note"), its moves in the technical typeface, its source ("Starter note" or "Your note") as a short label, and a one-line excerpt.
+- The explorer is a board view: the sidebar is hidden and "Back to Openings" leads. The board is on the left and the panels on the right on wide screens; they stack in task order on narrow screens. Under the board are Start, Back, Forward, End, and Flip Board, plus one muted line naming the side at the bottom and the side to move.
+- The Line panel lists the moves as buttons in the technical typeface, with move numbers. The current move is marked with a primary underline and `aria-current`, not by color alone. Choosing a move shows that position; playing a new move from an earlier position replaces the rest of the line.
+- The Note panel shows the note at the position: its source label, its title when it has one, and its text with line breaks kept. Actions: Add note or Edit note, Restore starter note when the owner's text replaces or hides a starter note, and a text-style Delete note for the owner's own note elsewhere. Delete confirms inline ("Keep note" has initial focus). The editor has a visible label, the 4,000-character limit and count, and says when empty text hides the starter note. A failed save says that nothing has changed and keeps the text.
+- The "Games from this position" panel has a labeled radio group: Masters, Lichess, and My games. Lichess shows Speeds and Rating groups as labeled checkboxes; the default is Rapid with 1600–1799 and 1800–1999 (owner decision, 2026-11-27). My games shows labeled selects for Played as, Speed, and Site.
+- Statistics lead with the ECO code and opening name (Masters and Lichess), then the game count and the White, draw, and Black shares as text. The moves table has a Move column whose cells are "Play {move}" buttons, then Games, "White / Draws / Black" as percentages in text above a thin decorative bar (maple, border, and dark wood colors; hidden from assistive technology), and Average rating for Masters and Lichess. Then the top games (Masters and Lichess) or "Your recent games here" with links to their Game Reviews (My games).
+- Every Lichess answer says when it was saved. A stale answer says in a warning-rule notice that Lichess could not be reached and gives the saved date. A rate limit names the wait in seconds and says that My games still works; both failures offer "Try again".
 
 ## Components
 
@@ -318,7 +328,7 @@ Generated HTML, Tailwind classes, Material Symbols, external image URLs, and rem
 Stage 1 is complete only when:
 
 - CSS tokens encode this document as the only design-token source.
-- The original empty Dashboard, Games, Reports, Puzzles, and Admin routes and the later first-class Training route use the checkerboard workspace consistently.
+- The original empty Dashboard, Games, Reports, Puzzles, and Admin routes and the later first-class Training and Openings routes use the checkerboard workspace consistently.
 - First-run and application-shell behavior remain visually related.
 - No generated out-of-scope feature appears in navigation or routes.
 - Core color pairings meet the recorded contrast values.

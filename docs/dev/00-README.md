@@ -58,3 +58,4 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-26-pattern-ladders.md` | Records Stage 9 Part 1 pattern ladders by rating package. | dated report |
 | `2026-11-26-fast-ladder-and-jump.md` | Records Stage 9 Part 2: jumping inside a ladder package and the fast ladder. | dated report |
 | `2026-11-26-opening-explorer-backend.md` | Records Stage 10 Part 1: explorer positions, the My games position index (V19), the cached Lichess explorer proxy (V20), and the explorer endpoints. | dated report |
+| `2026-11-27-openings-explorer-page.md` | Records Stage 10 Part 2: the Openings destination, the line endpoint, starter and owner opening notes (V21), and the explorer page. | dated report |

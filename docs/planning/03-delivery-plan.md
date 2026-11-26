@@ -521,15 +521,16 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 10, the opening explorer, in three parts (owner decisions, 2026-11-26, recorded under Stage 10). Part 1, the explorer backend, is implemented on `feature/opening-explorer` and awaits review (`docs/dev/2026-11-26-opening-explorer-backend.md`). Parts 2 and 3 follow.
+- Stage 10, the opening explorer, in three parts (owner decisions, 2026-11-26, recorded under Stage 10). Part 1, the explorer backend, awaits review in PR #79 (`feature/opening-explorer`, `docs/dev/2026-11-26-opening-explorer-backend.md`). Part 2, the Openings page and starter notes, is implemented on `feature/opening-explorer-page`, which builds on Part 1, and awaits review (`docs/dev/2026-11-27-openings-explorer-page.md`). By owner decision on 2026-11-27, Openings is a seventh navigation item, notes are saved per position, and the Lichess database starts with Rapid 1600–1999. Part 3 follows.
 - Stages 11 to 13 follow in order.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
-**Next immediate action (2026-11-26):**
+**Next immediate action (2026-11-27):**
 
-1. Review and merge Stage 10 Part 1 (`feature/opening-explorer`). It has no page yet, so the live check of the Lichess explorer comes with Part 2. Then start Part 2, the explorer page and the starter notes.
-2. Owner checks still open:
+1. Review and merge Stage 10 Part 1 (PR #79), then Part 2 (`feature/opening-explorer-page`). Live check after Part 2: open Openings, open the London setup note, and check that Masters, Lichess (Rapid 1600–1999), and My games show statistics; edit, hide, and restore a starter note; add a note to another position and find it in the notes list. Read the 10 starter notes and correct anything that does not match how you play these openings.
+2. Then Part 3, the opening context in Game Review.
+3. Owner checks still open:
    - Stage 9 Part 2: on a pattern page, use "Go to puzzle", "Last 20", and "Last 10" on a large package and confirm the player opens at that position; start a fast ladder on a large pattern (for example Fork) and on a rare one (for example Balestra mate), and check the rating steps and the "With …" combination steps.
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.

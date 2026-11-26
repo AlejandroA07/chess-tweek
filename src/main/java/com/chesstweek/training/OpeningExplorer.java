@@ -3,6 +3,7 @@ package com.chesstweek.training;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import com.chesstweek.shared.chess.ExplorerPosition;
@@ -41,7 +42,7 @@ public interface OpeningExplorer {
             return value;
         }
 
-        public static java.util.Optional<Speed> fromValue(String value) {
+        public static Optional<Speed> fromValue(String value) {
             for (Speed speed : values()) {
                 if (speed.value.equals(value)) {
                     return java.util.Optional.of(speed);
@@ -73,7 +74,7 @@ public interface OpeningExplorer {
             return lowest;
         }
 
-        public static java.util.Optional<RatingGroup> fromValue(String value) {
+        public static Optional<RatingGroup> fromValue(String value) {
             for (RatingGroup group : values()) {
                 if (Integer.toString(group.lowest).equals(value)) {
                     return java.util.Optional.of(group);

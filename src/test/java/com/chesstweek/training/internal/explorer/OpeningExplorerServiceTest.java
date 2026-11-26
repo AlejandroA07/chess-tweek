@@ -172,9 +172,39 @@ class OpeningExplorerServiceTest {
                 assertThat(entry.responseJson()).doesNotContain("liu_secret_token"));
     }
 
-    private static final class FakeClient implements LichessExplorerClient {
+    @Test
+    void givesUpWaitingBehindASlowUpstreamRequest() throws Exception {
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var slow = new FakeClient() {
+            @Override
+            public ExplorerAnswer masters(String accessToken, ExplorerPosition position) {
+                entered.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.masters(accessToken, position);
+            }
+        };
+        var service = new OpeningExplorerService(
+                slow, new MemoryCache(), new MutableClock(NOW), Duration.ofMillis(50));
+        var first = new Thread(() -> service.masters("token", START));
+        first.start();
+        entered.await();
 
-        private final List<String> calls = new ArrayList<>();
+        Answer waiting = service.lichess("token", START, Set.of(), Set.of());
+
+        release.countDown();
+        first.join();
+        assertThat(waiting.status()).isEqualTo(Answer.Status.UNAVAILABLE);
+        assertThat(slow.calls).containsExactly("masters token");
+    }
+
+    private static class FakeClient implements LichessExplorerClient {
+
+        final List<String> calls = new ArrayList<>();
         private ExplorerClientException.Reason failure;
         private Long retryAfter;
 

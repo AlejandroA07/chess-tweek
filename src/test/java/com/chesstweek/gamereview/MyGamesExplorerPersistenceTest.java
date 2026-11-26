@@ -107,6 +107,27 @@ class MyGamesExplorerPersistenceTest {
         }
     }
 
+    @Test
+    void indexesAGameAgainWhenItsMovesChange(@TempDir Path directory) {
+        try (var application = start(directory)) {
+            var jdbc = application.getBean(JdbcTemplate.class);
+            var explorer = application.getBean(MyGamesExplorer.class);
+            ExplorerPosition position = after("e4");
+            insert(jdbc, "owner", "lichess", "game0001", 1_000, "white", "win", "rapid", "standard", "e4 e5");
+            assertThat(explorer.statistics("owner", position, MyGamesExplorer.Filter.any()).moves())
+                    .extracting(MyGamesExplorer.NextMove::san).containsExactly("e5");
+
+            jdbc.update("UPDATE game_review_game SET moves_san = 'e4 c5' WHERE game_id = 'game0001'");
+            jdbc.update("UPDATE game_review_game SET owner_rating = 1500 WHERE game_id = 'game0001'");
+
+            assertThat(explorer.statistics("owner", position, MyGamesExplorer.Filter.any()).moves())
+                    .extracting(MyGamesExplorer.NextMove::san).containsExactly("c5");
+            assertThat(jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM game_review_game_position WHERE game_id = 'game0001'",
+                    Integer.class)).isEqualTo(3);
+        }
+    }
+
     private static ExplorerPosition after(String moves) {
         var game = new ChessGame();
         game.playMoves(NotationType.SAN, moves);

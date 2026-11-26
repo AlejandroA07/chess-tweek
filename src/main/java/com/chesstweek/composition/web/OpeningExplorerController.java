@@ -90,17 +90,15 @@ public final class OpeningExplorerController {
             @RequestParam(name = "speed", defaultValue = "") String speed,
             @RequestParam(name = "source", defaultValue = "") String source) {
         Optional<ExplorerPosition> position = ExplorerPosition.parse(fen);
-        if (position.isEmpty()
-                || !List.of("", "white", "black").contains(color)
-                || !List.of("", "ultraBullet", "bullet", "blitz", "rapid", "classical", "correspondence")
-                        .contains(speed)
-                || !List.of("", "lichess", "chesscom").contains(source)) {
+        Optional<Optional<CatalogGame.Color>> ownerColor = optionalValue(color, CatalogGame.Color::fromValue);
+        Optional<Optional<CatalogGame.Speed>> gameSpeed = optionalValue(speed, CatalogGame.Speed::fromValue);
+        Optional<Optional<GameRef.Source>> gameSource = optionalValue(
+                source, value -> GameRef.Source.fromValue(value).orElseThrow(IllegalArgumentException::new));
+        if (position.isEmpty() || ownerColor.isEmpty() || gameSpeed.isEmpty() || gameSource.isEmpty()) {
             return invalidRequest();
         }
         var filter = new MyGamesExplorer.Filter(
-                color.isEmpty() ? null : CatalogGame.Color.fromValue(color),
-                speed.isEmpty() ? null : CatalogGame.Speed.fromValue(speed),
-                GameRef.Source.fromValue(source).orElse(null));
+                ownerColor.get().orElse(null), gameSpeed.get().orElse(null), gameSource.get().orElse(null));
         return withSession(sealedSession, authorization -> {
             try {
                 var statistics = myGamesExplorer.statistics(
@@ -140,6 +138,18 @@ public final class OpeningExplorerController {
             case INVALID_RESPONSE -> error(HttpStatus.BAD_GATEWAY, "invalid_lichess_response");
             case UNAVAILABLE -> error(HttpStatus.SERVICE_UNAVAILABLE, "lichess_unavailable");
         };
+    }
+
+    /** Empty text means any (an empty inner value); an unknown value is invalid (empty). */
+    private static <T> Optional<Optional<T>> optionalValue(String text, Function<String, T> parse) {
+        if (text.isEmpty()) {
+            return Optional.of(Optional.empty());
+        }
+        try {
+            return Optional.of(Optional.of(parse.apply(text)));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 
     /** A comma-separated list of distinct known values; empty text means none. */

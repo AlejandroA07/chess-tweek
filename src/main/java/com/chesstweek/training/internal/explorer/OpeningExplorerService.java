@@ -12,6 +12,7 @@ import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -41,23 +42,32 @@ public class OpeningExplorerService implements OpeningExplorer {
     static final Duration LICHESS_FRESH = Duration.ofDays(7);
     static final int MAX_CACHE_ENTRIES = 20_000;
     private static final long DEFAULT_RETRY_SECONDS = 60;
+    /** How long a request waits behind another upstream request before giving up. */
+    static final Duration UPSTREAM_WAIT = Duration.ofSeconds(20);
 
     private final LichessExplorerClient client;
     private final ExplorerCacheStore cache;
     private final Clock clock;
+    private final Duration upstreamWait;
     private final ObjectMapper objectMapper;
     private final ReentrantLock upstream = new ReentrantLock(true);
     private final AtomicReference<Instant> retryAllowedAt = new AtomicReference<>(Instant.EPOCH);
 
     @Autowired
     public OpeningExplorerService(LichessExplorerClient client, ExplorerCacheStore cache) {
-        this(client, cache, Clock.systemUTC());
+        this(client, cache, Clock.systemUTC(), UPSTREAM_WAIT);
     }
 
     OpeningExplorerService(LichessExplorerClient client, ExplorerCacheStore cache, Clock clock) {
+        this(client, cache, clock, UPSTREAM_WAIT);
+    }
+
+    OpeningExplorerService(
+            LichessExplorerClient client, ExplorerCacheStore cache, Clock clock, Duration upstreamWait) {
         this.client = client;
         this.cache = cache;
         this.clock = clock;
+        this.upstreamWait = upstreamWait;
         this.objectMapper = JsonMapper.builder().build();
     }
 
@@ -105,7 +115,14 @@ public class OpeningExplorerService implements OpeningExplorer {
         if (waiting != null) {
             return staleOr(cached, Answer.failed(Answer.Status.RATE_LIMITED, waiting));
         }
-        upstream.lock();
+        try {
+            if (!upstream.tryLock(upstreamWait.toMillis(), TimeUnit.MILLISECONDS)) {
+                return staleOr(cached, Answer.failed(Answer.Status.UNAVAILABLE, null));
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return staleOr(cached, Answer.failed(Answer.Status.UNAVAILABLE, null));
+        }
         try {
             // Another request may have refreshed the entry or hit the rate limit meanwhile.
             cached = cached(cacheKey);

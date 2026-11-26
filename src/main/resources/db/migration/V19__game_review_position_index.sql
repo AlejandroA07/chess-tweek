@@ -38,3 +38,12 @@ CREATE TABLE game_review_game_position (
 
 CREATE INDEX game_review_game_position_key
     ON game_review_game_position (account_id, position_key, source, game_id);
+
+-- A game retrieved again with different moves or variant is indexed again on the next request.
+CREATE TRIGGER game_review_position_index_stale
+AFTER UPDATE OF moves_san, variant ON game_review_game
+WHEN old.moves_san IS NOT new.moves_san OR old.variant IS NOT new.variant
+BEGIN
+    DELETE FROM game_review_position_index_game
+    WHERE account_id = new.account_id AND source = new.source AND game_id = new.game_id;
+END;

@@ -152,7 +152,15 @@ The Themes page from Stage 7 Part 3b already lists these themes and plays puzzle
 
 - Move statistics for any position from Lichess Masters, Lichess by rating band and speed, and My games computed from stored games of both sites.
 - Opening context in Game Review (owner decision, 2026-11-22), kept simple: the named opening at each move from the free Lichess opening table (CC0, bundled as data), and the first own move that left known theory, using the Lichess rule of at most one Lichess Masters game, with the main moves at that point.
-- The purpose of an opening or line is authored text, not engine output. Decide before this stage whether the project ships starter notes for the openings the owner plays (the London System and the Caro-Kann Defense; see `04-training-goals.md`) or only the owner's own notes.
+- The purpose of an opening or line is authored text, not engine output.
+
+Decisions (owner, 2026-11-26):
+
+- **Starter notes:** the project ships short starter notes, written for this project, on the plans of the London System and the Caro-Kann Defense. The owner can edit them. No generated or copied text (Wikibooks is CC BY-SA and is not used).
+- **Explorer calls in Game Review:** only on an explicit owner action. The review opens offline with the opening name from the bundled table; a "find where I left theory" action makes the bounded, cached Masters requests.
+- **Left theory:** the Lichess rule only: the first own move with at most one Lichess Masters game, checked for at most the first 15 moves. There is no second check against rating-band games; the explorer page still shows Lichess statistics by rating band and speed.
+- **Opening table:** bundling the CC0 Lichess opening-name table as data is approved. No code dependency is added, and no LLM is used.
+- **Parts:** Part 1 is the backend: the server-side explorer proxy with its cache, failure handling, and My games statistics from stored games of both sites. Part 2 is the explorer page and the starter notes. Part 3 is the opening context in Game Review.
 - Acceptance: the Lichess token never reaches the browser; upstream failure and 429 leave My games usable; responses are cached.
 
 ### Stage 11 — Repertoire builder
@@ -513,14 +521,14 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 10, the opening explorer, is next. Before implementation, the owner decides whether the project ships starter notes for the London System and the Caro-Kann Defense, or only the owner's own notes.
+- Stage 10, the opening explorer, in three parts (owner decisions, 2026-11-26, recorded under Stage 10). Part 1, the explorer backend, is implemented on `feature/opening-explorer` and awaits review (`docs/dev/2026-11-26-opening-explorer-backend.md`). Parts 2 and 3 follow.
 - Stages 11 to 13 follow in order.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-26):**
 
-1. Start Stage 10 (`feature/opening-explorer`) once the owner has decided the starter-notes question.
+1. Review and merge Stage 10 Part 1 (`feature/opening-explorer`). It has no page yet, so the live check of the Lichess explorer comes with Part 2. Then start Part 2, the explorer page and the starter notes.
 2. Owner checks still open:
    - Stage 9 Part 2: on a pattern page, use "Go to puzzle", "Last 20", and "Last 10" on a large package and confirm the player opens at that position; start a fast ladder on a large pattern (for example Fork) and on a rare one (for example Balestra mate), and check the rating steps and the "With …" combination steps.
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.

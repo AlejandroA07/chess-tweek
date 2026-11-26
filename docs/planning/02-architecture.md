@@ -33,8 +33,8 @@ Stage 1 encodes Java package boundaries with ArchUnit and keeps the frontend in 
 - **Decision:** Use one SQLite file with module-owned tables and Flyway migrations. Feature code uses parameterized Spring JDBC access through its module's repositories. Cross-module information flows through public query/command contracts assembled at the composition root, never by importing another module's repository.
 - **Ownership:**
   - `identity` owns local non-secret account/session metadata; OAuth tokens are not database data.
-  - `game-review` owns games, analysis jobs, analysis versions/findings, reports, report-game references, and both report-owned package/attempt tables.
-  - `training` owns guided-course lesson/exercise progress and attempts, plus normal puzzle payloads and attempts.
+  - `game-review` owns games, analysis jobs, analysis versions/findings, reports, report-game references, both report-owned package/attempt tables, and the derived position index behind the opening explorer's My games statistics.
+  - `training` owns guided-course lesson/exercise progress and attempts, normal puzzle payloads and attempts, and the Lichess opening explorer cache.
 - **Cross-boundary IDs:** External Lichess IDs and account IDs may be copied as scoped values. Do not create a database foreign key across module ownership.
 - **Rejected:** PostgreSQL/Docker adds a service without a v1 need. A single generic repository would make data ownership unenforceable. Separate SQLite files would complicate backup and transactional storage caps.
 - **Reopen when:** Concurrent writers or measured query volume exceed SQLite's local single-process operating envelope.

@@ -54,3 +54,6 @@ The interface now uses the canonical design tokens and shared shell at desktop a
 | `2026-11-23-more-named-tactics.md` | Records the Stage 8B named motifs, their proof rules, `lineIndex`, the coach wording, and the startup refresh of Own Puzzle tactic labels. | dated report |
 | `2026-11-24-refresh-on-rules-change.md` | Records the tactic rules version, migration V16, and the Own Puzzle label refresh that runs once after each rules change. | dated report |
 | `2026-11-24-positional-observations.md` | Records the Stage 8B measured positional observations, their matched-position rules and thresholds, the only-move signal, and the coach wording. | dated report |
+| `2026-11-26-pattern-ladders.md` | Records Stage 9 Part 1 pattern ladders by rating package. | dated report |
+| `2026-11-26-fast-ladder-and-jump.md` | Records Stage 9 Part 2: jumping inside a ladder package and the fast ladder. | dated report |
+| `2026-11-26-opening-explorer-backend.md` | Records Stage 10 Part 1: explorer positions, the My games position index (V19), the cached Lichess explorer proxy (V20), and the explorer endpoints. | dated report |

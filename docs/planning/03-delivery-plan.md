@@ -509,17 +509,20 @@ Acceptance:
 - The thinking-habit trainer ideas were recorded for later in PR #65, merged on 2026-11-23 (`10-thinking-habit-trainer-ideas.md`).
 - Stage 8B Part 1 is complete in PR #68, merged on 2026-11-24. It adds discovered checks and attacks, pins, skewers, removing the defender, trapped pieces, deflection, and in-between moves, each proven by a material gain in the stored line, with a near-miss test for each. Coach cards and training suggestions cover the new labels. By owner decision on 2026-11-23, existing Own Puzzles get their tactic labels recomputed from their stored analysis (`docs/dev/2026-11-23-more-named-tactics.md`). By owner decision on 2026-11-24, that refresh runs only once after each tactic-rules change, not on every start (migration V16, `docs/dev/2026-11-24-refresh-on-rules-change.md`). A read-only run over the owner's 11 stored findings added no label and changed none.
 - Stage 8B Part 2 is complete in PR #71, merged on 2026-11-24, so Stage 8B is complete. When no tactic explains an inaccuracy, mistake, or blunder, the coach card's Why? names the measured features that differ between the ends of the engine's line and the played line at the same quiet depth, as observations, or says plainly that none changed. It also names an only move when the next engine line scores at least 20 points less (owner decisions, 2026-11-24; `docs/dev/2026-11-24-positional-observations.md`). A read-only run over the owner's 11 stored findings gave observations for one, "nothing measured changed" for two, no comparison for three (two with two-move stored lines, one that never settles), and two only moves. The owner's live check of the merged app on 2026-11-24 found it working.
+- Stage 9 is complete. Part 1, pattern ladders by rating package, merged in PR #75 on 2026-11-26, and the owner tried it live the same day (`docs/dev/2026-11-26-pattern-ladders.md`). Part 2, the fast ladder and jumping inside a package (owner request after that live check), merged in PR #76 on 2026-11-26 (`docs/dev/2026-11-26-fast-ladder-and-jump.md`).
 
 ### Not yet delivered
 
-- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections; design decided 2026-11-26). Part 1 merged in PR #75 on 2026-11-26, and the owner tried it live the same day (`docs/dev/2026-11-26-pattern-ladders.md`). Part 2, the fast ladder and jumping inside a package (owner request after that live check), is implemented on `feature/fast-ladder-and-jump` and awaits review (`docs/dev/2026-11-26-fast-ladder-and-jump.md`). Stage 9 is complete when Part 2 merges.
+- Stage 10, the opening explorer, is next. Before implementation, the owner decides whether the project ships starter notes for the London System and the Caro-Kann Defense, or only the owner's own notes.
+- Stages 11 to 13 follow in order.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-26):**
 
-1. Review and merge Stage 9 Part 2 (`feature/fast-ladder-and-jump`). Live check after merging: on a pattern page, use "Go to puzzle", "Last 20", and "Last 10" on a large package and confirm the player opens at that position; start a fast ladder on a large pattern (for example Fork) and on a rare one (for example Balestra mate), and check the rating steps and the "With …" combination steps.
+1. Start Stage 10 (`feature/opening-explorer`) once the owner has decided the starter-notes question.
 2. Owner checks still open:
+   - Stage 9 Part 2: on a pattern page, use "Go to puzzle", "Last 20", and "Last 10" on a large package and confirm the player opens at that position; start a fast ladder on a large pattern (for example Fork) and on a rare one (for example Balestra mate), and check the rating steps and the "With …" combination steps.
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.
    - Part 3d: solve one guided exercise in the merged app and confirm that the completion message names the Training List move and that the puzzle appears on the Repetition dashboard.

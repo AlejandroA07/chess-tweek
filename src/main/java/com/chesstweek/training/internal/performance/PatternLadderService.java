@@ -1,8 +1,10 @@
 package com.chesstweek.training.internal.performance;
 
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,7 +38,7 @@ public class PatternLadderService implements PatternLadders {
 
     @Autowired
     public PatternLadderService(JdbcPatternLadderStore store, PuzzleTrainingService training) {
-        this(store, training, Clock.systemUTC(), new java.security.SecureRandom());
+        this(store, training, Clock.systemUTC(), new SecureRandom());
     }
 
     PatternLadderService(
@@ -145,15 +147,21 @@ public class PatternLadderService implements PatternLadders {
             if (wanted.isEmpty()) {
                 break;
             }
-            Map<String, Long> picked = store.combinationsInRange(
+            Map<String, List<Long>> candidates = store.combinationsInRange(
                     accountId, categoryId, range.low(), range.high(), wanted, chosen, random);
-            for (Map.Entry<String, Long> pick : picked.entrySet()) {
-                // One Puzzle can carry several wanted Themes; it fills only the first of them.
-                if (chosen.add(pick.getValue())) {
-                    wanted.remove(pick.getKey());
-                    combinations.add(new JdbcPatternLadderStore.FastItem(
-                            0, pick.getValue(), null, null,
-                            others.get(pick.getKey()).categoryId()));
+            // A Puzzle can carry several wanted Themes but fills only one, so each Theme takes
+            // its first candidate not used yet, in random Theme order.
+            List<String> themes = new ArrayList<>(candidates.keySet());
+            Collections.shuffle(themes, Random.from(random));
+            for (String theme : themes) {
+                for (Long puzzleId : candidates.get(theme)) {
+                    if (chosen.add(puzzleId)) {
+                        wanted.remove(theme);
+                        int combined = others.get(theme).categoryId();
+                        combinations.add(new JdbcPatternLadderStore.FastItem(
+                                0, puzzleId, null, null, combined));
+                        break;
+                    }
                 }
             }
         }
@@ -191,7 +199,7 @@ public class PatternLadderService implements PatternLadders {
                 step = new FastStep(new RatingRange(item.ratingLow(), item.ratingHigh()), null);
             } else {
                 if (patterns == null) {
-                    patterns = new java.util.HashMap<>();
+                    patterns = new HashMap<>();
                     for (JdbcPatternLadderStore.PatternCategory category
                             : store.patternCategories().values()) {
                         patterns.put(category.categoryId(), category.pattern());

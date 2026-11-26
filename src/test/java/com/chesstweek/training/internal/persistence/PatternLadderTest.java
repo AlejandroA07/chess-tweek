@@ -114,8 +114,10 @@ class PatternLadderTest {
             jdbc.update("DELETE FROM training_puzzle_current WHERE puzzle_id = ?", ids.get(2));
             PatternLadders ladders = ladders(application);
 
-            assertThat(ladders.next(OWNER, "fork", RatingPackage.FROM_1000).attempt().puzzleId())
-                    .isEqualTo(ids.get(3));
+            PatternLadders.Next next = ladders.next(OWNER, "fork", RatingPackage.FROM_1000);
+            assertThat(next.attempt().puzzleId()).isEqualTo(ids.get(3));
+            // The place is the position in the package, counting the two skipped Puzzles.
+            assertThat(next.progress()).isEqualTo(new PatternLadders.Progress(3, 1350));
             assertThat(ladders.next(OWNER, "fork", RatingPackage.FROM_1000).outcome())
                     .isEqualTo(NextOutcome.COMPLETE);
             // Mastered is per account.
@@ -285,6 +287,41 @@ class PatternLadderTest {
                     """, puzzleId);
             assertThat(jdbc.queryForObject(JdbcPuzzleCorpusStore.RETAINED, Integer.class, arguments))
                     .isEqualTo(1);
+        }
+    }
+
+    @Test
+    void aCombinationKeepsSeveralCandidatesSoASharedPuzzleCannotLeaveAnotherThemeEmpty() {
+        try (var application = start()) {
+            FastFixture fixture = fastFixture(application);
+            JdbcTemplate jdbc = application.getBean(JdbcTemplate.class);
+            // D now carries both pin and skewer; E (skewer only) moves into the same range.
+            jdbc.update("UPDATE training_puzzle_current SET source_themes = 'fork pin skewer' WHERE puzzle_id = ?",
+                    fixture.d());
+            jdbc.update("UPDATE training_puzzle_current SET rating = 2260 WHERE puzzle_id = ?", fixture.e());
+            application.getBean(PuzzleCategoryIndex.class).refreshCounts();
+            JdbcPatternLadderStore store = application.getBean(JdbcPatternLadderStore.class);
+            int fork = store.pattern("fork").orElseThrow().categoryId();
+
+            Map<String, List<Long>> candidates = store.combinationsInRange(OWNER, fork, 2200, 2400,
+                    java.util.Set.of("pin", "skewer"), java.util.Set.of(), new java.util.Random(7));
+            assertThat(candidates.get("pin")).containsExactlyInAnyOrder(fixture.d(), fixture.f());
+            assertThat(candidates.get("skewer")).containsExactlyInAnyOrder(fixture.d(), fixture.e());
+
+            // Whatever D fills, the other Theme still gets a Puzzle from 2200-2399.
+            for (int run = 0; run < 10; run++) {
+                PatternLadders.FastLadder fast = ladders(application).startFast(OWNER, "fork").orElseThrow();
+                assertThat(fast.total()).isEqualTo(5);
+                Map<String, Long> combined = new java.util.HashMap<>();
+                for (int position = 1; position <= 5; position++) {
+                    PatternLadders.FastNext next = ladders(application).nextFast(OWNER, fast.fastLadderId());
+                    if (next.step().combinedWith() != null) {
+                        combined.put(next.step().combinedWith().key(), next.attempt().puzzleId());
+                    }
+                }
+                assertThat(combined.values()).allMatch(id -> id == fixture.d() || id == fixture.e() || id == fixture.f());
+                assertThat(combined).containsOnlyKeys("pin", "skewer");
+            }
         }
     }
 

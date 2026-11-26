@@ -4,9 +4,10 @@ Stage 9 Part 2 adds two owner requests made after trying Part 1 live on 2026-11-
 
 ## Jump inside a package
 
-- A package card with more than one puzzle offers "Go to puzzle (1–N)" with Go, plus "Last 20" and "Last 10", each shown only when the package has more puzzles than that.
+- A package card with more than one puzzle offers "Go to puzzle (1–N)" with Go, plus "Last 20" and "Last 10", each shown only when the package has at least that many puzzles.
 - Positions count every quality-gated puzzle of the package in rating order, including Mastered ones, so they match the package size on the card. Mastered puzzles are still skipped when served.
-- A jump to position P stores the puzzle at P − 1 as the place, with "presented" set to P − 1, so the player's "Puzzle P in …" fact matches. Position 1 forgets the place, like Restart.
+- A jump to position P stores the puzzle at P − 1 as the place. Position 1 forgets the place, like Restart.
+- The place's number (stored as `presented`) is now the served puzzle's position in the package. Serving the next puzzle adds the number of Mastered or removed puzzles skipped since the last one, which is an index-only count. So "Puzzle P in …" and the card's "At puzzle P of N" stay exact after a jump or a skip. In Part 1 it counted puzzles shown.
 - The store finds position P − 1 with an `OFFSET` on the ladder index alone, which takes a few milliseconds even in the largest package.
 - `POST /api/training/puzzles/ladders/{pattern}/{package}/jump` with `{"position": P}` returns `204`. A position outside 1..size returns `400 invalid_training_request`, and a key that is not a ladder pattern returns `404 pattern_not_found`.
 
@@ -19,7 +20,7 @@ Each start draws a new run for one pattern and replaces the account's previous r
 
 - Mastered puzzles and puzzles no longer current are skipped. A puzzle appears at most once in a run.
 - The rating pick draws a uniform offset over the stored band counts and finds a start on the ladder index alone. The first eligible puzzle at or after that start wins, wrapping to the start of the range.
-- The combination pick reads each candidate's Themes in one pass per range and keeps one puzzle per wanted pattern by reservoir sampling.
+- The combination pick reads each candidate's Themes in one pass per range and keeps up to 8 random candidates per wanted pattern by reservoir sampling. The patterns are filled in random order, each with its first candidate not used yet. So a puzzle that carries several wanted Themes cannot push another one out of the range.
 - Measured on a copy of the owner's library:
   - A rating pick in Fork's largest step took about 6 ms.
   - The 2000–2199 combination pass took 45 ms for Fork and 0.2 s for Kingside attack on first read.
@@ -37,6 +38,8 @@ Each start draws a new run for one pattern and replaces the account's previous r
   - Fast ladder: the rating steps in order and the combination steps.
   - Fast ladder: a gated-out puzzle is never used, Mastered puzzles are skipped, and a new run replaces the old one.
   - Fast ladder: a run belongs to one account, and a pattern without puzzles has none.
+  - A puzzle carrying two wanted Themes leaves the other Theme a candidate in the same range.
+  - The place counts skipped Mastered and removed puzzles.
   - A puzzle referenced by a run is retained by a later import.
 - `PatternLadderControllerTest`: jump and fast ladder responses and error codes, input rejected before authorization, and cross-origin writes refused.
 - `PatternLadders.test.tsx`: the fast route, jump by number and by Last 20 or Last 10 (each shown only when useful), the fast ladder card leading the page, and a fast ladder run through a rating step and a combination step to its end.

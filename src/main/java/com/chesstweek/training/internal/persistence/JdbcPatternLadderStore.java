@@ -1,10 +1,14 @@
 package com.chesstweek.training.internal.persistence;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 import java.util.random.RandomGenerator;
 
@@ -139,7 +143,16 @@ public class JdbcPatternLadderStore {
         }
         int rating = found.getFirst().rating();
         long puzzleId = found.getFirst().puzzleId();
-        int presented = cursor.presented() + 1;
+        // The place is the served Puzzle's position in the package, counting any Mastered or
+        // removed Puzzles skipped since the last one, so jumps and the shown number stay exact.
+        Integer skipped = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM training_puzzle_ladder_member
+                WHERE category_id = ? AND rating >= ? AND rating <= ?
+                  AND (rating > ? OR puzzle_id > ?)
+                  AND (rating < ? OR puzzle_id < ?)
+                """, Integer.class, categoryId, Math.max(ratingPackage.low(), cursor.rating()),
+                rating, cursor.rating(), cursor.puzzleId(), rating, puzzleId);
+        int presented = cursor.presented() + (skipped == null ? 0 : skipped) + 1;
         saveProgress(accountId, categoryId, ratingPackage, found.getFirst(), presented, nowMillis);
         return Optional.of(new Advance(puzzleId, new Progress(presented, rating)));
     }
@@ -180,7 +193,7 @@ public class JdbcPatternLadderStore {
 
     /** Every ladder pattern Theme by key, whether or not it has ladder Puzzles. */
     public Map<String, PatternCategory> patternCategories() {
-        Map<String, PatternCategory> patterns = new java.util.LinkedHashMap<>();
+        Map<String, PatternCategory> patterns = new LinkedHashMap<>();
         jdbc.query("""
                 SELECT category.id, category.classification_key, classification.display_name,
                        classification.group_name
@@ -241,16 +254,20 @@ public class JdbcPatternLadderStore {
         return Optional.empty();
     }
 
+    /** How many random candidates a combination keeps, so shared Puzzles rarely leave one empty. */
+    static final int COMBINATION_CANDIDATES = 8;
+
     /**
-     * For each wanted other pattern (by Theme key), one random current, non-Mastered ladder Puzzle
-     * of {@code categoryId} within {@code [low, high)} whose Themes include it, by reservoir
-     * sampling over one pass of the range. Puzzles in {@code exclude} are skipped.
+     * For each wanted other pattern (by Theme key), up to {@link #COMBINATION_CANDIDATES} random
+     * current, non-Mastered ladder Puzzles of {@code categoryId} within {@code [low, high)} whose
+     * Themes include it, by reservoir sampling over one pass of the range, in random order.
+     * Puzzles in {@code exclude} are skipped.
      */
-    public Map<String, Long> combinationsInRange(
+    public Map<String, List<Long>> combinationsInRange(
             String accountId, int categoryId, int low, int high, Set<String> wanted,
             Set<Long> exclude, RandomGenerator random) {
-        Map<String, Long> picked = new java.util.HashMap<>();
-        Map<String, Integer> seen = new java.util.HashMap<>();
+        Map<String, List<Long>> picked = new HashMap<>();
+        Map<String, Integer> seen = new HashMap<>();
         jdbc.query("""
                 SELECT l.puzzle_id, c.source_themes FROM training_puzzle_ladder_member l
                 JOIN training_puzzle_current c ON c.puzzle_id = l.puzzle_id
@@ -265,14 +282,24 @@ public class JdbcPatternLadderStore {
                         return;
                     }
                     for (String theme : row.getString(2).split(" ")) {
-                        if (wanted.contains(theme)) {
-                            int count = seen.merge(theme, 1, Integer::sum);
-                            if (random.nextInt(count) == 0) {
-                                picked.put(theme, puzzleId);
+                        if (!wanted.contains(theme)) {
+                            continue;
+                        }
+                        int count = seen.merge(theme, 1, Integer::sum);
+                        List<Long> candidates = picked.computeIfAbsent(theme, key -> new ArrayList<>());
+                        if (candidates.size() < COMBINATION_CANDIDATES) {
+                            candidates.add(puzzleId);
+                        } else {
+                            int slot = random.nextInt(count);
+                            if (slot < COMBINATION_CANDIDATES) {
+                                candidates.set(slot, puzzleId);
                             }
                         }
                     }
                 }, categoryId, low, high, accountId);
+        for (List<Long> candidates : picked.values()) {
+            Collections.shuffle(candidates, Random.from(random));
+        }
         return picked;
     }
 

@@ -74,6 +74,8 @@ export type PlayerSource<C extends PlayerCompletion> = {
   replacedText?: string
   /** The explanation when a used-up source ends (`ladder_complete`); `emptyText` by default. */
   completeText?: string
+  /** Labels the action that creates a new session after one ended; "Start a new session" by default. */
+  newSessionLabel?: string
   /** Names a session source's position fact; "Session" by default. */
   progressLabel?: string
   /**
@@ -351,7 +353,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
               type="button"
               onClick={() => void start()}
             >
-              {inSession && sessionId === null ? 'Start a new session' : 'Try another puzzle'}
+              {inSession && sessionId === null ? source.newSessionLabel ?? 'Start a new session' : 'Try another puzzle'}
             </button>
           )}
         </section>

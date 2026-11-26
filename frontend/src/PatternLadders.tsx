@@ -317,7 +317,7 @@ function PackageCard({
       <p>
         {entry.progress === null
           ? 'Not started.'
-          : `${formatCount(entry.progress.presented)} ${entry.progress.presented === 1 ? 'puzzle' : 'puzzles'} done. Last rating ${entry.progress.lastRating}.`}
+          : `At puzzle ${formatCount(entry.progress.presented)} of ${formatCount(entry.puzzles)}. Last rating ${entry.progress.lastRating}.`}
       </p>
       {entry.puzzles === 0 ? (
         <p className={styles.muted}>No puzzles of this pattern in this rating range.</p>
@@ -385,7 +385,7 @@ function PackageCard({
             <button className={styles.secondaryButton} type="submit" disabled={busy || !validTarget}>
               Go
             </button>
-            {entry.puzzles > 20 && (
+            {entry.puzzles >= 20 && (
               <button
                 className={styles.secondaryButton}
                 type="button"
@@ -396,7 +396,7 @@ function PackageCard({
                 Last 20
               </button>
             )}
-            {entry.puzzles > 10 && (
+            {entry.puzzles >= 10 && (
               <button
                 className={styles.secondaryButton}
                 type="button"
@@ -535,7 +535,8 @@ function FastLadderPlayer({
     },
     emptyText: `No puzzle of ${name} is available for a fast ladder: the pattern has none, or every one is Mastered.`,
     completeText: `Fast ladder complete: you went through every puzzle in this set. Start a new fast ladder from ${name} for a fresh random set.`,
-    replacedText: 'This fast ladder was replaced because another one was started. Start a new one from the ladder page.',
+    replacedText: 'This fast ladder was replaced because another one was started, for example in another window. Start a new fast ladder to continue.',
+    newSessionLabel: 'Start a new fast ladder',
     endAction: { href: ladderHref, label: `Back to ${name}` },
     move: submitPuzzleMove,
     hint: requestPuzzleHint,

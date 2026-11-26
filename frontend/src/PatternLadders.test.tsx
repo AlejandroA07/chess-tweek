@@ -78,7 +78,7 @@ describe('Pattern ladders', () => {
     const packages = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
     expect(packages).toEqual([
       'A quick climb through Opera mate',
-      'Below 1000 0', '1000–1399 6,140', '1400–1799 9,624', '1800–2199 6,615', '2200–2599 2,653',
+      'Below 1000 0', '1000–1399 6,140', '1400–1799 9,624', '1800–2199 6,615', '2200–2599 20',
       '2600 and above 12',
     ])
     const below = screen.getByRole('region', { name: /^Below 1000/ })
@@ -86,7 +86,7 @@ describe('Pattern ladders', () => {
     expect(within(below).queryByRole('link')).not.toBeInTheDocument()
 
     const started = screen.getByRole('region', { name: /^1000–1399/ })
-    expect(within(started).getByText('34 puzzles done. Last rating 1187.')).toBeInTheDocument()
+    expect(within(started).getByText('At puzzle 34 of 6,140. Last rating 1187.')).toBeInTheDocument()
     expect(within(started).getByRole('link', { name: 'Continue 1000–1399' }))
       .toHaveAttribute('href', '#/puzzles/ladders/operaMate/1000-1400')
     expect(within(screen.getByRole('region', { name: /^1400–1799/ })).getByRole('link', { name: 'Start 1400–1799' }))
@@ -130,6 +130,9 @@ describe('Pattern ladders', () => {
     const small = screen.getByRole('region', { name: /^2600 and above/ })
     expect(within(small).queryByRole('button', { name: /Last 20/ })).toBeNull()
     expect(within(small).getByRole('button', { name: /Last 10/ })).toBeInTheDocument()
+    // Exactly 20 puzzles is enough for Last 20.
+    const twenty = screen.getByRole('region', { name: /^2200–2599/ })
+    expect(within(twenty).getByRole('button', { name: /Last 20/ })).toBeInTheDocument()
 
     const go = within(started).getByRole('button', { name: 'Go' })
     expect(go).toBeDisabled()
@@ -311,7 +314,7 @@ function patterns() {
 }
 
 function ladder(restarted: boolean) {
-  const sizes = [0, 6_140, 9_624, 6_615, 2_653, 12]
+  const sizes = [0, 6_140, 9_624, 6_615, 20, 12]
   const keys = ['up-to-1000', '1000-1400', '1400-1800', '1800-2200', '2200-2600', '2600-plus']
   return {
     pattern: { key: 'operaMate', name: 'Opera mate', group: 'Mate themes', puzzles: 25_386 },

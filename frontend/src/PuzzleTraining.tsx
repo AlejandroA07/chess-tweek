@@ -1,3 +1,4 @@
+import { MyOpenings } from './MyOpenings'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { OwnPuzzles, ownPuzzleRoute, type OwnRoute } from './OwnPuzzles'
 import { ladderRoute, PatternLadders, type LadderRoute } from './PatternLadders'
@@ -48,6 +49,7 @@ export type PuzzleRoute =
   | { kind: 'dashboard' }
   | { kind: 'themes' }
   | { kind: 'openings' }
+  | { kind: 'my-openings' }
   | { kind: 'random' }
   | { kind: 'category'; category: CategoryKind; key: string }
   | { kind: 'repetition' }
@@ -83,6 +85,7 @@ export function puzzleRoute(hash: string): PuzzleRoute | null {
   if (hash === '#/puzzles') return { kind: 'dashboard' }
   if (hash === '#/puzzles/themes') return { kind: 'themes' }
   if (hash === '#/puzzles/openings') return { kind: 'openings' }
+  if (hash === '#/puzzles/openings/mine') return { kind: 'my-openings' }
   if (hash === '#/puzzles/random') return { kind: 'random' }
   if (hash === '#/puzzles/repetition') return { kind: 'repetition' }
   if (hash === '#/puzzles/repetition/mastered') return { kind: 'mastered' }
@@ -104,8 +107,10 @@ export function PuzzleTraining({
   connectionState,
   route,
   onSessionFailure,
+  accountId = null,
 }: {
   connectionState: ConnectionState
+  accountId?: string | null
   route: PuzzleRoute
   onSessionFailure: (failure: SessionFailure) => void
 }) {
@@ -157,10 +162,11 @@ export function PuzzleTraining({
   if (route.kind === 'dashboard') return <PuzzleDashboard />
   if (route.kind === 'repetition') return <RepetitionDashboard onSessionFailure={onSessionFailure} />
   if (route.kind === 'mastered') return <MasteredView onSessionFailure={onSessionFailure} />
-  if (route.kind === 'themes' || route.kind === 'openings') {
+  if (route.kind === 'themes' || route.kind === 'openings' || route.kind === 'my-openings') {
     return (
       <CategoryPage
         kind={route.kind}
+        accountId={accountId}
         categories={categories}
         state={categoriesState}
         onRetry={() => void load()}
@@ -434,25 +440,31 @@ function CategoryPage({
   categories,
   state,
   onRetry,
+  accountId,
 }: {
-  kind: 'themes' | 'openings'
+  kind: 'themes' | 'openings' | 'my-openings'
+  accountId: string | null
   categories: PuzzleCategory[] | null
   state: LoadState
   onRetry: () => void
 }) {
-  const title = kind === 'themes' ? 'Puzzle themes' : 'Puzzles by opening'
+  const title = kind === 'themes' ? 'Puzzle themes' : kind === 'my-openings' ? 'My Openings' : 'Puzzles by opening'
   return (
     <div className={styles.page}>
       <section className={styles.categoryPage} aria-labelledby="category-page-title">
         <header className={styles.categoryHeader}>
           <div>
-            <p className={styles.eyebrow}>By Category</p>
+            {kind === 'themes' && <p className={styles.eyebrow}>By Category</p>}
             <h2 id="category-page-title">{title}</h2>
-            <p className={styles.muted}>
-              Choose one to open a puzzle right away. Puzzles already in a Training List are
-              included; Mastered puzzles are skipped.
-            </p>
+            {kind === 'themes' && (
+              <p className={styles.muted}>
+                Choose one to open a puzzle right away. Puzzles already in a Training List are
+                included; Mastered puzzles are skipped.
+              </p>
+            )}
           </div>
+          {kind === 'openings' && <a className={styles.secondaryButton} href="#/puzzles/openings/mine">My Openings</a>}
+          {kind === 'my-openings' && <a className={styles.secondaryButton} href="#/puzzles/openings">All openings</a>}
         </header>
         {state === 'loading' && <p className={styles.muted} aria-live="polite">Loading categories…</p>}
         {state === 'failed' && (
@@ -467,7 +479,7 @@ function CategoryPage({
           </p>
         )}
         {state === 'ready' && categories !== null && categories.length > 0 && (
-          kind === 'themes' ? <ThemeList categories={categories} /> : <OpeningList categories={categories} />
+          kind === 'themes' ? <ThemeList categories={categories} /> : kind === 'my-openings' ? <MyOpenings key={accountId} categories={categories} accountId={accountId} /> : <OpeningList categories={categories} />
         )}
       </section>
     </div>
@@ -564,6 +576,7 @@ type OpeningOrder = 'popular' | 'alphabetical'
 function OpeningList({ categories }: { categories: PuzzleCategory[] }) {
   const [order, setOrder] = useState<OpeningOrder>('popular')
   const [query, setQuery] = useState('')
+  const [expanded, setExpanded] = useState<string[]>([])
   const families = useMemo(() => openingFamilies(categories, order), [categories, order])
   const normalized = query.trim().toLowerCase()
   const visible = normalized === ''
@@ -611,10 +624,13 @@ function OpeningList({ categories }: { categories: PuzzleCategory[] }) {
       {visible.map((family) => (
         <section key={family.key} className={styles.openingFamily} aria-labelledby={`family-${family.key}`}>
           <h3 id={`family-${family.key}`}>
-            <a href={categoryHref(family)}>{family.name}</a>{' '}
-            <span className={styles.count}>{formatCount(family.puzzles)}</span>
+            <button className={styles.openingToggle} type="button" aria-expanded={expanded.includes(family.key)}
+              onClick={() => setExpanded((keys) => keys.includes(family.key) ? keys.filter((key) => key !== family.key) : [...keys, family.key])}>
+              {family.name} <span className={styles.count}>{formatCount(family.puzzles)}</span>
+            </button>
           </h3>
-          {family.variations.length > 0 && (
+          {expanded.includes(family.key) && <a href={categoryHref(family)}>Practice {family.name}</a>}
+          {expanded.includes(family.key) && family.variations.length > 0 && (
             <ul className={styles.variationGrid}>
               {family.variations.map((variation) => (
                 <li key={variation.key}>

@@ -330,6 +330,7 @@ export function App() {
               />
             ) : puzzleView !== null ? (
               <PuzzleTraining
+                accountId={session.kind === 'connected' ? session.account.id : null}
                 connectionState={session.kind}
                 route={puzzleView}
                 onSessionFailure={handleCatalogSessionFailure}

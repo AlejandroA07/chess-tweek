@@ -6,14 +6,18 @@ import styles from './PuzzleTraining.module.css'
 import { THEME_SECTIONS, type ThemeEntry } from './puzzleThemes'
 import {
   isPackageKey,
+  jumpInLadder,
   loadLadder,
   loadLadderPatterns,
+  nextFastLadderPuzzle,
   nextLadderPuzzle,
   RATING_PACKAGES,
   requestPuzzleHint,
   restartLadder,
   revealPuzzle,
+  startFastLadder,
   submitPuzzleMove,
+  type FastStep,
   type Ladder,
   type LadderPackage,
   type LadderPattern,
@@ -28,6 +32,7 @@ export type LadderRoute =
   | { kind: 'ladders' }
   | { kind: 'ladder'; pattern: string }
   | { kind: 'ladder-play'; pattern: string; ratingPackage: RatingPackageKey }
+  | { kind: 'ladder-fast'; pattern: string }
 
 /** The Themes page sections whose themes are pattern ladders (owner decision, 2026-11-26). */
 const LADDER_SECTIONS = ['Motifs', 'Advanced', 'Mate themes']
@@ -39,6 +44,8 @@ export function ladderRoute(hash: string): LadderRoute | null {
   if (hash === '#/puzzles/ladders') return { kind: 'ladders' }
   const ladder = new RegExp(`^#/puzzles/ladders/${PATTERN}$`).exec(hash)
   if (ladder !== null) return { kind: 'ladder', pattern: ladder[1] }
+  const fast = new RegExp(`^#/puzzles/ladders/${PATTERN}/fast$`).exec(hash)
+  if (fast !== null) return { kind: 'ladder-fast', pattern: fast[1] }
   const play = new RegExp(`^#/puzzles/ladders/${PATTERN}/([a-z0-9-]{1,20})$`).exec(hash)
   if (play !== null && isPackageKey(play[2])) {
     return { kind: 'ladder-play', pattern: play[1], ratingPackage: play[2] }
@@ -58,6 +65,16 @@ export function PatternLadders({
   if (route.kind === 'ladders') return <LadderList onSessionFailure={onSessionFailure} />
   if (route.kind === 'ladder') {
     return <LadderView key={route.pattern} pattern={route.pattern} onSessionFailure={onSessionFailure} />
+  }
+  if (route.kind === 'ladder-fast') {
+    return (
+      <FastLadderPlayer
+        key={route.pattern}
+        pattern={route.pattern}
+        categories={categories}
+        onSessionFailure={onSessionFailure}
+      />
+    )
   }
   return (
     <LadderPlayer
@@ -191,6 +208,7 @@ function LadderView({
         )}
         {state === 'ready' && ladder !== null && (
           <div className={styles.modules}>
+            <FastLadderCard pattern={ladder.pattern} />
             {ladder.packages.map((entry) => (
               <PackageCard
                 key={entry.key}
@@ -204,6 +222,28 @@ function LadderView({
         )}
       </section>
     </div>
+  )
+}
+
+function FastLadderCard({ pattern }: { pattern: LadderPattern }) {
+  return (
+    <section className={`${styles.module} ${styles.wideModule}`} aria-labelledby="fast-ladder-title">
+      <p className={styles.eyebrow}>Fast ladder</p>
+      <h3 id="fast-ladder-title">A quick climb through {pattern.name}</h3>
+      <p>
+        One random puzzle from each step: below 800, 800–999, and so on up to 2000–2199. Then, in random
+        order, one puzzle for each other pattern that {pattern.name} combines with, such as a pin or a
+        deflection, rated 2000–2199 or as near as possible. Every start draws a new set; Mastered puzzles
+        are skipped.
+      </p>
+      {pattern.puzzles === 0 ? (
+        <p className={styles.muted}>No puzzles of this pattern yet.</p>
+      ) : (
+        <a className={styles.primaryLink} href={`#/puzzles/ladders/${encodeURIComponent(pattern.key)}/fast`}>
+          Start fast ladder
+        </a>
+      )}
+    </section>
   )
 }
 
@@ -226,6 +266,7 @@ function PackageCard({
   const keepRef = useRef<HTMLButtonElement>(null)
   const restartRef = useRef<HTMLButtonElement>(null)
   const wasConfirming = useRef(false)
+  const [target, setTarget] = useState('')
 
   useEffect(() => {
     if (confirming) keepRef.current?.focus()
@@ -250,6 +291,23 @@ function PackageCard({
   }
 
   const play = `#/puzzles/ladders/${encodeURIComponent(pattern.key)}/${entry.key}`
+
+  // Moves the place so the chosen puzzle comes next, then opens the package there.
+  const jump = async (position: number) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await jumpInLadder(pattern.key, entry.key, position)
+      window.location.hash = play
+    } catch (requestError) {
+      reportSessionFailure(requestError, onSessionFailure)
+      setError('That position could not be opened. Your place is unchanged; try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const typed = Number(target)
+  const validTarget = /^[0-9]{1,9}$/.test(target) && typed >= 1 && typed <= entry.puzzles
   return (
     <section className={styles.module} aria-labelledby={`${id}-title`}>
       <p className={styles.eyebrow}>Rating package</p>
@@ -301,6 +359,56 @@ function PackageCard({
             </button>
           )}
         </div>
+      )}
+      {entry.puzzles > 1 && !confirming && (
+        <form
+          className={styles.jump}
+          aria-label={`Go to a puzzle in ${label}`}
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (validTarget) void jump(typed)
+          }}
+        >
+          <div className={styles.field}>
+            <label htmlFor={`${id}-position`}>Go to puzzle (1–{formatCount(entry.puzzles)})</label>
+            <input
+              id={`${id}-position`}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={entry.puzzles}
+              value={target}
+              onChange={(event) => setTarget(event.target.value)}
+            />
+          </div>
+          <div className={styles.actions}>
+            <button className={styles.secondaryButton} type="submit" disabled={busy || !validTarget}>
+              Go
+            </button>
+            {entry.puzzles > 20 && (
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={busy}
+                aria-label={`Last 20 puzzles of ${label}`}
+                onClick={() => void jump(entry.puzzles - 19)}
+              >
+                Last 20
+              </button>
+            )}
+            {entry.puzzles > 10 && (
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={busy}
+                aria-label={`Last 10 puzzles of ${label}`}
+                onClick={() => void jump(entry.puzzles - 9)}
+              >
+                Last 10
+              </button>
+            )}
+          </div>
+        </form>
       )}
       {error && <p className={styles.error} role="alert">{error}</p>}
     </section>
@@ -374,6 +482,87 @@ function LadderPlayer({
     },
   }
   return <PuzzlePlayer source={source} onSessionFailure={onSessionFailure} />
+}
+
+function FastLadderPlayer({
+  pattern,
+  categories,
+  onSessionFailure,
+}: {
+  pattern: string
+  categories: PuzzleCategory[] | null
+  onSessionFailure: (failure: SessionFailure) => void
+}) {
+  const name = categories?.find((category) => category.kind === 'theme' && category.key === pattern)?.name
+    ?? pattern.replaceAll('_', ' ')
+  const ladderHref = `#/puzzles/ladders/${encodeURIComponent(pattern)}`
+  const themeNames = (completion: PuzzleCompletion) => completion.themes.map((key) =>
+    categories?.find((category) => category.kind === 'theme' && category.key === key)?.name ?? key)
+
+  const source: PlayerSource<PuzzleCompletion> = {
+    key: `ladder-fast/${pattern}`,
+    back: { href: ladderHref, label: name },
+    eyebrow: 'Fast ladder',
+    title: name,
+    description: 'One puzzle from each rating step, then one combined with each other pattern. A new random set every time.',
+    practice: false,
+    nextLabel: 'Next in fast ladder',
+    progressLabel: 'Fast ladder',
+    start: {
+      kind: 'session',
+      create: async () => (await startFastLadder(pattern)).fastLadderId,
+      next: async (fastLadderId) => {
+        const next = await nextFastLadderPuzzle(fastLadderId)
+        const attempt = next.attempt
+        return {
+          position: next.position,
+          total: next.total,
+          attempt: {
+            attemptId: attempt.attemptId,
+            puzzleId: attempt.puzzleId,
+            positionFen: attempt.positionFen,
+            lastMove: attempt.setupMove,
+            ownerMoves: attempt.ownerMoves,
+            fastSolveLimitMillis: attempt.fastSolveLimitMillis,
+            currentList: attempt.currentList,
+            name: `Puzzle ${attempt.externalId}`,
+            detail: `Lichess ${attempt.rating}`,
+            discardable: false,
+            fact: { label: 'Step', value: stepText(next.step) },
+          },
+        }
+      },
+    },
+    emptyText: `No puzzle of ${name} is available for a fast ladder: the pattern has none, or every one is Mastered.`,
+    completeText: `Fast ladder complete: you went through every puzzle in this set. Start a new fast ladder from ${name} for a fresh random set.`,
+    replacedText: 'This fast ladder was replaced because another one was started. Start a new one from the ladder page.',
+    endAction: { href: ladderHref, label: `Back to ${name}` },
+    move: submitPuzzleMove,
+    hint: requestPuzzleHint,
+    reveal: revealPuzzle,
+    completionExtra: (completion) => {
+      const themes = themeNames(completion)
+      return (
+        <>
+          {themes.length > 0 && <p className={styles.muted}>Themes: {themes.join(', ')}</p>}
+          <p className={styles.muted}>
+            The board stays open: keep moving pieces to explore. These moves are not checked or saved.
+          </p>
+          <a className={styles.externalLink} href={completion.gameUrl} target="_blank" rel="noreferrer">
+            Open the source game on Lichess
+          </a>
+        </>
+      )
+    },
+  }
+  return <PuzzlePlayer source={source} onSessionFailure={onSessionFailure} />
+}
+
+/** "Rated 1400–1599", "Rated below 800", or "With Pin". */
+function stepText(step: FastStep) {
+  if (step.kind === 'combination') return `With ${step.name}`
+  if (step.ratingLow === 0) return `Rated below ${step.ratingHigh}`
+  return `Rated ${step.ratingLow}–${step.ratingHigh - 1}`
 }
 
 function packageLabel(key: RatingPackageKey) {

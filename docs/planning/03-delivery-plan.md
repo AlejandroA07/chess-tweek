@@ -129,6 +129,8 @@ Decisions (owner, 2026-11-26):
 - **Real puzzles only:** every puzzle comes from the imported, already verified corpus. Positions are not generated or altered.
 - **Training state:** attempts update the same Puzzle Training List state as every other puzzle, so misses reach Repetition as usual. Ladders reference shared Puzzles and never copy them.
 - **Build-up:** training the set-up before a pattern is not part of this stage (owner decision, 2026-11-26). The ideas below stay for later, alongside the thinking-habit trainer.
+- **Jump (Part 2, owner request, 2026-11-26):** in a package, go to any puzzle number, or to the last 20 or last 10 puzzles when the package has more than that.
+- **Fast ladder (Part 2, owner request, 2026-11-26):** a card first on each ladder page. Each start draws a new random set: one puzzle of the pattern from each 200-point step (below 800, 800–999, up to 2000–2199), then, in random order, one puzzle of the pattern that also carries each other pattern Theme (a "combination", for example Advanced pawn with Capture the defender), rated 2000–2199 or, when there is none, as near to it as possible. A combination that never occurs is left out. Mastered puzzles are skipped.
 
 The Themes page from Stage 7 Part 3b already lists these themes and plays puzzles from them, so the ladder builds on it. Confirmed by the owner on 2026-11-26:
 
@@ -510,13 +512,13 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections; design decided 2026-11-26). Part 1 delivers the whole decided scope and is implemented on `feature/pattern-ladders`, awaiting the owner's review and live check (`docs/dev/2026-11-26-pattern-ladders.md`). Stage 9 is complete when it merges.
+- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections; design decided 2026-11-26). Part 1 merged in PR #75 on 2026-11-26, and the owner tried it live the same day (`docs/dev/2026-11-26-pattern-ladders.md`). Part 2, the fast ladder and jumping inside a package (owner request after that live check), is implemented on `feature/fast-ladder-and-jump` and awaits review (`docs/dev/2026-11-26-fast-ladder-and-jump.md`). Stage 9 is complete when Part 2 merges.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-26):**
 
-1. Review and merge Stage 9 Part 1 (`feature/pattern-ladders`). Live check after merging: start the app (the first start runs migration V17, about 8 seconds on the full library), open Pattern ladders, pick a pattern and a package, solve a few puzzles, leave and return to confirm it continues where it stopped, and restart the package.
+1. Review and merge Stage 9 Part 2 (`feature/fast-ladder-and-jump`). Live check after merging: on a pattern page, use "Go to puzzle", "Last 20", and "Last 10" on a large package and confirm the player opens at that position; start a fast ladder on a large pattern (for example Fork) and on a rare one (for example Balestra mate), and check the rating steps and the "With …" combination steps.
 2. Owner checks still open:
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.

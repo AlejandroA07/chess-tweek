@@ -17,6 +17,7 @@ describe('Pattern ladders', () => {
     expect(puzzleRoute('#/puzzles/ladders/operaMate/2600-plus')).toEqual({
       kind: 'ladder-play', pattern: 'operaMate', ratingPackage: '2600-plus',
     })
+    expect(puzzleRoute('#/puzzles/ladders/operaMate/fast')).toEqual({ kind: 'ladder-fast', pattern: 'operaMate' })
     expect(puzzleRoute('#/puzzles/ladders/operaMate/1000-1500')).toBeNull()
     expect(puzzleRoute('#/puzzles/ladders/opera%20mate')).toBeNull()
     expect(puzzleRoute('#/puzzles/ladders/operaMate/1000-1400/extra')).toBeNull()
@@ -76,8 +77,9 @@ describe('Pattern ladders', () => {
     expect(await screen.findByRole('heading', { name: 'Opera mate', level: 2 })).toBeInTheDocument()
     const packages = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
     expect(packages).toEqual([
+      'A quick climb through Opera mate',
       'Below 1000 0', '1000–1399 6,140', '1400–1799 9,624', '1800–2199 6,615', '2200–2599 2,653',
-      '2600 and above 354',
+      '2600 and above 12',
     ])
     const below = screen.getByRole('region', { name: /^Below 1000/ })
     expect(within(below).getByText('No puzzles of this pattern in this rating range.')).toBeInTheDocument()
@@ -101,6 +103,123 @@ describe('Pattern ladders', () => {
     expect(await within(screen.getByRole('region', { name: /^1000–1399/ })).findByText('Not started.'))
       .toBeInTheDocument()
     expect(requests).toContain(`POST ${BASE}/ladders/operaMate/1000-1400/restart`)
+  })
+
+  it('jumps to a typed position or to the last 10 or 20 puzzles of a package', async () => {
+    const requests: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString()
+      requests.push(`${init?.method ?? 'GET'} ${url} ${init?.body ?? ''}`.trim())
+      if (url.endsWith('/categories')) return response({ categories: [] })
+      if (url.endsWith('/ladders/operaMate')) return response(ladder(false))
+      if (url.endsWith('/jump')) return new Response(null, { status: 204 })
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    window.location.hash = '#/puzzles/ladders/operaMate'
+    render(
+      <PuzzleTraining
+        connectionState="connected"
+        route={{ kind: 'ladder', pattern: 'operaMate' }}
+        onSessionFailure={vi.fn()}
+      />,
+    )
+
+    const started = await screen.findByRole('region', { name: /^1000–1399/ })
+    // The empty package and a package of 10 or fewer offer no shortcut they cannot use.
+    expect(within(screen.getByRole('region', { name: /^Below 1000/ })).queryByLabelText(/Go to puzzle/)).toBeNull()
+    const small = screen.getByRole('region', { name: /^2600 and above/ })
+    expect(within(small).queryByRole('button', { name: /Last 20/ })).toBeNull()
+    expect(within(small).getByRole('button', { name: /Last 10/ })).toBeInTheDocument()
+
+    const go = within(started).getByRole('button', { name: 'Go' })
+    expect(go).toBeDisabled()
+    fireEvent.change(within(started).getByLabelText('Go to puzzle (1–6,140)'), { target: { value: '6141' } })
+    expect(go).toBeDisabled()
+    fireEvent.change(within(started).getByLabelText('Go to puzzle (1–6,140)'), { target: { value: '980' } })
+    fireEvent.click(go)
+    await waitFor(() => expect(window.location.hash).toBe('#/puzzles/ladders/operaMate/1000-1400'))
+    expect(requests).toContain(`POST ${BASE}/ladders/operaMate/1000-1400/jump {"position":980}`)
+
+    fireEvent.click(within(started).getByRole('button', { name: 'Last 20 puzzles of 1000–1399' }))
+    fireEvent.click(within(small).getByRole('button', { name: 'Last 10 puzzles of 2600 and above' }))
+    await waitFor(() => expect(requests).toContain(`POST ${BASE}/ladders/operaMate/2600-plus/jump {"position":3}`))
+    expect(requests).toContain(`POST ${BASE}/ladders/operaMate/1000-1400/jump {"position":6121}`)
+  })
+
+  it('runs a fast ladder through its rating and combination steps, then ends', async () => {
+    let served = 0
+    const requests: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString()
+      requests.push(`${init?.method ?? 'GET'} ${url}`)
+      if (url.endsWith('/categories')) {
+        return response({ categories: [{ kind: 'theme', key: 'operaMate', name: 'Opera mate', group: 'Mate themes', parentKey: null, puzzles: 30_000 }] })
+      }
+      if (url.endsWith('/ladders/operaMate/fast')) return response({ fastLadderId: 9, total: 2 }, 201)
+      if (url.endsWith('/ladders/fast/9/attempts')) {
+        served += 1
+        if (served === 1) {
+          return response({ attempt: attempt(), position: 1, total: 2, step: { ratingLow: 0, ratingHigh: 800, combinedWith: null } }, 201)
+        }
+        if (served === 2) {
+          return response({
+            attempt: { ...attempt(), attemptId: 8, rating: 2110 },
+            position: 2,
+            total: 2,
+            step: { ratingLow: null, ratingHigh: null, combinedWith: { key: 'pin', name: 'Pin', group: 'Motifs', puzzles: 0 } },
+          }, 201)
+        }
+        return response({ error: 'ladder_complete' }, 409)
+      }
+      if (url.includes('/reveal')) {
+        return response({ remainingMoves: ['b2g7', 'g8g7', 'g2f3'], completion: completion() })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    render(
+      <PuzzleTraining
+        connectionState="connected"
+        route={{ kind: 'ladder-fast', pattern: 'operaMate' }}
+        onSessionFailure={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'White to move' })).toBeInTheDocument()
+    expect(screen.getByText('Rated below 800')).toBeInTheDocument()
+    expect(screen.getByText('1 of 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Next in fast ladder' }))
+    expect(await screen.findByText('With Pin')).toBeInTheDocument()
+    expect(screen.getByText('2 of 2')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show solution' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Next in fast ladder' }))
+    expect(await screen.findByText(/Fast ladder complete/)).toBeInTheDocument()
+    const back = screen.getByRole('link', { name: 'Back to Opera mate' })
+    expect(back).toHaveAttribute('href', '#/puzzles/ladders/operaMate')
+    // The end never draws a new set by itself.
+    expect(requests.filter((request) => request.endsWith('/fast'))).toHaveLength(1)
+  })
+
+  it('offers the fast ladder first on a ladder page', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/categories')) return response({ categories: [] })
+      return response(ladder(false))
+    }))
+    render(
+      <PuzzleTraining
+        connectionState="connected"
+        route={{ kind: 'ladder', pattern: 'operaMate' }}
+        onSessionFailure={vi.fn()}
+      />,
+    )
+    const card = await screen.findByRole('region', { name: 'A quick climb through Opera mate' })
+    expect(within(card).getByRole('link', { name: 'Start fast ladder' })).toHaveAttribute(
+      'href', '#/puzzles/ladders/operaMate/fast',
+    )
+    const regions = screen.getAllByRole('region').map((region) => region.getAttribute('aria-labelledby'))
+    expect(regions.indexOf('fast-ladder-title')).toBeLessThan(regions.indexOf('package-up-to-1000-title'))
   })
 
   it('climbs a package with its place shown, then offers another package at the end', async () => {
@@ -192,7 +311,7 @@ function patterns() {
 }
 
 function ladder(restarted: boolean) {
-  const sizes = [0, 6_140, 9_624, 6_615, 2_653, 354]
+  const sizes = [0, 6_140, 9_624, 6_615, 2_653, 12]
   const keys = ['up-to-1000', '1000-1400', '1400-1800', '1800-2200', '2200-2600', '2600-plus']
   return {
     pattern: { key: 'operaMate', name: 'Opera mate', group: 'Mate themes', puzzles: 25_386 },

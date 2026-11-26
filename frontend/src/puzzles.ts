@@ -237,6 +237,57 @@ export async function restartLadder(pattern: string, ratingPackage: RatingPackag
   await send(`${base}/ladders/${encodeURIComponent(pattern)}/${ratingPackage}/restart`)
 }
 
+/** Moves the place so the package's next puzzle is the one at `position` (1-based). */
+export async function jumpInLadder(pattern: string, ratingPackage: RatingPackageKey, position: number): Promise<void> {
+  if (!isCategoryKey(pattern) || !isPackageKey(ratingPackage) || !isInteger(position, 1, 100_000_000)) {
+    throw new PuzzleRequestError('unavailable')
+  }
+  await send(`${base}/ladders/${encodeURIComponent(pattern)}/${ratingPackage}/jump`, { position })
+}
+
+export type FastLadder = { fastLadderId: number; total: number }
+
+/** A rating step names its range (`ratingHigh` exclusive); a combination step names the other pattern. */
+export type FastStep =
+  | { kind: 'rating'; ratingLow: number; ratingHigh: number }
+  | { kind: 'combination'; key: string; name: string }
+
+export type FastLadderStep = { attempt: PuzzleAttempt; position: number; total: number; step: FastStep }
+
+export async function startFastLadder(pattern: string): Promise<FastLadder> {
+  if (!isCategoryKey(pattern)) throw new PuzzleRequestError('unavailable')
+  const value: unknown = await (await send(`${base}/ladders/${encodeURIComponent(pattern)}/fast`)).json()
+  if (
+    !isRecord(value) || !isInteger(value.fastLadderId, 1, Number.MAX_SAFE_INTEGER) ||
+    !isInteger(value.total, 1, 200)
+  ) throw new PuzzleRequestError('unavailable')
+  return { fastLadderId: value.fastLadderId, total: value.total }
+}
+
+export async function nextFastLadderPuzzle(fastLadderId: number): Promise<FastLadderStep> {
+  if (!isInteger(fastLadderId, 1, Number.MAX_SAFE_INTEGER)) throw new PuzzleRequestError('unavailable')
+  const value: unknown = await (await send(`${base}/ladders/fast/${fastLadderId}/attempts`)).json()
+  if (
+    !isRecord(value) || !isInteger(value.total, 1, 200) || !isInteger(value.position, 1, value.total) ||
+    !isRecord(value.step)
+  ) throw new PuzzleRequestError('unavailable')
+  return { attempt: parseAttempt(value.attempt), position: value.position, total: value.total, step: parseFastStep(value.step) }
+}
+
+function parseFastStep(value: Record<string, unknown>): FastStep {
+  const combined = value.combinedWith
+  if (combined !== null && combined !== undefined) {
+    if (!isRecord(combined) || !isCategoryKey(combined.key) || !isText(combined.name, 180)) {
+      throw new PuzzleRequestError('unavailable')
+    }
+    return { kind: 'combination', key: combined.key, name: combined.name }
+  }
+  if (!isInteger(value.ratingLow, 0, 4100) || !isInteger(value.ratingHigh, 100, 4100) || value.ratingHigh <= value.ratingLow) {
+    throw new PuzzleRequestError('unavailable')
+  }
+  return { kind: 'rating', ratingLow: value.ratingLow, ratingHigh: value.ratingHigh }
+}
+
 export function isPackageKey(value: unknown): value is RatingPackageKey {
   return RATING_PACKAGES.some((entry) => entry.key === value)
 }

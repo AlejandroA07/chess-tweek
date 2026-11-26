@@ -16,4 +16,6 @@ export const SERVER_ERROR = {
   ownPuzzleClassified: 'own_puzzle_classified',
   ownPuzzleNotDiscarded: 'own_puzzle_not_discarded',
   noNewOwnPuzzles: 'no_new_own_puzzles',
+  patternNotFound: 'pattern_not_found',
+  ladderComplete: 'ladder_complete',
 } as const

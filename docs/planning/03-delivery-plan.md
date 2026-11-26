@@ -510,13 +510,13 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections), has not started. Its design was decided with the owner on 2026-11-26: one pattern climbed by fixed rating packages, with resume and no build-up training.
+- Stage 9, pattern ladders (owner request, 2026-11-24, replacing the curated collections; design decided 2026-11-26). Part 1 delivers the whole decided scope and is implemented on `feature/pattern-ladders`, awaiting the owner's review and live check (`docs/dev/2026-11-26-pattern-ladders.md`). Stage 9 is complete when it merges.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-26):**
 
-1. Implement the first part of Stage 9 on its own `feature/<topic>` branch.
+1. Review and merge Stage 9 Part 1 (`feature/pattern-ladders`). Live check after merging: start the app (the first start runs migration V17, about 8 seconds on the full library), open Pattern ladders, pick a pattern and a package, solve a few puzzles, leave and return to confirm it continues where it stopped, and restart the package.
 2. Owner checks still open:
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.

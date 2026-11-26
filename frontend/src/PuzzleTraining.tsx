@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { OwnPuzzles, ownPuzzleRoute, type OwnRoute } from './OwnPuzzles'
+import { ladderRoute, PatternLadders, type LadderRoute } from './PatternLadders'
 import {
   PuzzlePlayer,
   reportSessionFailure,
@@ -53,6 +54,7 @@ export type PuzzleRoute =
   | { kind: 'mastered' }
   | { kind: 'session'; list: ActiveList }
   | { kind: 'mastered-practice'; category: CategoryKind; key: string }
+  | LadderRoute
   | OwnRoute
 
 type PlayerRoute = Extract<PuzzleRoute, { kind: 'random' | 'category' | 'session' | 'mastered-practice' }>
@@ -68,6 +70,7 @@ export const PUZZLE_SECTIONS: { label: string; href: string | null }[] = [
   { label: 'Dashboard', href: '#/puzzles' },
   { label: 'Themes', href: '#/puzzles/themes' },
   { label: 'Openings', href: '#/puzzles/openings' },
+  { label: 'Pattern ladders', href: '#/puzzles/ladders' },
   { label: 'Own Puzzles', href: '#/puzzles/own' },
   { label: 'Repetition: normal puzzles', href: '#/puzzles/repetition' },
   { label: 'Repetition: own puzzles', href: '#/puzzles/own/repetition' },
@@ -76,6 +79,7 @@ export const PUZZLE_SECTIONS: { label: string; href: string | null }[] = [
 /** The Puzzles route for a hash, or null when the hash is not a Puzzles route. */
 export function puzzleRoute(hash: string): PuzzleRoute | null {
   if (hash === '#/puzzles/own' || hash.startsWith('#/puzzles/own/')) return ownPuzzleRoute(hash)
+  if (hash === '#/puzzles/ladders' || hash.startsWith('#/puzzles/ladders/')) return ladderRoute(hash)
   if (hash === '#/puzzles') return { kind: 'dashboard' }
   if (hash === '#/puzzles/themes') return { kind: 'themes' }
   if (hash === '#/puzzles/openings') return { kind: 'openings' }
@@ -147,6 +151,9 @@ export function PuzzleTraining({
   if (route.kind.startsWith('own-')) {
     return <OwnPuzzles route={route as OwnRoute} onSessionFailure={onSessionFailure} />
   }
+  if (route.kind === 'ladders' || route.kind === 'ladder' || route.kind === 'ladder-play') {
+    return <PatternLadders route={route} categories={categories} onSessionFailure={onSessionFailure} />
+  }
   if (route.kind === 'dashboard') return <PuzzleDashboard />
   if (route.kind === 'repetition') return <RepetitionDashboard onSessionFailure={onSessionFailure} />
   if (route.kind === 'mastered') return <MasteredView onSessionFailure={onSessionFailure} />
@@ -206,6 +213,14 @@ function PuzzleDashboard() {
           text="Every opening family with all of its variations, by popularity or alphabetically."
           href="#/puzzles/openings"
           action="Browse openings"
+        />
+        <DashboardCard
+          id="ladders"
+          eyebrow="Pattern ladders"
+          title="One pattern, easiest first"
+          text="Choose a mate or tactic and a rating package, then climb from its lowest rating to its highest. Your place is saved."
+          href="#/puzzles/ladders"
+          action="Open Pattern ladders"
         />
         <DashboardCard
           id="repetition"

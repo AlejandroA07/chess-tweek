@@ -25,6 +25,8 @@ final class TrainingErrorCodes {
     static final String OWN_PUZZLE_CLASSIFIED = "own_puzzle_classified";
     static final String OWN_PUZZLE_NOT_DISCARDED = "own_puzzle_not_discarded";
     static final String NO_NEW_OWN_PUZZLES = "no_new_own_puzzles";
+    static final String PATTERN_NOT_FOUND = "pattern_not_found";
+    static final String LADDER_COMPLETE = "ladder_complete";
 
     private TrainingErrorCodes() {}
 }

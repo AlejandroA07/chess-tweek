@@ -51,7 +51,10 @@ public class JdbcPatternLadderStore {
                 arguments.toArray()).stream().findFirst();
     }
 
-    /** Every pattern Theme with at least one ladder Puzzle, with its ladder size. */
+    /**
+     * Every pattern Theme with at least one ladder Puzzle, with its ladder size, ordered by group
+     * name and display name; the interface arranges the groups in Themes page order.
+     */
     public List<Pattern> patterns() {
         return jdbc.query("""
                 SELECT category.classification_key, classification.display_name,
@@ -115,7 +118,7 @@ public class JdbcPatternLadderStore {
                 """, (row, number) -> new Cursor(row.getInt(1), row.getLong(2), row.getInt(3)),
                 accountId, categoryId, ratingPackage.key()).stream().findFirst()
                 .orElse(new Cursor(ratingPackage.low(), 0, 0));
-        List<long[]> found = jdbc.query("""
+        List<Found> found = jdbc.query("""
                 SELECT l.rating, l.puzzle_id FROM training_puzzle_ladder_member l
                 WHERE l.category_id = ? AND l.rating >= ? AND l.rating < ?
                   AND (l.rating > ? OR l.puzzle_id > ?)
@@ -126,14 +129,14 @@ public class JdbcPatternLadderStore {
                       WHERE s.account_id = ? AND s.puzzle_id = l.puzzle_id
                         AND s.list = 'mastered')
                 ORDER BY l.rating, l.puzzle_id LIMIT 1
-                """, (row, number) -> new long[] {row.getLong(1), row.getLong(2)},
+                """, (row, number) -> new Found(row.getInt(1), row.getLong(2)),
                 categoryId, Math.max(ratingPackage.low(), cursor.rating()), ratingPackage.high(),
                 cursor.rating(), cursor.puzzleId(), accountId);
         if (found.isEmpty()) {
             return Optional.empty();
         }
-        int rating = (int) found.getFirst()[0];
-        long puzzleId = found.getFirst()[1];
+        int rating = found.getFirst().rating();
+        long puzzleId = found.getFirst().puzzleId();
         int presented = cursor.presented() + 1;
         jdbc.update("""
                 INSERT INTO training_puzzle_ladder_progress (
@@ -180,4 +183,6 @@ public class JdbcPatternLadderStore {
     public record Advance(long puzzleId, Progress progress) {}
 
     private record Cursor(int rating, long puzzleId, int presented) {}
+
+    private record Found(int rating, long puzzleId) {}
 }

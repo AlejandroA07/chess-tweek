@@ -153,10 +153,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
       return 'This session ended because another Practice Session was started. Start a new session to continue.'
     }
     if (code === 'own_puzzle_not_found' && source.unavailableText !== undefined) return source.unavailableText
-    if (code === 'ladder_complete') {
-      setEnded(true)
-      return source.emptyText
-    }
+    if (code === 'ladder_complete') return source.emptyText
     if (code !== 'no_puzzle_available') return 'A puzzle could not be started. Try again.'
     return source.emptyText
   }
@@ -178,6 +175,7 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
     } catch (requestError) {
       reportSessionFailure(requestError, onSessionFailure)
       setPhase({ kind: 'ready' })
+      setEnded(requestError instanceof PuzzleRequestError && requestError.code === 'ladder_complete')
       setError(startFailure(requestError))
     }
   }
@@ -314,6 +312,8 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
 
   const attempt = phase.kind === 'playing' || phase.kind === 'complete' ? phase.attempt : null
   const side = attempt === null ? null : sideToMove(attempt.positionFen)
+  // A used-up pattern ladder package offers its end action, since trying again cannot help.
+  const endAction = ended ? source.endAction ?? null : null
   const canDiscard = phase.kind === 'playing' && phase.attempt.discardable && source.discard !== undefined
 
   return (
@@ -334,10 +334,10 @@ export function PuzzlePlayer<C extends PlayerCompletion>({
           </h3>
           {notice && <p className={styles.muted} role="status">{notice}</p>}
           {error && <p className={styles.error} role="alert">{error}</p>}
-          {phase.kind === 'ready' && ended && source.endAction !== undefined && (
-            <a ref={endRef} className={styles.primaryLink} href={source.endAction.href}>{source.endAction.label}</a>
+          {phase.kind === 'ready' && endAction !== null && (
+            <a ref={endRef} className={styles.primaryLink} href={endAction.href}>{endAction.label}</a>
           )}
-          {phase.kind === 'ready' && !(ended && source.endAction !== undefined) && (
+          {phase.kind === 'ready' && endAction === null && (
             <button
               ref={startRef}
               className={styles.primaryButton}

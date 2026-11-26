@@ -12,7 +12,7 @@ import java.util.Optional;
  */
 public interface PatternLadders {
 
-    /** Every pattern with at least one ladder Puzzle, in catalog group and display-name order. */
+    /** Every pattern with at least one ladder Puzzle, ordered by group name and display name. */
     List<Pattern> patterns();
 
     /** One pattern's rating packages with their sizes and the account's progress. */

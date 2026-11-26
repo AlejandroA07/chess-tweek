@@ -521,14 +521,14 @@ Acceptance:
 
 ### Not yet delivered
 
-- Stage 10, the opening explorer, is next, in three parts (owner decisions, 2026-11-26, recorded under Stage 10).
+- Stage 10, the opening explorer, in three parts (owner decisions, 2026-11-26, recorded under Stage 10). Part 1, the explorer backend, is implemented on `feature/opening-explorer` and awaits review (`docs/dev/2026-11-26-opening-explorer-backend.md`). Parts 2 and 3 follow.
 - Stages 11 to 13 follow in order.
 
 This section is the only record of delivery status. Update it here when a stage or part completes.
 
 **Next immediate action (2026-11-26):**
 
-1. Stage 10 Part 1, the explorer backend (`feature/opening-explorer`).
+1. Review and merge Stage 10 Part 1 (`feature/opening-explorer`). It has no page yet, so the live check of the Lichess explorer comes with Part 2. Then start Part 2, the explorer page and the starter notes.
 2. Owner checks still open:
    - Stage 9 Part 2: on a pattern page, use "Go to puzzle", "Last 20", and "Last 10" on a large package and confirm the player opens at that position; start a fast ladder on a large pattern (for example Fork) and on a rare one (for example Balestra mate), and check the rating steps and the "With …" combination steps.
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.

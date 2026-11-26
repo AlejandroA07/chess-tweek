@@ -175,7 +175,8 @@ class MultiSourceCatalogMigrationTest {
                         "game_review_analysis_version_current",
                         "game_review_analysis_version_immutable",
                         "game_review_analysis_version_profile",
-                        "game_review_game_account_date");
+                        "game_review_game_account_date",
+                        "game_review_game_position_key");
     }
 
     private static List<String> columns(JdbcTemplate jdbc, String table) {

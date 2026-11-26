@@ -14,6 +14,7 @@ describe('PuzzleTraining', () => {
     expect(puzzleRoute('#/puzzles/random')).toEqual({ kind: 'random' })
     expect(puzzleRoute('#/puzzles/themes')).toEqual({ kind: 'themes' })
     expect(puzzleRoute('#/puzzles/openings')).toEqual({ kind: 'openings' })
+    expect(puzzleRoute('#/puzzles/openings/mine')).toEqual({ kind: 'my-openings' })
     expect(puzzleRoute('#/puzzles/category/opening-family/Caro-Kann_Defense')).toEqual({
       kind: 'category', category: 'opening-family', key: 'Caro-Kann_Defense',
     })
@@ -74,15 +75,20 @@ describe('PuzzleTraining', () => {
     expect(byOpenings.map((link) => link.textContent)).toEqual(['More »', 'Sicilian Defense 9,000', 'Caro-Kann Defense 4,321'])
   })
 
-  it('lists every opening family with its variations, sorted and filtered', async () => {
+  it('expands opening families and keeps sorting and filtering', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => response({ categories: categories() })))
     render(<PuzzleTraining connectionState="connected" route={{ kind: 'openings' }} onSessionFailure={vi.fn()} />)
 
     const families = async () => (await screen.findAllByRole('heading', { level: 3 })).map((heading) => heading.textContent)
     expect(await families()).toEqual(['Sicilian Defense 9,000', 'Caro-Kann Defense 4,321'])
+    expect(screen.getByRole('link', { name: 'My Openings' })).toHaveAttribute('href', '#/puzzles/openings/mine')
+    expect(screen.queryByText('By Category')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Choose one to open a puzzle/)).not.toBeInTheDocument()
     const sicilian = screen.getByRole('region', { name: /Sicilian Defense/ })
+    expect(within(sicilian).queryByRole('link', { name: 'Najdorf Variation' })).not.toBeInTheDocument()
+    fireEvent.click(within(sicilian).getByRole('button', { name: /Sicilian Defense/ }))
     expect(within(sicilian).getAllByRole('link').map((link) => link.textContent)).toEqual([
-      'Sicilian Defense',
+      'Practice Sicilian Defense',
       'Najdorf Variation',
       'Accelerated Dragon, Maróczy Bind, Gurgenidze Variation',
     ])

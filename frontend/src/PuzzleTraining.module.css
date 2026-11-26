@@ -550,3 +550,8 @@
 .board > div {
   max-width: none;
 }
+
+.categoryHeader { display: flex; align-items: start; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.openingToggle { min-height: 2.75rem; padding: 0; border: 0; background: transparent; color: var(--color-primary); font: inherit; text-align: left; cursor: pointer; }
+.openingToggle::before { content: '▸ '; }
+.openingToggle[aria-expanded='true']::before { content: '▾ '; }

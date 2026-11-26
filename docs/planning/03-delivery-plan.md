@@ -130,10 +130,10 @@ Decisions (owner, 2026-11-26):
 - **Training state:** attempts update the same Puzzle Training List state as every other puzzle, so misses reach Repetition as usual. Ladders reference shared Puzzles and never copy them.
 - **Build-up:** training the set-up before a pattern is not part of this stage (owner decision, 2026-11-26). The ideas below stay for later, alongside the thinking-habit trainer.
 
-The Themes page from Stage 7 Part 3b already lists these themes and plays puzzles from them, so the ladder builds on it. To confirm with the owner at the start of the first part:
+The Themes page from Stage 7 Part 3b already lists these themes and plays puzzles from them, so the ladder builds on it. Confirmed by the owner on 2026-11-26:
 
-- which Themes page sections count as patterns, proposed as Mate themes, Motifs, and Advanced
-- whether a package skips Mastered puzzles, proposed yes, as By Category does
+- The patterns are the themes in the Themes page sections Mate themes, Motifs, and Advanced.
+- A package skips Mastered puzzles, as By Category does.
 
 **Maybe later: training the build-up.** Possible approaches recorded on 2026-11-24:
 
@@ -516,7 +516,7 @@ This section is the only record of delivery status. Update it here when a stage 
 
 **Next immediate action (2026-11-26):**
 
-1. Implement the first part of Stage 9 on its own `feature/<topic>` branch, after confirming its two remaining details with the owner (which Themes page sections count as patterns, and whether Mastered puzzles are skipped).
+1. Implement the first part of Stage 9 on its own `feature/<topic>` branch.
 2. Owner checks still open:
    - Stage 8B Part 1: restart the app and open a reviewed game. Confirm that the existing labels and coach cards are unchanged, and that the Own Puzzles tactic summary still lists the same groups. New labels will appear on newly analyzed games with these motifs.
    - Part 3c: the automatic next round in the merged app, and the Mastered view once a puzzle reaches Mastered.

@@ -2,11 +2,13 @@ package com.chesstweek.composition.web;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -43,8 +45,7 @@ public final class OpeningNotesController {
             @RequestParam(name = "fen", defaultValue = "") String fen) {
         Optional<ExplorerPosition> position = ExplorerPosition.parse(fen);
         if (position.isEmpty()) {
-            return TrainingRequests.error(
-                    org.springframework.http.HttpStatus.BAD_REQUEST, TrainingErrorCodes.INVALID_REQUEST);
+            return TrainingRequests.error(HttpStatus.BAD_REQUEST, TrainingErrorCodes.INVALID_REQUEST);
         }
         return TrainingRequests.read(sessionAuthorizer, sealedSession, accountId -> TrainingRequests.ok(
                 new NoteResponse(openingNotes.note(accountId, position.get()).map(NoteBody::from).orElse(null))));
@@ -86,7 +87,7 @@ public final class OpeningNotesController {
         return TrainingRequests.read(sessionAuthorizer, sealedSession, accountId -> TrainingRequests.ok(
                 new IndexResponse(openingNotes.index(accountId).stream()
                         .map(entry -> new IndexEntryBody(
-                                entry.source().name().toLowerCase(java.util.Locale.ROOT),
+                                sourceName(entry.source()),
                                 entry.opening(),
                                 entry.title(),
                                 entry.movesSan(),
@@ -94,6 +95,10 @@ public final class OpeningNotesController {
                                 entry.fen(),
                                 entry.excerpt()))
                         .toList())));
+    }
+
+    private static String sourceName(OpeningNotes.Source source) {
+        return source.name().toLowerCase(Locale.ROOT);
     }
 
     public record SaveRequest(String fen, String text) {}
@@ -106,7 +111,7 @@ public final class OpeningNotesController {
         static NoteBody from(OpeningNotes.Note note) {
             OpeningNotes.StarterNote starter = note.starter();
             return new NoteBody(
-                    note.source().name().toLowerCase(java.util.Locale.ROOT),
+                    sourceName(note.source()),
                     note.opening(),
                     note.title(),
                     note.text(),

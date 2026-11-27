@@ -60,6 +60,19 @@ function failureOf(error: unknown): ExplorerFailure | null {
   return error instanceof ExplorerRequestError ? error.failure : { kind: 'unavailable' }
 }
 
+/**
+ * Hands a lost session to the app and returns null; returns any other failure, or null for a
+ * cancelled request.
+ */
+function otherFailure(error: unknown, onSessionFailure: (failure: SessionFailure) => void): ExplorerFailure | null {
+  const failure = failureOf(error)
+  if (failure !== null && (failure.kind === 'not_connected' || failure.kind === 'session_unavailable')) {
+    onSessionFailure(failure.kind)
+    return null
+  }
+  return failure
+}
+
 function OpeningsHome({ onSessionFailure }: { onSessionFailure: (failure: SessionFailure) => void }) {
   const [entries, setEntries] = useState<NoteEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -67,10 +80,7 @@ function OpeningsHome({ onSessionFailure }: { onSessionFailure: (failure: Sessio
   useEffect(() => {
     const controller = new AbortController()
     fetchNoteIndex(controller.signal).then(setEntries, (error: unknown) => {
-      const failure = failureOf(error)
-      if (failure === null) return
-      if (failure.kind === 'not_connected' || failure.kind === 'session_unavailable') onSessionFailure(failure.kind)
-      else setFailed(true)
+      if (otherFailure(error, onSessionFailure) !== null) setFailed(true)
     })
     return () => controller.abort()
   }, [onSessionFailure])
@@ -111,22 +121,25 @@ function NoteLink({ entry }: { entry: NoteEntry }) {
     : explorerHref({ from: entry.fen, moves: [] })
   return <li>
     <a href={href}>{entry.title ?? 'Your note'}</a>
-    {entry.moves.length > 0 && <span className={styles.technical}>{movesText(entry.moves, true)}</span>}
+    {entry.moves.length > 0 && <span className={styles.technical}>{movesText(entry.moves)}</span>}
     <span className={styles.sourceLabel}>{entry.source === 'starter' ? 'Starter note' : 'Your note'}</span>
     <p>{entry.excerpt}</p>
   </li>
 }
 
-/** A move with its number when White plays it, or when it opens a line with Black to move. */
-function moveLabel(index: number, san: string, whiteFirst: boolean) {
+/**
+ * A move with its number when White plays it, or when it opens a line with Black to move.
+ * {@code firstMove} is the move number of the line's start position.
+ */
+function moveLabel(index: number, san: string, whiteFirst: boolean, firstMove = 1) {
   const ply = whiteFirst ? index : index + 1
-  if (ply % 2 === 0) return `${ply / 2 + 1}. ${san}`
-  return index === 0 ? `${(ply - 1) / 2 + 1}… ${san}` : san
+  if (ply % 2 === 0) return `${firstMove + ply / 2}. ${san}`
+  return index === 0 ? `${firstMove + (ply - 1) / 2}… ${san}` : san
 }
 
-/** SAN moves with move numbers, such as "1. d4 d5 2. Bf4". */
-function movesText(moves: readonly string[], whiteFirst: boolean) {
-  return moves.map((move, index) => moveLabel(index, move, whiteFirst)).join(' ')
+/** SAN moves from the standard start with move numbers, such as "1. d4 d5 2. Bf4". */
+function movesText(moves: readonly string[]) {
+  return moves.map((move, index) => moveLabel(index, move, true)).join(' ')
 }
 
 type StatsState =
@@ -150,10 +163,7 @@ function Explorer({ route, onSessionFailure }: { route: ExplorerRoute; onSession
   useEffect(() => {
     const controller = new AbortController()
     fetchLine(route.from, route.moves, controller.signal).then(setLine, (error: unknown) => {
-      const failure = failureOf(error)
-      if (failure === null) return
-      if (failure.kind === 'not_connected' || failure.kind === 'session_unavailable') onSessionFailure(failure.kind)
-      else setLineFailed(true)
+      if (otherFailure(error, onSessionFailure) !== null) setLineFailed(true)
     })
     return () => controller.abort()
   }, [route, onSessionFailure])
@@ -174,10 +184,8 @@ function Explorer({ route, onSessionFailure }: { route: ExplorerRoute; onSession
           .then((data): StatsState => ({ kind: 'lichess', data }))
         : fetchMyGames(fen, mineFilter, controller.signal).then((data): StatsState => ({ kind: 'mine', data }))
     request.then(setStats, (error: unknown) => {
-      const failure = failureOf(error)
-      if (failure === null) return
-      if (failure.kind === 'not_connected' || failure.kind === 'session_unavailable') onSessionFailure(failure.kind)
-      else setStats({ kind: 'failed', failure })
+      const failure = otherFailure(error, onSessionFailure)
+      if (failure !== null) setStats({ kind: 'failed', failure })
     })
     return () => controller.abort()
   }, [fen, database, speedKey, ratingKey, mineFilter, retry, onSessionFailure])
@@ -191,6 +199,9 @@ function Explorer({ route, onSessionFailure }: { route: ExplorerRoute; onSession
 
   const sans = line?.moves.map((move) => move.san) ?? []
   const whiteFirst = line === null || line.start.split(' ')[1] === 'w'
+  const firstMove = line === null ? 1 : Number(line.start.split(' ')[5]) || 1
+  const [noteEditing, setNoteEditing] = useState(false)
+  const moving = line !== null && !noteEditing
   const toMove = fen === null ? null : fen.split(' ')[1] === 'w' ? 'White' : 'Black'
 
   return <div className={styles.explorer}>
@@ -202,19 +213,20 @@ function Explorer({ route, onSessionFailure }: { route: ExplorerRoute; onSession
           fen={fen}
           orientation={orientation}
           label={`Opening explorer: ${toMove} to move`}
-          disabled={false}
+          disabled={!moving}
           solution={null}
           initialLastMove={cursor > 0 ? line!.moves[cursor - 1].uci : null}
           onMove={(move) => { play(move) }}
         />}
         <div className={styles.boardControls} role="group" aria-label="Move through the line">
-          <button type="button" onClick={() => setCursor(0)} disabled={cursor === 0}>Start</button>
-          <button type="button" onClick={() => setCursor(cursor - 1)} disabled={cursor === 0}>Back</button>
-          <button type="button" onClick={() => setCursor(cursor + 1)} disabled={line === null || cursor >= line.moves.length}>Forward</button>
-          <button type="button" onClick={() => setCursor(line?.moves.length ?? 0)} disabled={line === null || cursor >= line.moves.length}>End</button>
+          <button type="button" onClick={() => setCursor(0)} disabled={!moving || cursor === 0}>Start</button>
+          <button type="button" onClick={() => setCursor(cursor - 1)} disabled={!moving || cursor === 0}>Back</button>
+          <button type="button" onClick={() => setCursor(cursor + 1)} disabled={!moving || cursor >= (line?.moves.length ?? 0)}>Forward</button>
+          <button type="button" onClick={() => setCursor(line?.moves.length ?? 0)} disabled={!moving || cursor >= (line?.moves.length ?? 0)}>End</button>
           <button type="button" onClick={() => setOrientation(orientation === 'white' ? 'black' : 'white')}>Flip Board</button>
         </div>
         <p className={styles.muted}>{orientation === 'white' ? 'White' : 'Black'} at the bottom. {toMove !== null && `${toMove} to move.`}</p>
+        {noteEditing && <p className={styles.muted} role="status">Save or cancel the note to move to another position.</p>}
       </div>
       <div className={styles.sideColumn}>
         <section className={styles.panel} aria-labelledby="line-title">
@@ -223,13 +235,13 @@ function Explorer({ route, onSessionFailure }: { route: ExplorerRoute; onSession
             ? <p className={styles.muted}>{route.from === null ? 'Starting position. Play a move on the board or choose one below.' : 'Saved position. Play a move on the board or choose one below.'}</p>
             : <ol className={styles.moveList}>
               {sans.map((san, index) => <li key={index}>
-                <button type="button" aria-current={index + 1 === cursor ? 'step' : undefined} onClick={() => setCursor(index + 1)}>
-                  {moveLabel(index, san, whiteFirst)}
+                <button type="button" aria-current={index + 1 === cursor ? 'step' : undefined} disabled={!moving} onClick={() => setCursor(index + 1)}>
+                  {moveLabel(index, san, whiteFirst, firstMove)}
                 </button>
               </li>)}
             </ol>}
         </section>
-        <NotePanel fen={fen} onSessionFailure={onSessionFailure} />
+        <NotePanel fen={fen} onEditingChange={setNoteEditing} onSessionFailure={onSessionFailure} />
         <section className={styles.panel} aria-labelledby="games-title">
           <h2 id="games-title">Games from this position</h2>
           <fieldset className={styles.choice}>
@@ -274,7 +286,7 @@ function Explorer({ route, onSessionFailure }: { route: ExplorerRoute; onSession
               </select>
             </label>
           </div>}
-          <Statistics database={database} state={stats} onPlay={play} onRetry={() => setRetry(retry + 1)} />
+          <Statistics database={database} state={stats} canPlay={moving} onPlay={play} onRetry={() => setRetry(retry + 1)} />
         </section>
       </div>
     </div>
@@ -286,9 +298,10 @@ function toggle<T>(values: readonly T[], value: T, order: readonly T[]): T[] {
   return order.filter((item) => next.includes(item))
 }
 
-function Statistics({ database, state, onPlay, onRetry }: {
+function Statistics({ database, state, canPlay, onPlay, onRetry }: {
   database: Database
   state: StatsState
+  canPlay: boolean
   onPlay: (uci: string) => void
   onRetry: () => void
 }) {
@@ -319,7 +332,7 @@ function Statistics({ database, state, onPlay, onRetry }: {
         <p className={styles.summary}>
           <span className={styles.technical}>{total.toLocaleString()}</span> games · White wins {percent(data.results.white, total)} · Draws {percent(data.results.draws, total)} · Black wins {percent(data.results.black, total)}
         </p>
-        <MovesTable moves={data.moves} showRating={state.kind === 'lichess'} label={`Moves played in ${DATABASE_LABELS[database]} games`} onPlay={onPlay} />
+        <MovesTable moves={data.moves} canPlay={canPlay} showRating={state.kind === 'lichess'} label={`Moves played in ${DATABASE_LABELS[database]} games`} onPlay={onPlay} />
       </>}
     {state.kind === 'lichess' && state.data.topGames.length > 0 && <div>
       <h3>Top games</h3>
@@ -351,8 +364,9 @@ function player(value: { name: string; rating: number | null; title: string | nu
   return `${value.title === null ? '' : `${value.title} `}${value.name}${value.rating === null ? '' : ` (${value.rating})`}`
 }
 
-function MovesTable({ moves, showRating, label, onPlay }: {
+function MovesTable({ moves, canPlay, showRating, label, onPlay }: {
   moves: ExplorerMove[]
+  canPlay: boolean
   showRating: boolean
   label: string
   onPlay: (uci: string) => void
@@ -369,7 +383,7 @@ function MovesTable({ moves, showRating, label, onPlay }: {
     </thead>
     <tbody>
       {moves.map((move) => <tr key={move.uci}>
-        <th scope="row"><button type="button" aria-label={`Play ${move.san}`} onClick={() => onPlay(move.uci)}>{move.san}</button></th>
+        <th scope="row"><button type="button" aria-label={`Play ${move.san}`} disabled={!canPlay} onClick={() => onPlay(move.uci)}>{move.san}</button></th>
         <td className={styles.technical}>{games(move.results).toLocaleString()}</td>
         <td><ResultBar results={move.results} /></td>
         {showRating && <td className={styles.technical}>{move.averageRating ?? '—'}</td>}
@@ -396,10 +410,15 @@ type NoteState =
   | { kind: 'ready'; note: Note | null }
   | { kind: 'failed' }
 
-function NotePanel({ fen, onSessionFailure }: { fen: string | null; onSessionFailure: (failure: SessionFailure) => void }) {
+function NotePanel({ fen, onEditingChange, onSessionFailure }: {
+  fen: string | null
+  onEditingChange: (editing: boolean) => void
+  onSessionFailure: (failure: SessionFailure) => void
+}) {
   const [state, setState] = useState<NoteState>({ kind: 'loading' })
   const [editing, setEditing] = useState<string | null>(null)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirming, setConfirming] = useState<'delete' | 'restore' | null>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
@@ -411,12 +430,9 @@ function NotePanel({ fen, onSessionFailure }: { fen: string | null; onSessionFai
     const controller = new AbortController()
     setState({ kind: 'loading' })
     setEditing(null)
-    setConfirmingDelete(false)
+    setConfirming(null)
     fetchNote(fen, controller.signal).then((note) => setState({ kind: 'ready', note }), (error: unknown) => {
-      const failure = failureOf(error)
-      if (failure === null) return
-      if (failure.kind === 'not_connected' || failure.kind === 'session_unavailable') onSessionFailure(failure.kind)
-      else setState({ kind: 'failed' })
+      if (otherFailure(error, onSessionFailure) !== null) setState({ kind: 'failed' })
     })
     return () => controller.abort()
   }, [fen, reload, onSessionFailure])
@@ -424,24 +440,28 @@ function NotePanel({ fen, onSessionFailure }: { fen: string | null; onSessionFai
   const isEditing = editing !== null
   useEffect(() => {
     if (isEditing) editRef.current?.focus()
-  }, [isEditing])
+    onEditingChange(isEditing)
+  }, [isEditing, onEditingChange])
 
-  const run = async (action: () => Promise<void>, success: string) => {
+  const [shownFor, setShownFor] = useState(fen)
+  if (shownFor !== fen) {
+    // A status line belongs to the position it was written for.
+    setShownFor(fen)
+    setMessage(null)
+  }
+
+  const run = async (action: () => Promise<void>, success: string, failure: string) => {
     setBusy(true)
     setMessage(null)
     try {
       await action()
       setEditing(null)
-      setConfirmingDelete(false)
+      setConfirming(null)
       setMessage(success)
       setReload((value) => value + 1)
+      headingRef.current?.focus()
     } catch (error: unknown) {
-      const failure = failureOf(error)
-      if (failure !== null && (failure.kind === 'not_connected' || failure.kind === 'session_unavailable')) {
-        onSessionFailure(failure.kind)
-      } else {
-        setMessage('The note was not saved. Nothing has changed.')
-      }
+      if (otherFailure(error, onSessionFailure) !== null) setMessage(failure)
     } finally {
       setBusy(false)
     }
@@ -451,7 +471,7 @@ function NotePanel({ fen, onSessionFailure }: { fen: string | null; onSessionFai
   const hidden = note !== null && note.source === 'owner' && note.text === '' && note.starter !== null
 
   return <section className={styles.panel} aria-labelledby="note-title">
-    <h2 id="note-title">Note for this position</h2>
+    <h2 id="note-title" ref={headingRef} tabIndex={-1}>Note for this position</h2>
     {message && <p role="status" className={styles.muted}>{message}</p>}
     {state.kind === 'loading' && <p role="status">Loading the note…</p>}
     {state.kind === 'failed' && <p role="alert">The note could not be loaded.</p>}
@@ -466,16 +486,22 @@ function NotePanel({ fen, onSessionFailure }: { fen: string | null; onSessionFai
         <p className={styles.noteText}>{note.text}</p>
       </article>}
       <div className={styles.noteActions}>
-        {!hidden && <button type="button" onClick={() => setEditing(note?.text ?? '')}>{note === null ? 'Add note' : 'Edit note'}</button>}
-        {note !== null && note.source === 'owner' && note.starter !== null &&
-          <button type="button" disabled={busy} onClick={() => void run(() => resetNote(fen!), 'The starter note is back.')}>Restore starter note</button>}
-        {note !== null && note.source === 'owner' && note.starter === null && !confirmingDelete &&
-          <button type="button" className={styles.textButton} onClick={() => setConfirmingDelete(true)}>Delete note</button>}
+        <button type="button" onClick={() => setEditing(hidden ? '' : note?.text ?? '')}>{note === null || hidden ? 'Add note' : 'Edit note'}</button>
+        {note !== null && note.source === 'owner' && note.starter !== null && confirming === null && (hidden
+          ? <button type="button" disabled={busy} onClick={() => void run(() => resetNote(fen!), 'The starter note is back.', 'The starter note was not restored. Nothing has changed.')}>Restore starter note</button>
+          : <button type="button" onClick={() => setConfirming('restore')}>Restore starter note</button>)}
+        {note !== null && note.source === 'owner' && note.starter === null && confirming === null &&
+          <button type="button" className={styles.textButton} onClick={() => setConfirming('delete')}>Delete note</button>}
       </div>
-      {confirmingDelete && <div className={styles.confirm} role="group" aria-label="Delete your note">
+      {confirming === 'restore' && <div className={styles.confirm} role="group" aria-label="Restore the starter note">
+        <p>Restore the starter note “{note!.starter!.title}”? Your text at this position will be deleted.</p>
+        <button type="button" autoFocus onClick={() => setConfirming(null)}>Keep my note</button>
+        <button type="button" className={styles.dangerButton} disabled={busy} onClick={() => void run(() => resetNote(fen!), 'The starter note is back.', 'The starter note was not restored. Nothing has changed.')}>Restore starter note</button>
+      </div>}
+      {confirming === 'delete' && <div className={styles.confirm} role="group" aria-label="Delete your note">
         <p>Delete your note at this position? It cannot be brought back.</p>
-        <button type="button" autoFocus onClick={() => setConfirmingDelete(false)}>Keep note</button>
-        <button type="button" className={styles.dangerButton} disabled={busy} onClick={() => void run(() => resetNote(fen!), 'Your note was deleted.')}>Delete note</button>
+        <button type="button" autoFocus onClick={() => setConfirming(null)}>Keep note</button>
+        <button type="button" className={styles.dangerButton} disabled={busy} onClick={() => void run(() => resetNote(fen!), 'Your note was deleted.', 'The note was not deleted. Nothing has changed.')}>Delete note</button>
       </div>}
     </>}
     {editing !== null && <form className={styles.editor} onSubmit={(event) => {
@@ -483,7 +509,7 @@ function NotePanel({ fen, onSessionFailure }: { fen: string | null; onSessionFai
       const text = editing
       void run(() => saveNote(fen!, text), text.trim() === ''
         ? note?.starter ? 'The starter note is hidden here.' : 'The note was removed.'
-        : 'Your note was saved.')
+        : 'Your note was saved.', 'The note was not saved. Nothing has changed.')
     }}>
       <label htmlFor={textId}>Your note</label>
       <textarea id={textId} ref={editRef} value={editing} maxLength={NOTE_LIMIT} rows={8}

@@ -33,6 +33,14 @@ class ExplorerLineTest {
     }
 
     @Test
+    void readsKingTakesRookAsCastlingOnlyFromTheKingsStartSquare() {
+        ExplorerPosition kingOnF1 = ExplorerPosition.parse("4k3/8/8/8/8/8/8/5K1R w - - 0 1").orElseThrow();
+
+        assertThat(ExplorerLine.play(kingOnF1, List.of("f1h1"))).isEmpty();
+        assertThat(ExplorerLine.play(kingOnF1, List.of("f1g1"))).isPresent();
+    }
+
+    @Test
     void anEmptyLineEndsAtItsStart() {
         assertThat(ExplorerLine.play(START, List.of()).orElseThrow().end()).isEqualTo(START);
     }

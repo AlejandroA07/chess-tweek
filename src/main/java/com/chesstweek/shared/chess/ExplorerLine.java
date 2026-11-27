@@ -83,7 +83,7 @@ public record ExplorerLine(ExplorerPosition start, List<Step> steps) {
         Piece target = game.getPiece(to);
         if (from == null || to == null || mover == null || target == null || mover.pieceType != PieceType.KING
                 || target.pieceType != PieceType.ROOK || mover.side != target.side
-                || !from.row.equals(to.row)) {
+                || !"e".equals(from.file) || !from.row.equals(to.row)) {
             return uci;
         }
         String file = to.file;

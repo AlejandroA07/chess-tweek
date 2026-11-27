@@ -5,13 +5,13 @@
       "opening": "London System",
       "title": "The London setup",
       "moves": "d4 d5 Bf4",
-      "text": "White builds the same structure against almost anything: Bf4, e3, Nf3, c3, Bd3, Nbd2, and often h3 so the bishop can retreat to h2. The bishop goes to f4 before e3 so it is not shut in behind the pawns.\n\nTypical plans: put a knight on e5 and support it with f4 for a kingside attack, or prepare e4 with Nbd2, Qe2 and Rfe1 to open the centre.\n\nWatch b2: once the bishop has left c1, ...Qb6 attacks it. Qb3 (offering a queen trade) or Qc1 are the usual answers."
+      "text": "White builds the same structure against almost anything: Bf4, e3, Nf3, c3, Bd3, Nbd2, and often h3 so the bishop can retreat to h2. The bishop goes to f4 before e3 so it is not shut in behind the pawns.\n\nTypical plans: put a knight on e5 and, once the bishop has dropped back to g3 or h2, support it with f4 for a kingside attack; or prepare e4 with Nbd2, Qe2 and Rfe1 to open the centre.\n\nWatch b2: once the bishop has left c1, ...Qb6 attacks it. Qb3 (offering a queen trade) or Qc1 are the usual answers."
     },
     {
       "opening": "London System",
       "title": "Black strikes with ...c5",
       "moves": "d4 d5 Bf4 c5",
-      "text": "...c5 is Black's most direct try: it attacks d4 and prepares ...Qb6 against b2.\n\nKeep the centre: e3 and c3 hold d4, then develop as usual. Taking on c5 gives Black easy development, so do it only when it wins time.\n\nAfter ...Qb6, defend b2 before anything else, with Qb3 or Qc1."
+      "text": "...c5 is Black's most direct try: it attacks d4 and prepares ...Qb6 against b2.\n\nThe calm answer is e3 and c3, which hold d4, then normal development. dxc5 is also a main option: White gives up the centre pawn for quick development and tries to keep the extra pawn or gain time against Black's pieces.\n\nAfter ...Qb6, defend b2 before anything else, with Qb3 or Qc1."
     },
     {
       "opening": "London System",

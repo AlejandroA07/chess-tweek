@@ -119,9 +119,17 @@
 .noteList a,
 .gameList a,
 .backLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   color: var(--color-primary);
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.panel h2:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 .noteList p {
@@ -190,7 +198,9 @@
 
 .boardControls button:disabled,
 .noteActions button:disabled,
-.confirm button:disabled {
+.confirm button:disabled,
+.moveList button:disabled,
+.moves th button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }

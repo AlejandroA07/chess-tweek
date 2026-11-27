@@ -193,14 +193,58 @@ describe('Openings', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Your note was saved.')
     expect(requests.some((request) => request.startsWith('PUT /api/explorer/notes'))).toBe(true)
 
+    // Restoring over the owner's own text confirms first.
+    fireEvent.click(screen.getByRole('button', { name: 'Restore starter note' }))
+    const confirm = screen.getByRole('group', { name: 'Restore the starter note' })
+    expect(confirm).toHaveTextContent('Restore the starter note “The Caro-Kann idea”? Your text at this position will be deleted.')
+    expect(within(confirm).getByRole('button', { name: 'Keep my note' })).toHaveFocus()
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Keep my note' }))
+    expect(requests.some((request) => request.startsWith('DELETE'))).toBe(false)
+
     fireEvent.click(screen.getByRole('button', { name: 'Edit note' }))
     fireEvent.change(screen.getByLabelText('Your note'), { target: { value: '   ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save note' }))
     expect(await screen.findByText(/You hid the starter note “The Caro-Kann idea” here./)).toBeInTheDocument()
+    // A hidden starter note can still get the owner's own text.
+    expect(screen.getByRole('button', { name: 'Add note' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Restore starter note' }))
     expect(await screen.findByText('Starter note')).toBeInTheDocument()
     expect(requests.some((request) => request.startsWith(`DELETE /api/explorer/notes?fen=${START_FEN}`))).toBe(true)
+  })
+
+  it('locks moving while a note is being edited, so a draft is never lost', async () => {
+    stub((url) => {
+      if (url.startsWith('/api/explorer/line')) return response(line([{ uci: 'e2e4', san: 'e4', fen: AFTER_E4 }]))
+      if (url.startsWith('/api/explorer/masters')) return response(statistics())
+      if (url.startsWith('/api/explorer/notes?')) return response({ note: null })
+      return undefined
+    })
+    render(<Openings explore={{ from: null, moves: ['e2e4'] }} onSessionFailure={vi.fn()} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add note' }))
+    await screen.findByRole('button', { name: 'Play d4' })
+    expect(screen.getByRole('button', { name: 'Back' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '1. e4' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Play d4' })).toBeDisabled()
+    expect(screen.getByText('Save or cancel the note to move to another position.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Back' })).toBeEnabled()
+  })
+
+  it('numbers moves from the move number of a saved start position', async () => {
+    const from = 'rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3'
+    const after = 'rnbqkbnr/pp2pppp/2p5/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3'
+    stub((url) => {
+      if (url.startsWith('/api/explorer/line')) return response({ start: from, moves: [{ uci: 'e4e5', san: 'e5', fen: after }], fen: after })
+      if (url.startsWith('/api/explorer/masters')) return response(statistics())
+      if (url.startsWith('/api/explorer/notes?')) return response({ note: null })
+      return undefined
+    })
+    render(<Openings explore={{ from, moves: ['e4e5'] }} onSessionFailure={vi.fn()} />)
+
+    expect(await screen.findByRole('button', { name: '3. e5' })).toBeInTheDocument()
   })
 
   it('confirms before deleting an own note and reports a failed save', async () => {

@@ -41,15 +41,19 @@ Owner decisions, 2026-11-27:
 - The board, Line, Note, and "Games from this position" panels follow `DESIGN.md`, "Openings view".
 - Statistics requests are cancelled when the position, database, or filters change, so an older answer never replaces a newer one.
 - A rate limit names the wait and says that My games still works. A stale answer gives its saved date.
+- While the note editor is open, the board, the line, and the move buttons are disabled, so moving to another position never discards a draft.
+- Restoring a starter note over the owner's own text confirms first. Restoring a hidden starter note does not.
+- Move numbers start from the move number of the start position, so a line opened from a saved FEN is numbered correctly.
+- `ExplorerLine` reads king-takes-rook as castling only when the king stands on its start square on the e-file.
 
 ## Tests
 
 - Backend:
-  - `ExplorerLineTest`: SAN and positions, castling as king-takes-rook, and rejected lines.
+  - `ExplorerLineTest`: SAN and positions, castling as king-takes-rook (only from the king's start square), and rejected lines.
   - `StarterNotesLoaderTest`: the shipped notes, and rejection of illegal, duplicate, or invalid notes.
   - `OpeningNotesPersistenceTest`: starter, owner, hidden, and restored notes across a restart, account scoping, the index, and text limits.
   - `OpeningNotesControllerTest`: responses, same-origin writes, validation, and the session requirement.
   - `OpeningExplorerControllerTest`: the line endpoint.
 - Frontend:
-  - `Openings.test.tsx`: route parsing, the notes list, Masters statistics with the line and starter note, playing and stepping through moves, the default Lichess filter, the rate-limit message with My games still working, stale answers, editing, hiding, and restoring a starter note, delete confirmation, a failed save, and a lost session.
+  - `Openings.test.tsx`: route parsing, the notes list, Masters statistics with the line and starter note, playing and stepping through moves, the default Lichess filter, the rate-limit message with My games still working, stale answers, editing, hiding, and restoring a starter note (with confirmation over own text), the editing lock, move numbers from a saved position, delete confirmation, a failed save, and a lost session.
   - `App.test.tsx`: the navigation order.

@@ -8,10 +8,12 @@ import { GameReview } from './GameReview'
 import { gameKey, parseGameKey } from './gameRef'
 import { GamesLibrary } from './GamesLibrary'
 import { PUZZLE_SECTIONS, PuzzleTraining, puzzleRoute } from './PuzzleTraining'
+import { Openings } from './Openings'
+import { parseExplorerRoute } from './openingExplorer'
 import { TrainingCourse } from './TrainingCourse'
 import { TrainingShortcut } from './TrainingShortcut'
 
-type IconName = 'dashboard' | 'training' | 'games' | 'reports' | 'puzzles' | 'admin'
+type IconName = 'dashboard' | 'training' | 'games' | 'reports' | 'puzzles' | 'openings' | 'admin'
 type EmptyState = { eyebrow: string; title: string; description: string }
 type Route = { href: string; icon: IconName; label: string; emptyState: EmptyState }
 type RatingSpeed = 'bullet' | 'blitz' | 'rapid' | 'classical' | 'correspondence'
@@ -83,6 +85,17 @@ const navigation: Route[] = [
     },
   },
   {
+    href: '#/openings',
+    icon: 'openings',
+    label: 'Openings',
+    emptyState: {
+      eyebrow: 'Opening explorer',
+      title: 'Connect Lichess to explore openings',
+      description:
+        'The explorer shows Masters and Lichess statistics through your Lichess connection, your own games from both sites, and your opening notes.',
+    },
+  },
+  {
     href: '#/admin',
     icon: 'admin',
     label: 'Admin',
@@ -100,6 +113,7 @@ export function App() {
   const [reviewGame, setReviewGame] = useState(currentReviewGame)
   const [trainingLesson, setTrainingLesson] = useState(currentTrainingLesson)
   const [puzzleView, setPuzzleView] = useState(currentPuzzleRoute)
+  const [explorerView, setExplorerView] = useState(currentExplorerRoute)
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [session, setSession] = useState<SessionState>({ kind: 'checking' })
   const [accountAction, setAccountAction] = useState<'idle' | 'connecting' | 'logging-out'>('idle')
@@ -144,6 +158,7 @@ export function App() {
       setReviewGame(currentReviewGame())
       setTrainingLesson(currentTrainingLesson())
       setPuzzleView(currentPuzzleRoute())
+      setExplorerView(currentExplorerRoute())
       setNavigationOpen(false)
     }
     window.addEventListener('hashchange', updateRoute)
@@ -282,7 +297,7 @@ export function App() {
         <main className={styles.workspace}>
           <div
             className={styles.workspaceStack}
-            data-wide={reviewGame !== null || trainingLesson !== null || puzzleView !== null}
+            data-wide={reviewGame !== null || trainingLesson !== null || puzzleView !== null || explorerView !== null}
           >
             {route.href === '#/dashboard' && callbackNotice && (
               <CallbackBanner notice={callbackNotice} onDismiss={() => setCallbackNotice(null)} />
@@ -333,6 +348,12 @@ export function App() {
                 accountId={session.kind === 'connected' ? session.account.id : null}
                 connectionState={session.kind}
                 route={puzzleView}
+                onSessionFailure={handleCatalogSessionFailure}
+              />
+            ) : route.href === '#/openings' && session.kind === 'connected' ? (
+              <Openings
+                key={session.account.id}
+                explore={explorerView}
                 onSessionFailure={handleCatalogSessionFailure}
               />
             ) : route.href === '#/games' ? (
@@ -531,6 +552,9 @@ function currentRoute() {
   if (currentPuzzleRoute() !== null) {
     return navigation.find((item) => item.href === '#/puzzles') ?? navigation[0]
   }
+  if (hash === '#/openings' || currentExplorerRoute() !== null) {
+    return navigation.find((item) => item.href === '#/openings') ?? navigation[0]
+  }
   return navigation.find((item) => item.href === hash) ?? navigation[0]
 }
 
@@ -545,6 +569,11 @@ function currentReviewGame() {
   const ply = match[2] === undefined ? null : Number(match[2])
   if (game === null || (ply !== null && ply > 1200)) return null
   return { ...game, ply }
+}
+
+/** The opening explorer's position, or null for any other route (including the Openings home). */
+function currentExplorerRoute() {
+  return parseExplorerRoute(window.location.hash)
 }
 
 /** The Puzzles dashboard or player route, or null for any other route. */
@@ -565,6 +594,7 @@ function NavIcon({ name }: { name: IconName }) {
     games: <path d="M8 4h8l-1 5 3 3v8H6v-8l3-3zm1 8h6m-7 4h8" />,
     reports: <path d="M6 3h9l3 3v15H6zm9 0v4h4M9 11h6m-6 4h6" />,
     puzzles: <path d="M9 4a3 3 0 1 1 6 0v3h3v4a3 3 0 1 0 0 6v3h-5v-3a3 3 0 1 0-6 0v3H3v-6h3a3 3 0 1 0 0-6H3V7h6z" />,
+    openings: <path d="M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4zm16 0h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6zM6 9h3m-3 3h3m9-3h-3m3 3h-3" />,
     admin: <path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7zm0 5v5m0 3v.1" />,
   }
 

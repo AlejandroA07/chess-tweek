@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "notes": [
+    {
+      "opening": "London System",
+      "title": "The London setup",
+      "moves": "d4 d5 Bf4",
+      "text": "White builds the same structure against almost anything: Bf4, e3, Nf3, c3, Bd3, Nbd2, and often h3 so the bishop can retreat to h2. The bishop goes to f4 before e3 so it is not shut in behind the pawns.\n\nTypical plans: put a knight on e5 and, once the bishop has dropped back to g3 or h2, support it with f4 for a kingside attack; or prepare e4 with Nbd2, Qe2 and Rfe1 to open the centre.\n\nWatch b2: once the bishop has left c1, ...Qb6 attacks it. Qb3 (offering a queen trade) or Qc1 are the usual answers."
+    },
+    {
+      "opening": "London System",
+      "title": "Black strikes with ...c5",
+      "moves": "d4 d5 Bf4 c5",
+      "text": "...c5 is Black's most direct try: it attacks d4 and prepares ...Qb6 against b2.\n\nThe calm answer is e3 and c3, which hold d4, then normal development. dxc5 is also a main option: White gives up the centre pawn for quick development and tries to keep the extra pawn or gain time against Black's pieces.\n\nAfter ...Qb6, defend b2 before anything else, with Qb3 or Qc1."
+    },
+    {
+      "opening": "London System",
+      "title": "Black challenges the bishop with ...Bd6",
+      "moves": "d4 d5 Bf4 Nf6 e3 e6 Nf3 Bd6",
+      "text": "Black offers to trade the London bishop.\n\nBg3 keeps it. If Black takes, hxg3 half-opens the h-file, which can support a kingside attack later.\n\nBxd6 is also fine, but it gives away White's most active minor piece. Either way, finish development with Bd3, Nbd2, c3 and castling."
+    },
+    {
+      "opening": "London System",
+      "title": "London against ...Nf6",
+      "moves": "d4 Nf6 Bf4",
+      "text": "The same setup works against ...Nf6.\n\nIf Black fianchettoes with ...g6 and ...Bg7 and prepares ...d6 and ...e5, keep the bishop safe with h3 so it can drop back to h2.\n\nIf Black plays ...c5, e3 and c3 keep d4 protected, as in the ...d5 lines."
+    },
+    {
+      "opening": "Caro-Kann Defense",
+      "title": "The Caro-Kann idea",
+      "moves": "e4 c6",
+      "text": "Black prepares ...d5 with a pawn ready to recapture, and keeps the c8 bishop free (in the French, ...e6 shuts it in).\n\nMain ideas: challenge the centre with ...d5, develop the light-squared bishop to f5 or g4 before playing ...e6, then break with ...c5 or ...e5.\n\nThe structure is solid, but development is a little slower, so play for active pieces rather than early pawn grabs."
+    },
+    {
+      "opening": "Caro-Kann Defense",
+      "title": "Advance Variation",
+      "moves": "e4 c6 d4 d5 e5",
+      "text": "White gains space with e5 and fixes the centre.\n\nBlack's usual plan: ...Bf5 first, then ...e6 and ...c5 to strike at d4. The knights go to c6 and e7 (or d7), and ...Qb6 adds pressure on d4 and b2.\n\nWatch for g4 and h4 hunting the f5 bishop. Retreat it in time (...Bg6, ...Be4 or ...Bh7), and consider ...h5 to slow the pawns."
+    },
+    {
+      "opening": "Caro-Kann Defense",
+      "title": "Classical Variation",
+      "moves": "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5",
+      "text": "Black develops the bishop and gains time on the knight.\n\nAfter Ng3 Bg6 h4 h6 Nf3 Nd7 h5 Bh7, White has kingside space. Black continues with ...Ngf6, ...e6, ...Bd6 or ...Be7 and ...Qc7. Black often castles queenside when White's h-pawn has advanced far.\n\nThe freeing break is ...c5."
+    },
+    {
+      "opening": "Caro-Kann Defense",
+      "title": "Exchange Variation",
+      "moves": "e4 c6 d4 d5 exd5 cxd5",
+      "text": "The symmetrical structure is quiet.\n\nAfter Bd3, Black usually plays ...Nc6, ...Nf6 and ...Bg4 (or ...Qc7 to stop Bf4), then ...e6, ...Bd6 and castles.\n\nTypical plans: a minority attack with ...b5 and ...b4 against White's c3 pawn, and pressure on the half-open c-file."
+    },
+    {
+      "opening": "Caro-Kann Defense",
+      "title": "Panov Attack",
+      "moves": "e4 c6 d4 d5 exd5 cxd5 c4",
+      "text": "White aims for a position with an isolated queen's pawn.\n\nBlack develops with ...Nf6, ...Nc6 and ...e6 (or ...g6). Once the d-pawn is isolated, Black blockades the square in front of it and looks for trades: an endgame against the isolated pawn favours Black.\n\nWhite's chances lie in active pieces and a kingside attack, so do not chase trades at the cost of development."
+    },
+    {
+      "opening": "Caro-Kann Defense",
+      "title": "Two Knights Variation",
+      "moves": "e4 c6 Nc3 d5 Nf3",
+      "text": "White keeps the d-pawn flexible.\n\n...Bg4 pins the f3 knight. After h3 Bxf3 Qxf3 e6, Black has a solid position and White has the bishop pair. ...dxe4 followed by ...Nf6 is an alternative.\n\nAim for ...e6, ...Nf6, ...Bd6 or ...Be7, and castling."
+    }
+  ]
+}
